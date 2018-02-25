@@ -1,0 +1,103 @@
+#!/bin/bash
+clear
+
+while getopts ":f:l:m:" opt; do
+  case $opt in
+    f) first="$OPTARG"
+    ;;
+    l) last="$OPTARG"
+    ;;
+    m) month="$OPTARG"
+    ;;
+    \?) echo "Invalid option -$OPTARG" >&2
+    ;;
+  esac
+done
+
+if [ $first -ge 1000000000 ];
+then
+echo "No zeros needed"
+for i in $(seq $first $last); do
+
+if [ $month -lt 10 ];
+then
+  if [ $month == 1 -o $month == 2 ];
+  then
+    url=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/2018_0${month}/${i}.tar
+  else
+    url=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/2017_0${month}/${i}.tar
+  fi
+else
+  url=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/2017_${month}/${i}.tar
+fi
+
+
+if curl --output /dev/null --silent --fail -r 0-0 "$url";then 
+  echo "URL exists: $url"
+  curl -O $url
+else
+  echo "URL does not exist: changing month"
+  if [ $month == 12 ]; then month=1
+  else
+    month=`expr $month + 1`
+  fi
+  
+  if [ $month == 1 -o $month == 2 ];
+  then
+    url=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/2018_0${month}/${i}.tar
+  fi
+
+  if [ $month -lt 10 ];
+  then
+    url=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/2017_0${month}/${i}.tar
+  else
+    url=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/2017_${month}/${i}.tar
+  fi
+
+  curl -O $url
+fi
+
+done
+
+else
+for i in $(seq $first $last); do
+
+if [ $month -lt 10 ];
+then
+  if [ $month == 1 -o $month == 2 ];
+  then
+    url=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/2018_0${month}/00${i}.tar
+  else
+    url=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/2017_0${month}/00${i}.tar
+  fi
+else
+  url=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/2017_${month}/00${i}.tar
+fi
+
+
+if curl --output /dev/null --silent --fail -r 0-0 "$url";then 
+  echo "URL exists: $url"
+  curl -O $url
+else
+  echo "URL does not exist: changing month"
+  if [ $month == 12 ]; then month=1
+  else
+    month=`expr $month + 1`
+  fi
+  
+  if [ $month == 1 -o $month == 2 ];
+  then
+    url=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/2018_0${month}/00${i}.tar
+  fi
+
+  if [ $month -lt 10 ];
+  then
+    url=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/2017_0${month}/00${i}.tar
+  else
+    url=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/2017_${month}/00${i}.tar
+  fi
+
+  curl -O $url
+fi
+done
+fi
