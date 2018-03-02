@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function, division
 import os, sys
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
@@ -12,6 +13,10 @@ import shutil
 from astropy.table import Table
 import sys
 from nicer.values import *
+from datetime import datetime
+from dateutil import parser as pr
+import pylab
+
 
 desc = """
 This pulls the unfiltered exposure for a specific obs ID
@@ -20,18 +25,38 @@ This pulls the unfiltered exposure for a specific obs ID
 parser = argparse.ArgumentParser(description = desc)
 parser.add_argument("--obs", help="Input obs ID", default=None)
 parser.add_argument("--sum", help="If True, will sum over all files in current directory", default=False)
+parser.add_argument("--plot", help="If True, will return a historgram showing exposure as a function of time", default=False)
 args = parser.parse_args()
 
-if not args.sum:
-	mpu7 = args.obs + "/xti/event_cl/ni" + args.obs + "_0mpu7_ufa.evt"
-	evttable = Table.read(mpu7,hdu=2)
+if not args.obs is None:
+	filename = str(args.obs) + "_pipe/cleanfilt.evt"
+	evttable = Table.read(filename,hdu=2)
 	exposure = sum(evttable["STOP"] - evttable["START"])
 	print(exposure)
-if args.sum:
-	exposure = 0
+if args.sum or args.plot:
+	total_exposure = 0
+	cumulative_exposure = []
+	dates = []
+	
 	for filename in os.listdir(os.getcwd()):
-		if os.path.isfile(filename+"/xti/event_cl/ni"+filename+"_0mpu7_ufa.evt"):
-			mpu7 = filename + "/xti/event_cl/ni" + filename + "_0mpu7_ufa.evt"
-			evttable = Table.read(mpu7, hdu=2)
-			exposure += sum(evttable["STOP"] - evttable["START"])
-	print(exposure)	
+		if os.path.isfile(filename+"/cleanfilt.evt"):
+			cleanfilt = filename + "/cleanfilt.evt"
+			evttable = Table.read(cleanfilt, hdu=2)
+			exposure_index = sum(evttable["STOP"] - evttable["START"])
+			total_exposure += exposure_index
+			#Get obs time
+			obstime = evttable.meta['DATE-OBS']
+			obstime_dt = pr.parse(obstime)
+			dates.append(obstime_dt)
+			cumulative_exposure.append(sum(cumulative_exposure)+exposure_index)
+			
+	if args.sum:		 
+		print(total_exposure)	
+	
+	if args.plot:
+		dates_converted = matplotlib.dates.date2num(dates)
+		plt.plot(dates_converted, cumulative_exposure)
+		#Trying to date plots
+		#plt.gcf().autofmt_xdate()
+		#matplotlib.pyplot.plot_date(dates_converted, cumulative_exposure)
+		plt.show()
