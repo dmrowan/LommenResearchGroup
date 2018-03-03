@@ -66,9 +66,12 @@ if args.sum or args.plot:
 		for i in range(len(ordered_exposure)):
 			cumulative_exposure.append(sum(ordered_exposure[0:i+1]))
 
-		print(cumulative_exposure)			
+		#print(cumulative_exposure)			
 		
 		matplotlib.pyplot.plot_date(dates_converted, cumulative_exposure)
+		plt.xlabel("Date")
+		plt.ylabel("Exposure [s]")
+		plt.title("Cumulative Exposure for 1821-24")
 		plt.show()
 	#if args.plot:
 	#	print(dates_converted)
