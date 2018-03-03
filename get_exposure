@@ -35,28 +35,46 @@ if not args.obs is None:
 	print(exposure)
 if args.sum or args.plot:
 	total_exposure = 0
-	cumulative_exposure = []
-	dates = []
+	files_unordered = {}
 	
 	for filename in os.listdir(os.getcwd()):
 		if os.path.isfile(filename+"/cleanfilt.evt"):
+			#print(filename)
 			cleanfilt = filename + "/cleanfilt.evt"
 			evttable = Table.read(cleanfilt, hdu=2)
-			exposure_index = sum(evttable["STOP"] - evttable["START"])
-			total_exposure += exposure_index
-			#Get obs time
 			obstime = evttable.meta['DATE-OBS']
 			obstime_dt = pr.parse(obstime)
-			dates.append(obstime_dt)
-			cumulative_exposure.append(sum(cumulative_exposure)+exposure_index)
-			
-	if args.sum:		 
-		print(total_exposure)	
+			exposure_1 = sum(evttable["STOP"] - evttable["START"])
+			total_exposure += exposure_1
+			files_unordered[obstime_dt] = [filename, exposure_1]
 	
+	if args.sum:
+		print(total_exposure)
 	if args.plot:
+		dates = []
+		ordered_exposure = []
+		for key in sorted(files_unordered.iterkeys()):
+			print(key, files_unordered[key])
+			dates.append(key)
+			ordered_exposure.append(files_unordered[key][1])
+		
+		#print(dates)
+		#print(ordered_exposure)
+
 		dates_converted = matplotlib.dates.date2num(dates)
-		plt.plot(dates_converted, cumulative_exposure)
+		cumulative_exposure = []
+		for i in range(len(ordered_exposure)):
+			cumulative_exposure.append(sum(ordered_exposure[0:i+1]))
+
+		print(cumulative_exposure)			
+		
+		matplotlib.pyplot.plot_date(dates_converted, cumulative_exposure)
+		plt.show()
+	#if args.plot:
+	#	print(dates_converted)
+	#	print(cumulative_exposure)
+	#	plt.plot(dates_converted, cumulative_exposure)
 		#Trying to date plots
 		#plt.gcf().autofmt_xdate()
 		#matplotlib.pyplot.plot_date(dates_converted, cumulative_exposure)
-		plt.show()
+		#plt.show()
