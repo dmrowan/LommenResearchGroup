@@ -12,6 +12,9 @@ import shutil
 from astropy.table import Table
 import sys
 from nicer.values import *
+from datetime import datetime
+from datetime import timedelta
+from dateutil import parser as pr
 
 desc = """
 This looks at higher energy photons as a function of time for a combined evt file
@@ -20,9 +23,8 @@ This looks at higher energy photons as a function of time for a combined evt fil
 parser = argparse.ArgumentParser(description = desc)
 parser.add_argument("--evt", help="Input event file .evt")
 parser.add_argument("--min", help="Input min eV", type=float, default=10)
-parser.add_argument("--bin", help="Number of time bins", type=float, default=50)
+parser.add_argument("--bin", help="Number of time bins", type=int, default=50)
 args = parser.parse_args()
-
 
 evttable  = Table.read(args.evt,hdu=1)
 energy_pi = evttable['PI']
@@ -47,9 +49,15 @@ for i in range(len(timebins)-1):
 
 print(n_energy_binned)
 
-histlist = []
+firsttime = datetime(year=2014, month=1, day=1, hour=0, minute=0, second=0)
+timebins_corrected = []
+for time in timebins:
+	bettertime = firsttime + timedelta(seconds=time)
+	timebins_corrected.append(bettertime)
 
-plt.bar(timebins[1:], n_energy_binned, fill=False, width=60)
+print(timebins_corrected)
+
+plt.bar(timebins_corrected[1:], n_energy_binned, fill=False)
 plt.xlabel("Time?")
 plt.ylabel("Number of Photons Above Threshold")
 plt.show()
