@@ -26,6 +26,10 @@ parser.add_argument("--min", help="Input min eV", type=float, default=10)
 parser.add_argument("--bin", help="Number of time bins", type=int, default=50)
 args = parser.parse_args()
 
+#Put all the Soyzu dates in a list
+soyuz_dates = ['2017-06-02', '2017-07-28', '2017-09-02', '2017-09-13', '2017-12-14', '2017-12-17', '2017-12-19']
+soyuz_dates = [ pr.parse(i) for i in soyuz_dates ]
+
 evttable  = Table.read(args.evt,hdu=1)
 energy_pi = evttable['PI']
 energy_pi = energy_pi * (1.0/100)
@@ -58,6 +62,9 @@ for time in timebins:
 print(timebins_corrected)
 
 plt.bar(timebins_corrected[1:], n_energy_binned, fill=False)
-plt.xlabel("Time?")
+plt.xlabel("Date")
 plt.ylabel("Number of Photons Above Threshold")
+for i in range(len(soyuz_dates)):
+        plt.axvline(x=soyuz_dates[i])
+
 plt.show()
