@@ -31,6 +31,12 @@ args = parser.parse_args()
 soyuz_dates = ['2017-06-02', '2017-07-28', '2017-09-02', '2017-09-13', '2017-12-14', '2017-12-17', '2017-12-19'] 
 soyuz_dates = [ pr.parse(i) for i in soyuz_dates ]
 
+soyuz_dates_rassvet = [('2016-11-19','2017-06-02'),('2017-07-28', '2017-12-14'), ('2017-12-19', '2018-03-18')] 
+soyuz_dates_poisk = [('2017-04-20', '2017-09-02'), ('2017-09-13', '2018-02-27')]
+
+soyuz_dates_rassvet = [ (pr.parse(i[0]), pr.parse(i[1])) for i in soyuz_dates_rassvet ]
+soyuz_dates_poisk = [ (pr.parse(i[0]),pr.parse(i[1])) for i in soyuz_dates_poisk ]
+
 #Create an empty directory that will have our time, filename, exposure, and number of photons > threshold
 files_unordered = {}
 
@@ -80,7 +86,18 @@ for i in range(len(nphotons_ordered)):
 plt.bar(dates_ordered, normalized_photons, fill=False)
 plt.xlabel('Date')
 plt.ylabel('Relative nphotons above threshold')
-for i in range(len(soyuz_dates)): 
-	plt.axvline(x=soyuz_dates[i])
 
+#for i in range(len(soyuz_dates)): 
+#	plt.axvline(x=soyuz_dates[i])
+
+for tup in soyuz_dates_rassvet:
+	plt.axvspan(tup[0], tup[1], alpha=0.25, color='red')
+
+for tup in soyuz_dates_poisk:
+	plt.axvspan(tup[0], tup[1], alpha=0.25, color='blue')
+
+plt.axis([pr.parse('2017-06-01'), pr.parse('2017-12-01'), 0, 1])
+
+plt.title('1821-24 High Energy Photons')
+plt.savefig('1821_high_energy_photons.png')
 plt.show()
