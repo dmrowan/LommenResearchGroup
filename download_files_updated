@@ -1,5 +1,10 @@
 #!/bin/bash
 clear
+# HOW TO USE
+# This code will just take 2 flags. All obsIDs you are trying to download have to be sequential (i.e. increase by 1).
+# Get the obsID of the first of your observations. this goes after -f 
+# Get the obsID of the last of your observaionts. this goes after -l
+
 #flagging procedure
 while getopts ":f:l:" opt; do
   case $opt in
