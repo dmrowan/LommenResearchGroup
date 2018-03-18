@@ -20,7 +20,7 @@ import itertools
 
 
 desc = """
-This pulls the unfiltered exposure for a specific obs ID
+This pulls the filtered exposure for a specific obs ID, or plots the exposure over all obsIDs in current directory 
 """
 
 parser = argparse.ArgumentParser(description = desc)
@@ -91,14 +91,15 @@ if args.sum or args.plot:
     			for week, week_exposures in grouped_exposures)
 
 		aggregate_exposures = list(aggregate_exposures)
-
 		week_list = [ i[0] for i in aggregate_exposures ]
 		values = [ i[1] for i in aggregate_exposures ]
 		dates_converted = [ pr.parse(i) for i in week_list ] 
-		dates_converted = matplotlib.dates.date2num(dates_converted)
+		#dates_converted = matplotlib.dates.date2num(dates_converted)
 		
-		matplotlib.pyplot.plot_date(dates_converted, values)
+		#matplotlib.pyplot.plot_date(dates_converted, values)
+		plt.bar(dates_converted, values)
 		plt.xlabel("Date")
 		plt.ylabel("Exposure [s]")
-		plt.title("Cumulative Exposure")
+		plt.title("Cumulative Exposure for 1821-24")
+		plt.savefig("Exp_1821.png")
 		plt.show()
