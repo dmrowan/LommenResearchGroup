@@ -23,8 +23,8 @@ This looks at higher energy photons as a function of time for a group of evt fil
 """
 
 parser = argparse.ArgumentParser(description = desc)
-parser.add_argument("--min", help="Input min eV", type=float, default=10)
-parser.add_argument("--bin", help="Number of time bins", type=int, default=50)
+parser.add_argument("--min", help="Input min eV", type=float, default=2)
+parser.add_argument("--max", help="Input max eV", type=float, default=10)
 args = parser.parse_args()
 
 #Put all the Soyzu dates in a list
@@ -48,7 +48,7 @@ for filename in os.listdir(os.getcwd()):
                 cleanfilt = filename + "/cleanfilt.evt"
 		
 		evttable_hdu1 = Table.read(cleanfilt, hdu=1)
-		high_energy_indicies = np.where(evttable_hdu1["PI"] > (args.min * 100))[0]
+		high_energy_indicies = np.where((evttable_hdu1["PI"] > (args.min * 100)) & (evttable_hdu1["PI"] < (args.max * 100)))[0]
 		nphotons = len(high_energy_indicies)
 
 		#Read in HDU 2 to get the exposure info
@@ -91,13 +91,13 @@ plt.ylabel('Relative nphotons above threshold')
 #	plt.axvline(x=soyuz_dates[i])
 
 for tup in soyuz_dates_rassvet:
-	plt.axvspan(tup[0], tup[1], alpha=0.25, color='red')
+	plt.axvspan(tup[0], tup[1], alpha=0.3, color='red')
 
 for tup in soyuz_dates_poisk:
-	plt.axvspan(tup[0], tup[1], alpha=0.25, color='blue')
+	plt.axvspan(tup[0], tup[1], alpha=0.3, color='blue')
 
-plt.axis([pr.parse('2017-06-01'), pr.parse('2017-12-01'), 0, 1])
+plt.axis([pr.parse('2017-05-01'), pr.parse('2018-03-01'), 0, (1.2*max(normalized_photons))])
 
-plt.title('1821-24 High Energy Photons')
-plt.savefig('1821_high_energy_photons.png')
+plt.title('1821-24 All Photons')
+plt.savefig('1821-24_All_photons.png')
 plt.show()
