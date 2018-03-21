@@ -19,7 +19,7 @@ from dateutil import parser as pr
 import itertools
 
 desc = """
-This looks at higher energy photons as a function of time for a group of evt files in the current directory
+This looks at photons in a specific range as a function of time for a group of evt files in the current directory
 """
 
 parser = argparse.ArgumentParser(description = desc)
@@ -85,7 +85,7 @@ for i in range(len(nphotons_ordered)):
 #Create a bar plot of the results
 plt.bar(dates_ordered, normalized_photons, fill=False)
 plt.xlabel('Date')
-plt.ylabel('Relative nphotons above threshold')
+plt.ylabel('Photons per second between ' + str(args.min) + 'keV and ' + str(args.max)+ 'keV')
 
 #for i in range(len(soyuz_dates)): 
 #	plt.axvline(x=soyuz_dates[i])
@@ -98,6 +98,6 @@ for tup in soyuz_dates_poisk:
 
 plt.axis([pr.parse('2017-05-01'), pr.parse('2018-03-01'), 0, (1.2*max(normalized_photons))])
 
-plt.title('1821-24 All Photons')
-plt.savefig('1821-24_All_photons.png')
+plt.title('1821-24 Photons between ' + str(args.min) + 'keV and ' + str(args.max) + 'keV')
+plt.savefig('1821-24_photons_'+str(args.min)+'_'+str(args.max)+'.png')
 plt.show()
