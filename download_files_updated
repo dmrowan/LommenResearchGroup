@@ -18,125 +18,67 @@ while getopts ":f:l:" opt; do
 done
 
 urlhead=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/
-#Start at June, the first obs dates
+#Start at June 2017, the first obs dates
 month=6
+year=2017
+#We need to keep track of if a month is <10. Create a variable for this. lz stands for leading zero
+monthlz=0$month
 
 #Find the first month
 #We have two cases here (outlined by the if statement), based on if the obsID starts with 0 or 1
-if [ $first -ge 1000000000 ];
-then
-	#Keep checking urls, increasing the month until we dont fail. Note that this doesnt consider 2018 months >9. This same issue persists below.
-	until curl --output /dev/null --silent --fail -r 0-0 "${urlhead}2017_0${month}/${first}.tar" || curl --output /dev/null --silent --fail -r 0-0 "${urlhead}2017_${month}/${first}.tar" || curl --output /dev/null --silent --fail -r 0-0 "${urlhead}2018_0${month}/${first}.tar"; do
-	        if [ $month == 12 ]; then month=1
-        	else
-                	month=`expr $month + 1`
-        	fi
-	done
-else
-	#Same procedure, except now we have 00${first}.tar to find file. 
-	until curl --output /dev/null --silent --fail -r 0-0 "${urlhead}2017_0${month}/00${first}.tar" || curl --output /dev/null --silent --fail -r 0-0 "${urlhead}2017_${month}/00${first}.tar" || curl --output /dev/null --silent --fail -r 0-0 "${urlhead}2018_0${month}/00${first}.tar"; do
-        	if [ $month == 12 ]; then month=1
-        	else
-                	month=`expr $month + 1`
-        	fi
-	done
-fi
+
+if [ $first -lt 1000000000 ]; then first=00$first; fi
+	
+until curl --output /dev/null --silent --fail -r 0-0 "${urlhead}${year}_${monthlz}/${first}.tar"; do
+	if [ $month == 12 ];
+	then
+		month=1
+		year=`expr $year + 1`
+        else
+                month=`expr $month + 1`
+        fi
+
+	if [ $month -lt 10 ]; then monthlz=0$month
+	else
+		monthlz=$month 
+	fi
+done
+
 #Make sure that we got the first month right
-echo The month of the first obs is $month
+echo The month of the first obs is ${month} and the year is ${year}
 
 #Now we can keep going for the rest of the observations
-#We also have the same two cases for this loop, based on if the obsID starts with 0 or 1 
-if [ $first -ge 1000000000 ];
-then
-echo "No zeros needed"
 for i in $(seq $first $last); do
-#This is gonna break in a few months. We will need to put in another check to fill in the year. Or make a year variable to keep track of. 
-if [ $month -lt 10 ];
-then
-  if [ $month -lt 6 ];
-  then
-    url=${urlhead}2018_0${month}/${i}.tar
-  else
-    url=${urlhead}2017_0${month}/${i}.tar
-  fi
-else
-  url=${urlhead}2017_${month}/${i}.tar
-fi
 
-#Check if the url exists. If it does, call curl on it. If not, iterate through the months like we did above. 
+if [ $first -lt 1000000000 ]; then 
+	echo "Zeros Needed"
+	i=00$i
+fi
+url=${urlhead}${year}_${monthlz}/${i}.tar
+#Check if URL exists
 if curl --output /dev/null --silent --fail -r 0-0 "$url"; then
   echo "URL exists: $url"
   curl -O $url
 else
   echo "URL does not exist: changing month"
-  #Again, this doesn't contain months in 2018 >9. That will be a problem at some point.
-  until curl --output /dev/null --silent --fail -r 0-0 "${urlhead}2017_0${month}/${i}.tar" || curl --output /dev/null --silent --fail -r 0-0 "${urlhead}2017_${month}/${i}.tar" || curl --output /dev/null --silent --fail -r 0-0 "${urlhead}2018_0${month}/${i}.tar"; do
-	if [ $month == 12 ]; then month=1
-        	else
-                	month=`expr $month + 1`
+  until curl --output /dev/null --silent --fail -r 0-0 "${urlhead}${year}_${monthlz}/${i}.tar"; do
+	if [ $month == 12 ];
+	then
+		month=1
+		year=`expr $year + 1`
+        else
+                month=`expr $month + 1`
         fi
+	
+	if [ $month -lt 10 ]; then monthlz=0$month
+	else
+		monthlz=$month
+	fi
   done
-  echo The month for $i is $month
-  if [ $month -lt 10 ];
-  then
-    if [ $month -lt 6 ];
-    then
-	url=${urlhead}2018_0${month}/${i}.tar
-    else
-    	url=${urlhead}2017_0${month}/${i}.tar
-    fi
-  else
-    url=${urlhead}2017_${month}/${i}.tar
-  fi
 
+  echo The month for $i is $month in year $year
+  url=${urlhead}${year}_${monthlz}/${i}.tar
   curl -O $url
 fi
 
 done
-#This is all the same as above (problems included). The differents is that we have 00$i
-else
-echo "Zeros needed"
-for i in $(seq $first $last); do
-
-if [ $month -lt 10 ];
-then
-  if [ $month -lt 6 ];
-  then
-    url=${urlhead}2018_0${month}/00${i}.tar
-  else
-    url=${urlhead}2017_0${month}/00${i}.tar
-  fi
-else
-  url=${urlhead}2017_${month}/00${i}.tar
-fi
-
-
-if curl --output /dev/null --silent --fail -r 0-0 "$url"; then
-  echo "URL exists: $url"
-  curl -O $url
-else
-  echo "URL does not exist: changing month"
-  until curl --output /dev/null --silent --fail -r 0-0 "${urlhead}2017_0${month}/00${i}.tar" || curl --output /dev/null --silent --fail -r 0-0 "${urlhead}2017_${month}/00${i}.tar" || curl --output /dev/null --silent --fail -r 0-0 "${urlhead}2018_0${month}/00${i}.tar"; do
-	if [ $month == 12 ]; then month=1
-        	else
-                	month=`expr $month + 1`
-        fi
-  done
-  echo The month for $i is $month
-  if [ $month -lt 10 ];
-  then
-    if [ $month -lt 6 ];
-    then
-	url=${urlhead}2018_0${month}/00${i}.tar
-    else
-    	url=${urlhead}2017_0${month}/00${i}.tar
-    fi
-  else
-    url=${urlhead}2017_${month}/00${i}.tar
-  fi
-
-  curl -O $url
-fi
-
-done
-fi
