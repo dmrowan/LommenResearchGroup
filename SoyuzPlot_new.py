@@ -34,7 +34,7 @@ args = parser.parse_args()
 
 #If we use minute and hourbins, default to minute mins
 if args.mbin and args.hbin:
-	args.hbin = None
+	args.hbin = False
 
 #Put all the Soyzu dates in a list
 soyuz_dates = ['2017-06-02', '2017-07-28', '2017-09-02', '2017-09-13', '2017-12-14', '2017-12-17', '2017-12-19'] 
@@ -78,7 +78,8 @@ for key in sorted(files_unordered.iterkeys()):
 	filename_ordered.append(files_unordered[key][0])
 	dates_ordered.append(key)
 
-if not args.hbin or not args.mbin:
+if (not args.hbin) and (not args.mbin):
+	print("Using obsID bins")
 	nphotons_ordered = []
 	exposure_ordered = []
 	for filename in filename_ordered:
@@ -138,11 +139,11 @@ if args.hbin or args.mbin:
 				nphotons_main.append((d2[datekey]))
 
 #Create a bar plot of the results
-if not args.hbin or not args.mbin:
-	plt.bar(dates_ordered, normalized_photons, fill=False)
+if (not args.hbin) and (not args.mbin):
+	plt.bar(dates_ordered, normalized_photons, fill=False, width=0.1)
 
 if args.hbin or args.mbin:
-	plt.bar(timebins_main, nphotons_main, fill=False)
+	plt.bar(timebins_main, nphotons_main, fill=False, width=0.1)
 
 plt.xlabel('Date')
 plt.ylabel('Photons per second between ' + str(args.min) + 'keV and ' + str(args.max)+ 'keV')
@@ -156,12 +157,29 @@ for tup in soyuz_dates_rassvet:
 for tup in soyuz_dates_poisk:
 	plt.axvspan(tup[0], tup[1], alpha=0.3, color='blue')
 
-if not args.hbin or not args.mbin:
-	plt.axis([pr.parse('2017-05-01'), pr.parse('2018-03-01'), 0, (1.2*max(normalized_photons))])
+#Set date ranges for plot
+if args.dmin is not None:
+	axisdatemin = pr.parse(args.dmin)
+else:
+	axisdatemin = pr.parse('2017-05-01')
+
+if args.dmax is not None:
+	axisdatemax = pr.parse(args.dmax)
+else:
+	axisdatemax = pr.parse('2018-03-01')
+
+if (not args.hbin) and (not args.mbin):
+	plt.axis([axisdatemin, axisdatemax, 0, (1.2*max(normalized_photons))])
 
 if args.hbin or args.mbin:
-	plt.axis([pr.parse('2017-05-01'), pr.parse('2018-03-01'), 0, 1.2*max(nphotons_main)])
+	plt.axis([axisdatemin, axisdatemax, 0, 1.2*max(nphotons_main)])
 
 plt.title('1821-24 Photons between ' + str(args.min) + 'keV and ' + str(args.max) + 'keV')
-#plt.savefig('1821-24_photons_'+str(args.min)+'_'+str(args.max)+'.png')
+if args.hbin:
+	bintype='hbin'
+elif args.mbin:
+	bintype='mbin'
+else:
+	bintype='ObsIDbin'
+plt.savefig('1821-24_photons_'+str(args.min)+'_'+str(args.max)+'_'+bintype+'.png')
 plt.show()
