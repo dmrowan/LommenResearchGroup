@@ -17,16 +17,14 @@ from datetime import datetime
 from dateutil import parser as pr
 import pylab
 import itertools
+from datetime import timedelta
 
 
 desc = """
-This pulls the filtered exposure for a specific obs ID, or plots the exposure over all obsIDs in current directory 
+This plots the cumulative exposure by week for the ObsIDs in the current directory. 
 """
 
 parser = argparse.ArgumentParser(description = desc)
-parser.add_argument("--obs", help="Input obs ID", default=None)
-parser.add_argument("--sum", help="If True, will sum over all files in current directory", default=False)
-parser.add_argument("--plot", help="If True, will return a historgram showing exposure as a function of time", default=False)
 args = parser.parse_args()
 
 #Define a function for sorting dates by week
@@ -35,71 +33,79 @@ def toWeek(tuplist):
 	sunday = datetime.strptime(tuplist[0], '%Y-%m-%d').strftime('%Y-%U-0')
     	return datetime.strptime(sunday, '%Y-%U-%w').strftime('%Y-%m-%d')
 
-if not args.obs is None:
-	filename = str(args.obs) + "_pipe/cleanfilt.evt"
-	evttable = Table.read(filename,hdu=2)
-	exposure = sum(evttable["STOP"] - evttable["START"])
-	print(exposure)
-if args.sum or args.plot:
-	total_exposure = 0
-	files_unordered = {}
-	
-	for filename in os.listdir(os.getcwd()):
-		if os.path.isfile(filename+"/cleanfilt.evt"):
-			#print(filename)
-			cleanfilt = filename + "/cleanfilt.evt"
-			evttable = Table.read(cleanfilt, hdu=2)
-			obstime = evttable.meta['DATE-OBS']
-			obstime_dt = pr.parse(obstime)
-			exposure_1 = sum(evttable["STOP"] - evttable["START"])
-			total_exposure += exposure_1
-			files_unordered[obstime_dt] = [filename, exposure_1]
-	
-	if args.sum:
-		print(total_exposure)
-	if args.plot:
-		dates = []
-		ordered_exposure = []
-		for key in sorted(files_unordered.iterkeys()):
-			#print(key, files_unordered[key])
-			dates.append(key)
-			ordered_exposure.append(files_unordered[key][1])
-		
-		cumulative_exposure = []
-		for i in range(len(ordered_exposure)):
-			cumulative_exposure.append(sum(ordered_exposure[0:i+1]))
+#Make a directory of the unordered files
+files_unordered = {}
+#Iterate through all obsIDs
+for filename in os.listdir(os.getcwd()):
+	if os.path.isfile(filename+"_pipe/cleanfilt.evt"):
+		print(filename)
+		#First get the clean exposure time from cleanfilt.evt
+		cleanfilt = filename + "_pipe/cleanfilt.evt"
+		cleanevttable = Table.read(cleanfilt, hdu=2)
+		obstime = cleanevttable.meta['DATE-OBS']
+		obstime_dt = pr.parse(obstime)
+		cleanexposure = cleanevttable.meta['EXPOSURE']
 
-		#print(cumulative_exposure)			
-		
-		#Make tuples
-		date_ydm = []
-		for i in range(len(dates)):
-			date_ydm.append(str(dates[i])[:10])
-		#print(date_ydm)
-		tup_date_exp = []
-		for i in range(len(date_ydm)):
-			tup_date_exp.append((date_ydm[i], ordered_exposure[i]))
-		#print(tup_date_exp)
-		#Tuples are in list format of (date, exp)
+		#Now get raw exposure time 
+		rawufa = filename + "/xti/event_cl/ni"+filename+"_0mpu7_ufa.evt"
+		ufatable = Table.read(rawufa, hdu=1)
+		rawexposure = ufatable.meta['EXPOSURE']
+		#Add values to the dictionary
+		files_unordered[obstime_dt] = [filename, cleanexposure, rawexposure]
 
+#Sort everything
+dates = []
+ordered_clean_exposure = []
+ordered_raw_exposure = []
+for key in sorted(files_unordered.iterkeys()):
+	dates.append(key)
+	ordered_clean_exposure.append(files_unordered[key][1])
+	ordered_raw_exposure.append(files_unordered[key][2])
 		
-		#Now we have to group this by week using the function we defined above
-		grouped_exposures = itertools.groupby(tup_date_exp, toWeek)
-		
-		aggregate_exposures = (
-    			(week, sum(day_exposures for date, day_exposures in week_exposures))
-    			for week, week_exposures in grouped_exposures)
+#We are only interested in the year day and month of the time (since we are grouping by week)		
+date_ydm = []
+for i in range(len(dates)):
+	date_ydm.append(str(dates[i])[:10])
 
-		aggregate_exposures = list(aggregate_exposures)
-		week_list = [ i[0] for i in aggregate_exposures ]
-		values = [ i[1] for i in aggregate_exposures ]
-		dates_converted = [ pr.parse(i) for i in week_list ] 
-		#dates_converted = matplotlib.dates.date2num(dates_converted)
+###Create Tuples###
+tup_clean = []
+for i in range(len(date_ydm)):
+	tup_clean.append((date_ydm[i], ordered_clean_exposure[i]))
+
+tup_raw = []
+for i in range(len(date_ydm)):
+	tup_raw.append((date_ydm[i], ordered_raw_exposure[i]))
+
+###Group by Week###
+grouped_clean_exposures = itertools.groupby(tup_clean, toWeek)
 		
-		#matplotlib.pyplot.plot_date(dates_converted, values)
-		plt.bar(dates_converted, values)
-		plt.xlabel("Date")
-		plt.ylabel("Exposure [s]")
-		plt.title("Cumulative Exposure for 1821-24")
-		plt.savefig("Exp_1821.png")
-		plt.show()
+aggregate_exposures_clean = (
+    	(week, sum(day_exposures for date, day_exposures in week_exposures))
+    	for week, week_exposures in grouped_clean_exposures)
+
+aggregate_exposures_clean = list(aggregate_exposures_clean)
+
+grouped_raw_exposures = itertools.groupby(tup_raw, toWeek)
+
+aggregate_exposures_raw = (
+    	(week, sum(day_exposures for date, day_exposures in week_exposures))
+    	for week, week_exposures in grouped_raw_exposures)
+
+aggregate_exposures_raw = list(aggregate_exposures_raw)
+
+###Get our lists to plot###
+week_list = [ i[0] for i in aggregate_exposures_clean ]
+values_clean = [ (i[1])/1000.0 for i in aggregate_exposures_clean ]
+values_raw = [ (i[1])/1000.0 for i in aggregate_exposures_raw ]
+dates_converted = [ pr.parse(i) for i in week_list ]
+#We have to shift the dates over a bit for the multi-bar graph
+dates_converted_raw = [ date + timedelta(days=1)  for date in dates_converted ] 
+
+###Plot Everything###
+plt.bar(dates_converted, values_clean, color='g', width=.5)
+plt.bar(dates_converted_raw, values_raw, color='r', width=.5)
+plt.xlabel("Date")
+plt.ylabel("Exposure [ks]")
+plt.title("Cumulative Exposure for 1821-24")
+#plt.savefig("Exp_1821.png")
+plt.show()
