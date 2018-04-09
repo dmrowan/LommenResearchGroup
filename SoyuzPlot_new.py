@@ -78,26 +78,34 @@ for key in sorted(files_unordered.iterkeys()):
 	filename_ordered.append(files_unordered[key][0])
 	dates_ordered.append(key)
 
+#The case where we use ObsID bins
 if (not args.hbin) and (not args.mbin):
 	print("Using obsID bins")
 	nphotons_ordered = []
 	exposure_ordered = []
+	#For each file in order
 	for filename in filename_ordered:
 		cleanfilt = filename + "/cleanfilt.evt"
 		evttable_hdu1 = Table.read(cleanfilt, hdu=1)
+		#Find high energy indicies
 		high_energy_indicies = np.where((evttable_hdu1["PI"] > (args.min * 100)) & (evttable_hdu1["PI"] < (args.max * 100)))[0]
+		#append number of high energy photons
                 nphotons_ordered.append(len(high_energy_indicies))
+		#find and append the exposure
 		exposure_ordered.append(evttable_hdu1.meta['EXPOSURE'])
-	
+
+	#Simple photons/second conversion
 	normalized_photons = []
 
 	for i in range(len(nphotons_ordered)):
 		if nphotons_ordered[i] == 0 or exposure_ordered[i] == 0:
 			normalized_photons.append(0)
 		else:
-			normalized_photons.append(float(nphotons_ordered[i]))
+			normalized_photons.append(float(nphotons_ordered[i]) / exposure_ordered[i])
 
+#Use hour or minute bins
 if args.hbin or args.mbin:
+	#These will be our x and y values when we go to make the plot. 
 	timebins_main = []
 	nphotons_main = []
 	for filename in filename_ordered:
@@ -107,7 +115,9 @@ if args.hbin or args.mbin:
 		exp_per_hour = totalexposure / 3600.0
 		exp_per_minute = totalexposure / 60.0
 		high_energy_indicies = np.where((evttable_hdu1["PI"] > (args.min * 100)) & (evttable_hdu1["PI"] < (args.max * 100)))[0]
+		#Put all values into a directory to sort by timebin
 		d1 = {}
+		#Do the time correction procedure
 		firsttime = datetime(year=2014, month=1, day=1, hour=0, minute=0, second=0)
 		for idx in high_energy_indicies:
 			time_ref_seconds = evttable_hdu1["TIME"][idx]
@@ -151,6 +161,8 @@ plt.ylabel('Photons per second between ' + str(args.min) + 'keV and ' + str(args
 #for i in range(len(soyuz_dates)): 
 #	plt.axvline(x=soyuz_dates[i])
 
+
+#Make colored regions
 for tup in soyuz_dates_rassvet:
 	plt.axvspan(tup[0], tup[1], alpha=0.3, color='red')
 
@@ -168,6 +180,7 @@ if args.dmax is not None:
 else:
 	axisdatemax = pr.parse('2018-03-01')
 
+#Set axes for plot
 if (not args.hbin) and (not args.mbin):
 	plt.axis([axisdatemin, axisdatemax, 0, (1.2*max(normalized_photons))])
 
