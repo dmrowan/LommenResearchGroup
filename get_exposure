@@ -25,6 +25,9 @@ This plots the cumulative exposure by week for the ObsIDs in the current directo
 """
 
 parser = argparse.ArgumentParser(description = desc)
+parser.add_argument("--nocut", help="Dont use cr_cut.py", default=False, action='store_true')
+parser.add_argument("--cutval", help="Cut option for cr_cut.py", type=float, default=None)
+parser.add_argument("--overwrite", help="Overwrite previous cut.evt files", default=False, action='store_true')
 args = parser.parse_args()
 
 #Define a function for sorting dates by week
@@ -45,22 +48,53 @@ for filename in os.listdir(os.getcwd()):
 		obstime = cleanevttable.meta['DATE-OBS']
 		obstime_dt = pr.parse(obstime)
 		cleanexposure = cleanevttable.meta['EXPOSURE']
+		sourcename = cleanevttable.meta['OBJECT']
 
 		#Now get raw exposure time 
 		rawufa = filename + "/xti/event_cl/ni"+filename+"_0mpu7_ufa.evt"
 		ufatable = Table.read(rawufa, hdu=1)
 		rawexposure = ufatable.meta['EXPOSURE']
-		#Add values to the dictionary
-		files_unordered[obstime_dt] = [filename, cleanexposure, rawexposure]
+
+		#Run cr_cut and get cut exposure time
+		if not args.nocut:
+			if os.path.isfile(filename + "_pipe/cleanfilt_cut.evt"):
+				if args.overwrite:
+					print("Running cr_cut.py")
+					if args.cutval is not None:
+						os.system('cr_cut.py '+cleanfilt+' --cut ' + str(args.cutval))
+					else:
+						os.system('cr_cut.py '+cleanfilt)
+				else:
+					print("cleanfilt_cut already exists")
+			
+			else:
+				if args.cutval is not None:
+					os.system('cr_cut.py '+cleanfilt+' --cut ' + str(args.cutval))
+				else:
+					os.system('cr_cut.py '+cleanfilt)
+
+
+			cutfilt = filename + "_pipe/cleanfilt_cut.evt"
+			cutevttable = Table.read(cutfilt, hdu=1)
+			cutexposure = cutevttable.meta['EXPOSURE']
+	
+		else:
+			cutexposure=0
+
+		#Add values to directory
+		files_unordered[obstime_dt] = [filename, cleanexposure, rawexposure, cutexposure]
+
 
 #Sort everything
 dates = []
 ordered_clean_exposure = []
 ordered_raw_exposure = []
+ordered_cut_exposure = []
 for key in sorted(files_unordered.iterkeys()):
 	dates.append(key)
 	ordered_clean_exposure.append(files_unordered[key][1])
 	ordered_raw_exposure.append(files_unordered[key][2])
+	ordered_cut_exposure.append(files_unordered[key][3])
 		
 #We are only interested in the year day and month of the time (since we are grouping by week)		
 date_ydm = []
@@ -75,6 +109,10 @@ for i in range(len(date_ydm)):
 tup_raw = []
 for i in range(len(date_ydm)):
 	tup_raw.append((date_ydm[i], ordered_raw_exposure[i]))
+
+tup_cut = []
+for i in range(len(date_ydm)):
+	tup_cut.append((date_ydm[i], ordered_cut_exposure[i]))
 
 ###Group by Week###
 grouped_clean_exposures = itertools.groupby(tup_clean, toWeek)
@@ -93,19 +131,31 @@ aggregate_exposures_raw = (
 
 aggregate_exposures_raw = list(aggregate_exposures_raw)
 
+grouped_cut_exposures = itertools.groupby(tup_cut, toWeek)
+
+aggregate_exposures_cut = (
+    	(week, sum(day_exposures for date, day_exposures in week_exposures))
+    	for week, week_exposures in grouped_cut_exposures)
+
+aggregate_exposures_cut = list(aggregate_exposures_cut)
+
 ###Get our lists to plot###
 week_list = [ i[0] for i in aggregate_exposures_clean ]
 values_clean = [ (i[1])/1000.0 for i in aggregate_exposures_clean ]
 values_raw = [ (i[1])/1000.0 for i in aggregate_exposures_raw ]
+values_cut = [ (i[1])/1000.0 for i in aggregate_exposures_cut ]
 dates_converted = [ pr.parse(i) for i in week_list ]
 #We have to shift the dates over a bit for the multi-bar graph
 dates_converted_raw = [ date + timedelta(days=1)  for date in dates_converted ] 
+dates_converted_cut = [ date + timedelta(days=2)  for date in dates_converted ]
 
 ###Plot Everything###
-plt.bar(dates_converted, values_clean, color='g', width=.5)
-plt.bar(dates_converted_raw, values_raw, color='r', width=.5)
+plt.bar(dates_converted, values_clean, color='g', width=.5, label='Clean')
+plt.bar(dates_converted_raw, values_raw, color='r', width=.5, label='Raw')
+plt.bar(dates_converted_cut, values_cut, color='b', width=.5, label='Cut')
+plt.legend()
 plt.xlabel("Date")
 plt.ylabel("Exposure [ks]")
-plt.title("Cumulative Exposure for 1821-24")
-#plt.savefig("Exp_1821.png")
+plt.title("Cumulative Exposure for "+str(sourcename))
+#plt.savefig("Exp_"+str(sourcename)+".png")
 plt.show()
