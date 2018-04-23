@@ -5,19 +5,38 @@ clear
 # Get the obsID of the first of your observations. this goes after -f 
 # Get the obsID of the last of your observaionts. this goes after -l
 
+#There is also an optional third flag. For observations that use /obs/ instead of /.obs2validate/ 
+# in the path (i.e. public observations), include this flag, or the code won't be able to find your observations. 
+#The flag is -p. If the path is wrong, or changes in the middle of your obsID range
+# the downloads will fail.
+
+####Things to improve#####
+#Add in a way to check which path its without just making a bunch of or statements
+
+
 #flagging procedure
-while getopts ":f:l:" opt; do
+while getopts ":f:l:p" opt; do
   case $opt in
     f) first="$OPTARG"
     ;;
     l) last="$OPTARG"
+    ;;
+    p) path=1
     ;;
     \?) echo "Invalid option -$OPTARG" >&2
     ;;
   esac
 done
 
-urlhead=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/
+#If path is 1, then we need to use obs instead of .obs2validate
+if [ $path -eq 1 ];
+then
+	echo "Using /obs/ in path"
+	urlhead=ftp://legacy.gsfc.nasa.gov/nicer/data/obs/
+else
+	echo "Using /.obs2validate/ in path"
+	urlhead=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/
+fi
 #Start at June 2017, the first obs dates
 month=6
 year=2017
@@ -28,7 +47,7 @@ monthlz=0$month
 #We have two cases here (outlined by the if statement), based on if the obsID starts with 0 or 1
 
 if [ $first -lt 1000000000 ]; then first=00$first; fi
-	
+echo $first	
 until curl --output /dev/null --silent --fail -r 0-0 "${urlhead}${year}_${monthlz}/${first}.tar"; do
 	if [ $month == 12 ];
 	then
@@ -42,6 +61,8 @@ until curl --output /dev/null --silent --fail -r 0-0 "${urlhead}${year}_${monthl
 	else
 		monthlz=$month 
 	fi
+	echo $month
+	echo $monthlz
 done
 
 #Make sure that we got the first month right
