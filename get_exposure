@@ -146,13 +146,14 @@ values_raw = [ (i[1])/1000.0 for i in aggregate_exposures_raw ]
 values_cut = [ (i[1])/1000.0 for i in aggregate_exposures_cut ]
 dates_converted = [ pr.parse(i) for i in week_list ]
 #We have to shift the dates over a bit for the multi-bar graph
-dates_converted_raw = [ date + timedelta(days=1)  for date in dates_converted ] 
-dates_converted_cut = [ date + timedelta(days=2)  for date in dates_converted ]
+dates_converted_clean = [ date + timedelta(days=7.0/6.0) for date in dates_converted ]
+dates_converted_raw = [ date + timedelta(days=21.0/6.0)  for date in dates_converted ] 
+dates_converted_cut = [ date + timedelta(days=35.0/6.0)  for date in dates_converted ]
 
 ###Plot Everything###
-plt.bar(dates_converted, values_clean, color='g', width=.5, label='Clean')
-plt.bar(dates_converted_raw, values_raw, color='r', width=.5, label='Raw')
-plt.bar(dates_converted_cut, values_cut, color='b', width=.5, label='Cut')
+plt.bar(dates_converted_clean, values_clean, color='g', width=14.0/6.0, label='Clean')
+plt.bar(dates_converted_raw, values_raw, color='r', width=14.0/6.0, label='Raw')
+plt.bar(dates_converted_cut, values_cut, color='b', width=14.0/6.0, label='Cut')
 plt.legend()
 plt.xlabel("Date")
 plt.ylabel("Exposure [ks]")
