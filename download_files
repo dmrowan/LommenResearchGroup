@@ -1,0 +1,117 @@
+#!/bin/bash
+clear
+# HOW TO USE
+# This code will just take 2 flags. All obsIDs you are trying to download have to be sequential (i.e. increase by 1).
+# Get the obsID of the first of your observations. this goes after -f 
+# Get the obsID of the last of your observaionts. this goes after -l
+
+#There is also an optional third flag. For observations that use /obs/ instead of /.obs2validate/ 
+# in the path (i.e. public observations), include this flag, or the code won't be able to find your observations. 
+#The flag is -p. If the path is wrong, or changes in the middle of your obsID range
+# the downloads will fail.
+
+#If the code can't find the obsID, returns exit error 1 
+
+####Things to improve#####
+#Add in a way to check which path its without just making a bunch of or statements
+
+
+#flagging procedure
+while getopts ":f:l:p" opt; do
+  case $opt in
+    f) first="$OPTARG"
+    ;;
+    l) last="$OPTARG"
+    ;;
+    p) path=1
+    ;;
+    \?) echo "Invalid option -$OPTARG" >&2
+    ;;
+  esac
+done
+
+#If path is 1, then we need to use obs instead of .obs2validate
+if [ $path -eq 1 ] 2>/dev/null;
+then
+	echo "Using /obs/ in path"
+	urlhead=ftp://legacy.gsfc.nasa.gov/nicer/data/obs/
+else
+	echo "Using /.obs2validate/ in path"
+	urlhead=ftp://legacy.gsfc.nasa.gov/nicer/data/.obs2validate/
+fi
+#Start at June 2017, the first obs dates
+month=6
+year=2017
+#We need to keep track of if a month is <10. Create a variable for this. lz stands for leading zero
+monthlz=0$month
+
+#Find the first month
+#We have two cases here (outlined by the if statement), based on if the obsID starts with 0 or 1
+
+
+#Dont actuall need to add leading zeros here
+#if [ $first -lt 1000000000 ]; then first=00$first; fi
+echo $first	
+
+until curl --output /dev/null --silent --fail -r 0-0 "${urlhead}${year}_${monthlz}/${first}.tar"; do
+	if [ $year == 2020 ];
+	then
+		echo "Couldn't find the file - might need to change path"
+		exit 1
+	fi
+
+
+	if [ $month == 12 ];
+	then
+		month=1
+		year=`expr $year + 1`
+        else
+                month=`expr $month + 1`
+        fi
+
+	if [ $month -lt 10 ]; then monthlz=0$month
+	else
+		monthlz=$month 
+	fi
+	echo "Trying month = " $month
+done
+
+#Make sure that we got the first month right
+echo The month of the first obs is ${month} and the year is ${year}
+
+#Now we can keep going for the rest of the observations
+for i in $(seq $first $last); do
+
+#Dont actually need to add leading zeros
+if [ $first -lt 1000000000 ]; then 
+	echo "Zeros Needed"
+	i=00$i
+fi
+url=${urlhead}${year}_${monthlz}/${i}.tar
+#Check if URL exists
+if curl --output /dev/null --silent --fail -r 0-0 "$url"; then
+  echo "URL exists: $url"
+  curl -O $url
+else
+  echo "URL does not exist for " $i ": changing month"
+  until curl --output /dev/null --silent --fail -r 0-0 "${urlhead}${year}_${monthlz}/${i}.tar"; do
+	if [ $month == 12 ];
+	then
+		month=1
+		year=`expr $year + 1`
+        else
+                month=`expr $month + 1`
+        fi
+	
+	if [ $month -lt 10 ]; then monthlz=0$month
+	else
+		monthlz=$month
+	fi
+  done
+
+  echo The month for $i is $month in year $year
+  url=${urlhead}${year}_${monthlz}/${i}.tar
+  curl -O $url
+fi
+
+done
