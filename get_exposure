@@ -28,6 +28,7 @@ parser = argparse.ArgumentParser(description = desc)
 parser.add_argument("--nocut", help="Dont use cr_cut.py", default=False, action='store_true')
 parser.add_argument("--cutval", help="Cut option for cr_cut.py", type=float, default=None)
 parser.add_argument("--overwrite", help="Overwrite previous cut.evt files", default=False, action='store_true')
+parser.add_argument("--timebin", help="Timebin option for cr_cut.py", type=float, default=8)
 args = parser.parse_args()
 
 #Define a function for sorting dates by week
@@ -40,38 +41,41 @@ def toWeek(tuplist):
 files_unordered = {}
 #Iterate through all obsIDs
 for filename in os.listdir(os.getcwd()):
-	if os.path.isfile(filename+"_pipe/cleanfilt.evt"):
+	if os.path.isfile(filename+"_pipe/extra.gti"):
 		print(filename)
 		#First get the clean exposure time from cleanfilt.evt
 		cleanfilt = filename + "_pipe/cleanfilt.evt"
-		cleanevttable = Table.read(cleanfilt, hdu=2)
-		obstime = cleanevttable.meta['DATE-OBS']
-		obstime_dt = pr.parse(obstime)
-		cleanexposure = cleanevttable.meta['EXPOSURE']
-		sourcename = cleanevttable.meta['OBJECT']
+		if os.path.isfile(cleanfilt):
+			cleanevttable = Table.read(cleanfilt, hdu=2)
+			cleanexposure = cleanevttable.meta['EXPOSURE']
+		else:
+			cleanexposure = 0
 
 		#Now get raw exposure time 
 		rawufa = filename + "/xti/event_cl/ni"+filename+"_0mpu7_ufa.evt"
 		ufatable = Table.read(rawufa, hdu=1)
 		rawexposure = ufatable.meta['EXPOSURE']
+		obstime = ufatable.meta['DATE-OBS']
+		obstime_dt = pr.parse(obstime)
+		sourcename = ufatable.meta['OBJECT']
 
 		#Run cr_cut and get cut exposure time
-		if not args.nocut:
+		if (not args.nocut) and (os.path.isfile(filename+"_pipe/cleanfilt.evt")):
 			if os.path.isfile(filename + "_pipe/cleanfilt_cut.evt"):
 				if args.overwrite:
 					print("Running cr_cut.py")
 					if args.cutval is not None:
-						os.system('cr_cut.py '+cleanfilt+' --cut ' + str(args.cutval))
+						os.system('cr_cut.py '+cleanfilt+' --cut ' + str(args.cutval) + ' --timebin '+str(args.timebin))
 					else:
-						os.system('cr_cut.py '+cleanfilt)
+						os.system('cr_cut.py '+cleanfilt + ' --timebin '+str(args.timebin))
 				else:
 					print("cleanfilt_cut already exists")
 			
 			else:
 				if args.cutval is not None:
-					os.system('cr_cut.py '+cleanfilt+' --cut ' + str(args.cutval))
+					os.system('cr_cut.py '+cleanfilt+' --cut ' + str(args.cutval) + ' --timebin '+str(args.timebin))
 				else:
-					os.system('cr_cut.py '+cleanfilt)
+					os.system('cr_cut.py '+cleanfilt + ' --timebin '+str(args.timebin))
 
 
 			cutfilt = filename + "_pipe/cleanfilt_cut.evt"
@@ -146,14 +150,44 @@ values_raw = [ (i[1])/1000.0 for i in aggregate_exposures_raw ]
 values_cut = [ (i[1])/1000.0 for i in aggregate_exposures_cut ]
 dates_converted = [ pr.parse(i) for i in week_list ]
 #We have to shift the dates over a bit for the multi-bar graph
-dates_converted_clean = [ date + timedelta(days=7.0/6.0) for date in dates_converted ]
-dates_converted_raw = [ date + timedelta(days=21.0/6.0)  for date in dates_converted ] 
+dates_converted_raw = [ date + timedelta(days=7.0/6.0) for date in dates_converted ]
+dates_converted_clean = [ date + timedelta(days=21.0/6.0)  for date in dates_converted ] 
 dates_converted_cut = [ date + timedelta(days=35.0/6.0)  for date in dates_converted ]
 
+
+###Make Tick Marks###
+firstweek = dates_converted[0]
+lastweek = dates_converted[-1]
+iterweek = firstweek
+iter2week = firstweek
+ticklist = []
+linelist = []
+while True:
+	linelist.append(iterweek)
+	if iterweek >= lastweek:
+		break
+	else:
+		iterweek = iterweek + timedelta(days=7)
+
+while True:
+	ticklist.append(iter2week)
+	if iter2week >= lastweek:
+		break
+	else:
+		iter2week = iter2week + timedelta(days=14)
+
+ticklabels = [ date.strftime('%m/%d/%Y') for date in ticklist ]
+
 ###Plot Everything###
-plt.bar(dates_converted_clean, values_clean, color='g', width=14.0/6.0, label='Clean')
-plt.bar(dates_converted_raw, values_raw, color='r', width=14.0/6.0, label='Raw')
-plt.bar(dates_converted_cut, values_cut, color='b', width=14.0/6.0, label='Cut')
+plt.bar(dates_converted_clean, values_clean, color='g', width=14.0/6.0, label='Clean (cleanfilt.evt)')
+plt.bar(dates_converted_raw, values_raw, color='r', width=14.0/6.0, label='Raw (0mpu7_ufa.evt)')
+plt.bar(dates_converted_cut, values_cut, color='b', width=14.0/6.0, label='Cut (cleanfilt_cut.evt)')
+plt.axhline(y=6.4, alpha=.5, color='black', linestyle='--')
+
+plt.xticks(ticklist, ticklabels)
+plt.tick_params(axis='x', labelsize=6)
+for date in linelist:
+	plt.axvline(x=date, alpha=.2, color='black', linestyle='--')
 plt.legend()
 plt.xlabel("Date")
 plt.ylabel("Exposure [ks]")
