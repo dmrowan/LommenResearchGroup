@@ -16,6 +16,9 @@ from datetime import datetime
 from datetime import timedelta
 from dateutil import parser as pr
 
+#Dom Rowan, 2018
+#This is an outdated code
+
 desc = """
 This looks at higher energy photons as a function of time for a combined evt file
 """

@@ -19,6 +19,8 @@ from dateutil import parser as pr
 import itertools
 from astropy.time import Time
 
+#Dom Rowan, 2018
+#This is the most current verison of the Soyuz Plot code
 
 desc = """
 This looks at photons in a specific range as a function of time for all evt files in the current directory. Ensure that your directory only contains the files 

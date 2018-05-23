@@ -18,6 +18,10 @@ from datetime import timedelta
 from dateutil import parser as pr
 import itertools
 
+
+#Dom Rowan, 2018
+#This is an outdated version of the code
+
 desc = """
 This looks at photons in a specific range as a function of time for all evt files in the current directory. Ensure that your directory only contains the files 
 for the selected pulsar. This version has the option to select a time range and use hour or minute  bins instead of observation date bins

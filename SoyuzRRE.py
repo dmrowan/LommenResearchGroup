@@ -18,6 +18,9 @@ from datetime import timedelta
 from dateutil import parser as pr
 import itertools
 
+#Dom Rowan, 2018
+#This code needs to be updated to fix axes and bin widths (see SoyuzPlotMJD for how this is done)
+
 desc = """
 This looks at the number of ratio rejected events as a function of time from bkf prefilt files. Ensure that your directory only contains the files 
 for the selected pulsar. This version has the option to select a time range and use hour or minute bins in addition to obs  date bins
