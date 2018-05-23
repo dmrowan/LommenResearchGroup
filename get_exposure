@@ -19,9 +19,9 @@ import pylab
 import itertools
 from datetime import timedelta
 
-
+#Dom Rowan & Liam Lynch, 2018
 desc = """
-This plots the cumulative exposure by week for the ObsIDs in the current directory. 
+This plots the cumulative exposure by week for the ObsIDs in the current directory. It looks at the raw, clean, and cut data to compare exposure times 
 """
 
 parser = argparse.ArgumentParser(description = desc)
