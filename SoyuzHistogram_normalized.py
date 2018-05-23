@@ -18,6 +18,9 @@ from datetime import timedelta
 from dateutil import parser as pr
 import itertools
 
+#Dom Rowan, 2018
+#This is an outdated code
+
 desc = """
 This looks at photons in a specific range as a function of time for a group of evt files in the current directory
 """
