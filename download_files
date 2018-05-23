@@ -1,5 +1,6 @@
 #!/bin/bash
 clear
+#Dom Rowan, 2018
 # HOW TO USE
 # This code will just take 2 flags. All obsIDs you are trying to download have to be sequential (i.e. increase by 1).
 # Get the obsID of the first of your observations. this goes after -f 
