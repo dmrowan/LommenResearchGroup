@@ -41,7 +41,7 @@ def toWeek(tuplist):
 files_unordered = {}
 #Iterate through all obsIDs
 for filename in os.listdir(os.getcwd()):
-	if os.path.isfile(filename+"_pipe/extra.gti"):
+	if os.path.isfile(filename+"_pipe/tot.gti"):
 		print(filename)
 		#First get the clean exposure time from cleanfilt.evt
 		cleanfilt = filename + "_pipe/cleanfilt.evt"
@@ -88,7 +88,7 @@ for filename in os.listdir(os.getcwd()):
 		#Add values to directory
 		files_unordered[obstime_dt] = [filename, cleanexposure, rawexposure, cutexposure]
 
-
+print("clean exposure: {}".format(cleanexposure))
 #Sort everything
 dates = []
 ordered_clean_exposure = []
@@ -156,6 +156,7 @@ dates_converted_cut = [ date + timedelta(days=35.0/6.0)  for date in dates_conve
 
 
 ###Make Tick Marks###
+print(dates_converted)
 firstweek = dates_converted[0]
 lastweek = dates_converted[-1]
 iterweek = firstweek
