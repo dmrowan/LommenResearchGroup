@@ -35,7 +35,7 @@ echo Removing gpg files
 rm -f */*/*/*.gpg
 rm -f */*/*.gpg
 #Finally run the pipeline
-# Could just implement the functionality for a list of files now, rather than looping through obsids, but will only do that if I have time
+# Could just implement the functionality for a list of files now, rather than looping through obsids, but will only do that if I have time. Wrote a quick little code that creates such lists elsewhere, just reference that, create the lists, then call psrpipe with @ (could also get a free merge option from that which would be nice)
 for i in $(seq $first $last); do
 	if [ $first -lt 1000000000 ]; then i=00$i;fi
 
