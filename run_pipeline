@@ -8,6 +8,8 @@ clear
 # Use the flag -p to specify the path to the par file
 # Note that this code does not currently have the option for adding extra commands to the pipeline. You will have to add them manually for now. 
 
+#Dom and Liam 2018
+
 #flagging procedure
 while getopts ":f:l:p:" opt; do
   case $opt in
