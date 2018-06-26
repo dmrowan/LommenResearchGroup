@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
-# Yet another copy of photon_toa.py for me to mess around with.
+# Liam 2018
+
+# A significant portion of this is directly taken from photon_toa.py
+# The main distinction is that I cut up a few of the processes into functions so that I could repeatedly create TOAs for different energy ranges. Should at some point include the min, max, and step_size information in the args themselves.
 
 from __future__ import division, print_function, absolute_import
 import os,sys
