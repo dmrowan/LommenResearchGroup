@@ -1,0 +1,48 @@
+#!/bin/bash
+clear
+# HOW TO USE
+# This is a more automatic version of the original run_pipeline. 
+# Works only with sequential obsIDs (i.e. increase by 1)
+# Use the flag -f for first obsID
+# Use the flag -l for the last obsID
+# Use the flag -p to specify the path to the par file
+# Note that this code does not currently have the option for adding extra commands to the pipeline. You will have to add them manually for now. 
+
+#flagging procedure
+while getopts ":f:l:p:" opt; do
+  case $opt in
+    f) first="$OPTARG"
+    ;;
+    l) last="$OPTARG"
+    ;;
+    p) par="$OPTARG"
+    ;;
+    \?) echo "Invalid option -$OPTARG" >&2
+    ;;
+  esac
+done
+
+#First go through and decrypt it all
+set -x
+find . -name '*tar' -exec tar xvfp {} \;
+find . -name '*.gpg' -exec ls {} \; | gpg --decrypt-files
+set +x
+#Now do all the gunzip and gpg removal
+echo Gunziping all files
+yes n | gunzip */*/*/*.gz
+yes n | gunzip */*/*.gz
+echo Removing gpg files
+rm -f */*/*/*.gpg
+rm -f */*/*.gpg
+#Finally run the pipeline
+# Could just implement the functionality for a list of files now, rather than looping through obsids, but will only do that if I have time
+for i in $(seq $first $last); do
+	if [ $first -lt 1000000000 ]; then i=00$i;fi
+
+	if [ -z "$par" ];
+	then
+		psrpipe.py --cormin 5 $i --filtpolar
+	else
+		psrpipe.py --par $par --cormin 5 $i --filtpolar
+	fi
+done
