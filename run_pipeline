@@ -8,7 +8,7 @@ clear
 # Use the flag -p to specify the path to the par file
 # Note that this code does not currently have the option for adding extra commands to the pipeline. You will have to add them manually for now. 
 
-#Dom and Liam 2018
+#Dom 2018
 
 #flagging procedure
 while getopts ":f:l:p:" opt; do
@@ -25,17 +25,13 @@ while getopts ":f:l:p:" opt; do
 done
 
 #First go through and decrypt it all
-set -x
-find . -name '*tar' -exec tar xvfp {} \;
+find . -name '*tar' -exec tar xvfp {} \; -exec rm -f {} \;
 find . -name '*.gpg' -exec ls {} \; | gpg --decrypt-files
-set +x
 #Now do all the gunzip and gpg removal
 echo Gunziping all files
-yes n | gunzip */*/*/*.gz
-yes n | gunzip */*/*.gz
+find . -name '*gz' -exec rm -f {} \;
 echo Removing gpg files
-rm -f */*/*/*.gpg
-rm -f */*/*.gpg
+find . -name 'gpg' -exec rm -f {} \;
 #Finally run the pipeline
 # Could just implement the functionality for a list of files now, rather than looping through obsids, but will only do that if I have time. Wrote a quick little code that creates such lists elsewhere, just reference that, create the lists, then call psrpipe with @ (could also get a free merge option from that which would be nice)
 for i in $(seq $first $last); do
