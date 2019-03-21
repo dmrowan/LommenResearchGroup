@@ -18,6 +18,7 @@ desc = """
 Collection of Spectra Plotting options
 """
 
+#Basic ploting parameters
 def plotparams(ax):
     ax.minorticks_on()
     ax.yaxis.set_ticks_position('both')
@@ -29,6 +30,7 @@ def plotparams(ax):
         ax.spines[axis].set_linewidth(1.7)
     return ax
 
+#Compare spectra between two lc segments
 def comparsionplot(pha1, wi1, pha2, wi2, evt, output="SpectraCompare.pdf"):
     s_peak = pulsarspectra.Spectra(pha1)
     s_peak.set_phase_fromfile(wi1)
@@ -103,169 +105,14 @@ def comparsionplot(pha1, wi1, pha2, wi2, evt, output="SpectraCompare.pdf"):
             
     fig.savefig(output)
 
-def filter_compare(datadir='./', eventfile='combined.evt'):
 
-    fig, ax = plt.subplots(4, 2, figsize=(10, 10))
-    plt.subplots_adjust(top=.95, right=.95, hspace=0)
-    colors = ["#8229b8", "#33bb00", "#0069ef", "#ff4319"]
-    default_plot = dict(marker='o', ls='-', color=colors[0])
-    font = FontProperties()
-    font.set_family('sans-serif')
-    font.set_weight('light')
-    default_text = dict(ha='left', va='center', fontsize=15, fontproperties=font)
-
-    on_peak_lower = .5
-    on_peak_upper = .6
-    off_peak_lower = .75
-    off_peak_upper = .85
-
-    ############# PXEX #############
-    s_pxex0 = pulsarspectra.gen_spectra(lower_e=50, upper_e=200, 
-                                        lower_phase=on_peak_lower, upper_phase=on_peak_upper,
-                                        datadir=datadir, eventfile=eventfile,
-                                        session='autopython', show=False)
-    ax[0][0].plot(s_pxex0.keV, s_pxex0.counts, **default_plot)
-    ax[0][0] = plotparams(ax[0][0])
-    ax[0][0].text(.5, .75, "Energy: xselect\nPhase: xselect", 
-                  transform=ax[0][0].transAxes, **default_text)
-
-    s_pxex1 = pulsarspectra.gen_spectra(lower_e=50, upper_e=200, 
-                                        lower_phase=off_peak_lower, upper_phase=off_peak_upper,
-                                        datadir=datadir, eventfile=eventfile,
-                                        session='autopython2', show=False)
-    ax[0][1].plot(s_pxex1.keV, s_pxex1.counts, **default_plot)
-    ax[0][1] = plotparams(ax[0][1])
-    ax[0][1].text(.5, .75, "Energy: xselect\nPhase: xselect", 
-                  transform=ax[0][1].transAxes, **default_text)
-
-    ############# PXEM #############
-    s_pxem0 = pulsarspectra.gen_spectra(lower_e=0, upper_e=1200, 
-                                        lower_phase=on_peak_lower, upper_phase=on_peak_upper, 
-                                        datadir=datadir, eventfile=eventfile,
-                                        session='autopython3', show=False)
-    s_pxem0.filter_energy_pha(50, 200)
-    ax[1][0].plot(s_pxem0.keV, s_pxem0.counts, **default_plot)
-    ax[1][0] = plotparams(ax[1][0])
-    ax[1][0].text(.5, .75, "Energy: Python\nPhase: xselect", 
-                  transform=ax[1][0].transAxes, **default_text)
-
-    s_pxem1 = pulsarspectra.gen_spectra(lower_e=0, upper_e=1200, 
-                                       lower_phase=off_peak_lower, upper_phase=off_peak_upper,
-                                       datadir=datadir, eventfile=eventfile,
-                                       session='autopython4', show=False)
-    s_pxem1.filter_energy_pha(50, 200)
-    ax[1][1].plot(s_pxem1.keV, s_pxem1.counts, **default_plot)
-    ax[1][1] = plotparams(ax[1][1])
-    ax[1][1].text(.5, .75, "Energy: Python\nPhase: xselect", 
-                  transform=ax[1][1].transAxes, **default_text)
-
-    ############# PMEX #############
-    tab1 = Table.read(eventfile, hdu=1)
-    tab1 = tab1[np.where( (tab1['PULSE_PHASE'] >= on_peak_lower) & 
-                          (tab1['PULSE_PHASE'] <= on_peak_upper))[0]]
-    print(tab1['PULSE_PHASE'].min(), tab1['PULSE_PHASE'].max())
-    tab1.write('autocompare1.fits', overwrite=True)
-    s_pmex0 = pulsarspectra.gen_spectra(lower_e=50, upper_e=200,
-                                        lower_phase=0, upper_phase=1,
-                                        datadir=datadir, eventfile='autocompare1.fits',
-                                        session='autopython5', show=False)
-    ax[2][0].plot(s_pmex0.keV, s_pmex0.counts, **default_plot)
-    ax[2][0] = plotparams(ax[2][0])
-    ax[2][0].text(.5, .75, "Energy: xselect\nPhase: Python", 
-                  transform=ax[2][0].transAxes, **default_text)
-
-    tab2 = Table.read(eventfile, hdu=1)
-    tab2 = tab2[np.where( (tab2['PULSE_PHASE'] >= off_peak_lower) & 
-                          (tab2['PULSE_PHASE'] <= off_peak_upper))[0]]
-    tab2.write('autocompare2.fits', overwrite=True)
-    print(tab2['PULSE_PHASE'].min(), tab2['PULSE_PHASE'].max())
-    s_pmex1 = pulsarspectra.gen_spectra(lower_e=50, upper_e=200, 
-                                        lower_phase=0, upper_phase=1,
-                                        datadir=datadir, eventfile='autocompare2.fits',
-                                        session='autopython6', show=False)
-    ax[2][1].plot(s_pmex1.keV, s_pmex1.counts, **default_plot)
-    ax[2][1] = plotparams(ax[2][1])
-    ax[2][1].text(.5, .75, "Energy: xselect\nPhase: Python", 
-                  transform=ax[2][1].transAxes, **default_text)
-
-
-    ############# PMEM #############
-    s_pmem0 = pulsarspectra.Spectra(eventfile, evt=True)
-    s_pmem0.filter_energy_and_phase_evt(50, 200, on_peak_lower, on_peak_upper)
-    ax[3][0].plot(s_pmem0.keV, s_pmem0.counts, **default_plot)
-    ax[3][0] = plotparams(ax[3][0])
-    ax[3][0].text(.5, .75, "Energy: Python\nPhase: Python", 
-                  transform=ax[3][0].transAxes, **default_text)
-
-    s_pmem1 = pulsarspectra.Spectra(eventfile, evt=True)
-    s_pmem1.filter_energy_and_phase_evt(50, 200, off_peak_lower, off_peak_upper)
-    ax[3][1].plot(s_pmem1.keV, s_pmem1.counts, **default_plot)
-    ax[3][1] = plotparams(ax[3][1])
-    ax[3][1].text(.5, .75, "Energy: Python\nPhase: Python", 
-                  transform=ax[3][1].transAxes, **default_text)
-
-
-    fig.text(.95/2, .05, "Energy (keV)", fontsize=30, ha='center', va='center')
-    fig.text(.05, .95/2, "Counts", rotation='vertical', ha='center', va='center', fontsize=30)
-    fig.savefig("Filtercompare.pdf")
-
-def xspecplots(datafile_on, datafile_off, datafile_sub):
-
-    df_on = pd.read_csv(datafile_on, skiprows=3, 
-                        delimiter=" ", header=None)
-    df_off = pd.read_csv(datafile_off, skiprows=3, 
-                         delimiter=" ", header=None)
-    df_sub = pd.read_csv(datafile_sub, skiprows=3, 
-                         delimiter=" ", header=None)
-    df_on.columns = ['energy', 'energy_err', 'counts', 'counts_err', 'model']
-    df_off.columns = ['energy', 'energy_err', 'counts', 'counts_err', 'model']
-    df_sub.columns = ['energy', 'energy_err', 'counts', 'counts_err', 'model']
-
-    fig, ax = plt.subplots(3, 1, figsize=(15, 20))
-    
-    errorbarparams = dict(ls=' ', marker='.', color='#58508d')
-    modelplotparams = dict(ls='--', color='#ffa600', lw=4)
-    ax[0].errorbar(df_on['energy'], df_on['counts'], 
-                   yerr=df_on['counts_err'],
-                   **errorbarparams)
-    ax[1].errorbar(df_off['energy'], df_off['counts'], 
-                   yerr=df_off['counts_err'],
-                   **errorbarparams)
-    ax[2].errorbar(df_sub['energy'], df_sub['counts'],
-                   yerr=df_sub['counts_err'],
-                   **errorbarparams)
-
-    ax[0].plot(df_on['energy'], df_on['model'],  **modelplotparams)
-    ax[1].plot(df_off['energy'], df_off['model'], **modelplotparams)
-    ax[2].plot(df_sub['energy'], df_sub['model'], **modelplotparams)
-
-    ax[0] = plotparams(ax[0])
-    ax[1] = plotparams(ax[1])
-    ax[2] = plotparams(ax[2])
-
-    ax[0].set_ylim(ymin=df_on['counts'].min(), ymax=df_on['counts'].max())
-    ax[1].set_ylim(ymin=df_off['counts'].min(), ymax=df_off['counts'].max())
-    ax[2].set_ylim(ymin=df_sub['counts'].min(), ymax=df_sub['counts'].max())
-
-    fig.text(.05, 0.5, 'Normalized Counts', fontsize=30, ha='center', 
-             va='center', rotation='vertical')
-    fig.text(.5, .05, 'Channel', fontsize=30, ha='center', va='center', 
-             rotation='horizontal')
-
-    ax[0].text(.5, .75, 
-               "On-peak, " + r'$0\leq\phi\leq0.06$' +"\nNo background subtraction",
-               transform=ax[0].transAxes, fontsize=25)
-    ax[1].text(.5, .75, 
-               "Off-peak " + r'$0.2\leq\phi\leq0.5$' + "\n'Background' spectra'",
-               transform=ax[1].transAxes, fontsize=25)
-    ax[2].text(.5, .75, "Background subtracted",
-               transform=ax[2].transAxes, fontsize=25)
-    fig.savefig("XspecModelPlots.pdf")
-
-def xspec_residuals(datafile):
+#Show 1 plot with residuals
+def xspec_plot(datafile):
+    #Read in xspec output with pandas
     df = pd.read_csv(datafile, skiprows=3, delimiter=" ", header=None)
     df.columns = ['energy', 'energy_err', 'counts', 'counts_err', 'model']
     
+    #Default plot params
     errorbarparams = dict(ls=' ', marker='.', color='#58508d')
     modelplotparams = dict(ls='--', color='#ffa600', lw=4)
 
@@ -278,6 +125,7 @@ def xspec_residuals(datafile):
                    yerr=df['counts_err'], **errorbarparams)
     ax0.plot(df['energy'], df['model'], **modelplotparams)
 
+    #Default plot params
     ax0 = plotparams(ax0)
 
     residuals = np.subtract(df['counts'], df['model'])
@@ -289,7 +137,8 @@ def xspec_residuals(datafile):
     fig.savefig("ResidualPlot.pdf")
 
 
-def xspec_allresiduals(datafile_on, datafile_off, datafile_sub):
+#Show residuals on all three panels
+def xspec_triple(datafile_on, datafile_off, datafile_sub):
     fig = plt.figure(figsize=(15, 20))
     plt.subplots_adjust(top=.98, right=.98)
     outer = gridspec.GridSpec(3, 1)
@@ -340,13 +189,5 @@ if __name__ == '__main__':
                         default=None)
     args = parser.parse_args()
 
-    """
-    comparsionplot('spec_onpeak.pha', 'phase_onpeak.wi',
-                   'spec_offpeak.pha', 'phase_offpeak.wi',
-                   '1821_combined.evt')
-    """
-    #filter_compare()
-    #xselectplots('onpeak_data.txt', 'offpeak_data.txt', 'subtracted_data.txt')
-    #xselect_residuals("subtracted_data.txt")
-    #xselect_allresiduals('onpeak_data.txt', 'offpeak_data.txt', 'subtracted_data.txt')
-    xspec_allresiduals('onpeak_data.txt', 'offpeak_data.txt', '1821_subtracted.txt')
+    xspec_triple('onpeak_data.txt', 
+                       'offpeak_data.txt', '1821_subtracted.txt')
