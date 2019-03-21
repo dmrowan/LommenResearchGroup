@@ -15,14 +15,18 @@ import spectraplots
 #Dom Rowan 2019
 
 desc = """
-Create spectra of pulsar for specific phase region
+Procedure to generate spectra for pulsar in phase region
 """
+
+#Make phase selections using fselect
+#Input event file .evt, output .fits file
 def fselect_phase(evt, output, phase_lower, phase_upper, clobber=False):
     if os.path.isfile(output) and (not clobber):
         print("File already exists")
         return
     else:
         cmd = [ 'fselect', evt, output]
+        #If the phase region overlaps 0 (or 1), use an or statement
         if not (phase_lower <= 1 <= phase_upper):
             cmd.append(
                     f"PULSE_PHASE >= {phase_lower} &&" \
@@ -34,15 +38,18 @@ def fselect_phase(evt, output, phase_lower, phase_upper, clobber=False):
         cmd.append('clobber=yes')
         subprocess.run(cmd)
 
+#Update exposure keyword to reflect phase selection
 def update_exp(fits, output, new_exp, hdu=1):
     t = Table.read(fits, hdu=hdu)
     t.meta['EXPOSURE'] = new_exp
     t.write(output, overwrite=True)
         
+#Find exposure of fits/evt/pha file
 def get_exposure(f):
     t = Table.read(f, hdu=1)
     return t.meta['EXPOSURE']
 
+#Double check fselect phase with plot and min/max
 def test_fselect(fits, plot=False):
     t = Table.read(fits, hdu=1)
     print(t['PULSE_PHASE'].min(), t['PULSE_PHASE'].max())
@@ -51,8 +58,9 @@ def test_fselect(fits, plot=False):
         ax.hist(t['PULSE_PHASE'], edgecolor='black', color='xkcd:violet')
         plt.show()
 
+#Spawn xselect child 
 def xselect(lower_e=0, upper_e=1200, lower_phase=0, upper_phase=1, 
-            epoch=50000, period=.0000000353, datadir=None, eventfile=None,
+            epoch=50000, period=1, datadir=None, eventfile=None,
             session="autopython"):
 
     assert(all([type(val) in [int, float] for val in [
@@ -67,6 +75,7 @@ def xselect(lower_e=0, upper_e=1200, lower_phase=0, upper_phase=1,
 
     phase = f"{lower_phase}-{upper_phase}"
 
+    #Spawn xsel child
     xsel = pexpect.spawn("xselect")
     xsel.expect("Enter session name >")
     xsel.sendline(session)
@@ -77,10 +86,12 @@ def xselect(lower_e=0, upper_e=1200, lower_phase=0, upper_phase=1,
     xsel.expect("Reset the mission")
     xsel.sendline("yes")
     xsel.expect(f"{session}:NICER-XTI-PHOTON")
+    #Perform energy filter
     if not (lower_e==0 and upper_e==1200):
         print("Performing energy filter in xselect")
         xsel.sendline(f"filter PHA_CUTOFF {lower_e} {upper_e}")
         xsel.expect(f"{session}:NICER-XTI-PHOTON")
+    #Perform phase filter
     if not (lower_phase==0 and upper_phase==1):
         print("Performing phase filter in xselect")
         xsel.sendline(f"filter phase {epoch} {period} {phase}")
@@ -88,6 +99,7 @@ def xselect(lower_e=0, upper_e=1200, lower_phase=0, upper_phase=1,
     xsel.sendline(f"extract spec")
     xsel.expect(f"{session}:NICER-XTI-PHOTON")
     xsel.sendline(f"save spec {session}_spec")
+    #Save pha file using session name
     if os.path.isfile(f"{session}_spec.pha"):
         xsel.expect("overwrite")
         xsel.sendline("yes")
@@ -95,7 +107,9 @@ def xselect(lower_e=0, upper_e=1200, lower_phase=0, upper_phase=1,
     xsel.sendline("exit no")
     xsel.close()
 
+#Pexpect wrapper for xspec to generate xspec plot
 def xspec_wrapper(phafile, channel_lower, channel_upper, save=None):
+    #Spawn xspec child with pexpect
     xspec = pexpect.spawn("xspec")
     xspec.expect("XSPEC12>")
     xspec.sendline(f"data 1:1 {phafile}")
@@ -120,29 +134,14 @@ def xspec_wrapper(phafile, channel_lower, channel_upper, save=None):
     xspec.sendline("plot data")
     time.sleep(1)
 
+#Conver ps to pdf
 def convertPDF(psfile, display=False):
     cmd = ['ps2pdf', psfile, psfile.replace('.ps', '.pdf')]
     subprocess.run(cmd)
     if display:
         cmd2 = subprocess.run(['xdg-open', psfile.replace('.ps', '.pdf')])
                                                                 
-def gen_spectra_old(lower_e=50, upper_e=200, lower_phase=0, upper_phase=1, 
-                    epoch=50000, period=.0000000353, 
-                    datadir=None, eventfile=None,
-                    session="autopython", show=True):
-
-    xselect(lower_e=lower_e, upper_e=upper_e, lower_phase=lower_phase,
-            upper_phase=upper_phase, epoch=epoch, period=period,
-            datadir=datadir, eventfile=eventfile, session=session)
-
-    assert(os.path.isfile(f"{session}_spec.pha"))
-
-    s = Spectra(f"{session}_spec.pha")
-    s.set_phase(lower_phase, upper_phase)
-
-    s.plot(show=show)
-    return s
-
+#Wrap heasarc calls to generate spectra with energy/phase selections
 def gen_spectra(evt, phase_lower, phase_upper, 
                 channel_lower, channel_upper, 
                 save_pha=None, save_plot=None, display=False):
@@ -177,8 +176,6 @@ def gen_spectra(evt, phase_lower, phase_upper,
     if save_plot is not None:
         print("Converting to PDF")
         convertPDF(f"{save}.ps", display=display)
-
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=desc)
