@@ -138,7 +138,7 @@ def xspec_plot(datafile):
 
 
 #Show residuals on all three panels
-def xspec_triple(datafile_on, datafile_off, datafile_sub):
+def plot_xspec_three_model(datafile_on, datafile_off, datafile_sub, output):
     fig = plt.figure(figsize=(15, 20))
     plt.subplots_adjust(top=.98, right=.98)
     outer = gridspec.GridSpec(3, 1)
@@ -178,25 +178,46 @@ def xspec_triple(datafile_on, datafile_off, datafile_sub):
             a = plotparams(a)
             fig.add_subplot(a)
 
-
-    fig.savefig("threepanelresiduals.pdf")
+    fig.savefig(output)
  
-def xspec_triple_2(datafile_on, datafile_off, datafile_sub, nchan):
-    fig = plt.figure(figsize=(13, 16))
+def plot_xspec_subtracted(datafile_on, datafile_off, datafile_sub, 
+                          output, nchan=1, mode='p',
+                          pha_on=None, pha_off=None, breakenergy=None):
+    #Initialize figure
+    fig = plt.figure(figsize=(9.75, 12))
     plt.subplots_adjust(top=.98, right=.98, hspace=.15)
+    #Define outer grispec with different height ratios
     outer = gridspec.GridSpec(3, 1, height_ratios=[1/2, 1/2, 1])
 
-    fnames = [datafile_on, datafile_off, datafile_sub]
-    errorbarparams = dict(ls=' ', color='#58508d')
-    modelplotparams = dict(ls='--', color='#ffa600', lw=4)
-    labels = ["On-Pulse", "Off-Pulse", "On-Pulse Background Subtracted"]
+    #Default plot params
+    errorbarparams = dict(ls=' ', color='#300e56')
+    modelplotparams = dict(ls='-', color='#3bbfd5', lw=5)
 
+    #Generate lists of files/labels
+    fnames = [datafile_on, datafile_off, datafile_sub]
+    #Use mode p for primary, i for interpulse
+    if mode in ['p', 'P', 'primary', 'Primary']:
+        labels = ["On-Pulse", "Off-Pulse", "On-Pulse Background Subtracted"]
+    elif mode in ['i', 'I', 'interpulse', 'Interpulse']:
+        labels = ["Interpulse", "Off-Pulse", "Interpulse Background Subtracted"]
+    else:
+        raise ValueError("mode must be primary or interpulse")
+
+    #Find exposures for annotation
+    if pha_on is not None and pha_off is not None:
+        exposures = [genspectra.get_exposure(pha_on), 
+                     genspectra.get_exposure(pha_off)]
+    else:
+        exposures=[]
+
+    #Read in all txt files as pandas df
     df_list = []
     for f in fnames:
         df = pd.read_csv(f, skiprows=3, delimiter=" ", header=None)
         df.columns = ['energy', 'energy_err', 'counts', 'counts_err', 'model']
         df_list.append(df)
 
+    #Locate each axis
     ax_on = plt.Subplot(fig, outer[0])
     ax_off = plt.Subplot(fig, outer[1])
     inner = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer[2], 
@@ -204,47 +225,114 @@ def xspec_triple_2(datafile_on, datafile_off, datafile_sub, nchan):
     ax0 = plt.Subplot(fig, inner[0])
     ax1 = plt.Subplot(fig, inner[1])
 
+    #Iterate through each axis
     for i, ax in enumerate([ax_on, ax_off, ax0]):
+        #Plot data with errorbars
         ax.errorbar(df_list[i]['energy']*nchan/100, df_list[i]['counts'],
                     yerr=df_list[i]['counts_err'],
                     **errorbarparams, marker='o', label='Data', zorder=1)
-        axis_offset = df_list[i]['counts'].min() * .20
-        #ax.set_ylim(bottom=df_list[i]['counts'].min() - axis_offset, 
-                    #top=df_list[i]['counts'].max() + axis_offset)
+        #Default plotting params
         ax = plotparams(ax)
+        #Slightly increase axis thickness (big plot)
         for axis in ['top', 'bottom', 'left', 'right']:
             ax.spines[axis].set_linewidth(1.9)
+        #Add label annotation
         ax.text(.95, .95, labels[i], transform=ax.transAxes, fontsize=20, 
                  ha='right', va='top')
+        #Add subplot to figure
         fig.add_subplot(ax)
-    ax0.plot(df_list[2]['energy']*nchan/100, df_list[2]['model'],  **modelplotparams, 
-             zorder=2, label='Bknpower Model')
-    ax0.legend(loc=(.65, .65), fontsize=20, edgecolor='black')
-    residuals = np.subtract(df_list[2]['counts'], df_list[2]['model'])
-    ax1.errorbar(df_list[2]['energy']*nchan/100, residuals,
-                 yerr=df_list[2]['counts_err'], **errorbarparams, marker='.')
 
+    #Plot the model for subtracted panel
+    ax0.plot(df_list[2]['energy']*nchan/100, df_list[2]['model'],  
+             **modelplotparams, zorder=2, label='Bknpower Model')
+
+    #Compute residuals
+    residuals = np.subtract(df_list[2]['counts'], df_list[2]['model'])
+    #Plot residuals
+    ax1.errorbar(df_list[2]['energy']*nchan/100, residuals,
+                 yerr=df_list[2]['counts_err'], 
+                 **errorbarparams, marker='.')
+
+    #Add line at 0 for residual panel
     ax1.axhline(0, ls='--', color='0.8', lw=4)
+    #Default plot params
     ax1 = plotparams(ax1)
+    #Increase axis thickness
     for axis in ['top', 'bottom', 'left', 'right']:
         ax1.spines[axis].set_linewidth(1.9)
     fig.add_subplot(ax1)
 
+    #Add exposure annotation
+    if len(exposures) != 0:
+        ax_on.text(.95, .83, f"Exposure: {round(exposures[0])} s", 
+                   transform=ax_on.transAxes, fontsize=20,
+                   ha='right', va='top')
+        ax_off.text(.95, .83, f"Exposure: {round(exposures[1])} s",
+                    transform=ax_off.transAxes, fontsize=20,
+                    ha='right', va='top')
+
+    #Add vertical line at break energy
+    if breakenergy is not None:
+        for a in [ax0, ax1]:
+            a.axvline(breakenergy, ls='--', color='black', label="Break Energy")
+        legend_y = .50
+    else:
+        legend_y = .60
+
+    #Subtracted panel legend
+    ax0.legend(loc=(.55, legend_y), fontsize=20, edgecolor='black')
+
+    #Remove ticks to precent overlapping with residuals
     ax0.tick_params(labelbottom=False)
-    fig.text(.05, .55, "Normalized Flux", ha='center', va='center',
+
+    #Axes labels
+    fig.text(.03, .55, "Normalized Flux", ha='center', va='center',
              rotation='vertical', fontsize=30)
     ax1.set_xlabel("Energy (keV)", fontsize=30)
 
-
-    fig.savefig("ModelPlot.png", dpi=300)
+    #Save figure
+    fig.savefig(output)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument("--pha", help="Spectra file path for spec", type=str, 
+    parser.add_argument("on_data", help="On peak data path", type=str,
                         default=None)
-    parser.add_argument("--evt", help="Event file path for lc", type=str,
+    parser.add_argument("off_data", help="Off peak data path", type=str,
                         default=None)
+    parser.add_arugment("sub_data", help="Subtracted data path", type=str,
+                        default=None)
+    parser.add_argument("output", help="Output filename", type=str,
+                        default=None)
+    parser.add_argument("nchan", help="nchan used for grppha",
+                        default=1, type=int)
+    parser.add_argument("m", help="Primary or interpulse mode", 
+                        default='p', type=str)
+    parser.add_argument("pha_on", help="Onpeak pha file",
+                        default=None, type=str)
+    parser.add_argument("pha_off", help="Off peak pha file",  
+                        default=None, type=str)
+    parser.add_argument("be", help="break energy for bknpower", 
+                        default=None, type=float)
+
     args = parser.parse_args()
 
-    xspec_triple_2('onpeak_data.txt', 
-                       'offpeak_data.txt', 'subtracted.txt', 5)
+    plot_xspec_subtracted(args.on_data, args.off_data,
+                          args.sub_data, args.output, nchan=args.nchan
+                          mode=args.m, pha_on=args.pha_on,
+                          pha_off=args.pha_off, breakenergy=args.be)
+
+    """
+    ####Example Function Calls####
+
+    plot_xspec_subtracted('onpeak_data.txt', 'offpeak_data.txt',
+                          'subtracted.txt', 'ModelPlot.pdf', 
+                          nchan=5, mode='p', 
+                          pha_on='onpeak.pha', pha_off='offpeak.pha',
+                          breakenergy=2.33)
+
+    plot_xspec_subtracted('interpulse_data.txt', 'offpeak_data.txt'
+                          'interpulse_subtracted.txt', 
+                          'InterpulseModel.pdf', nchan=5, mode='i', 
+                          pha_on='interpulse.pha', pha_off='offpeak.pha', 
+                          breakenergy=1.59) 
+    """
