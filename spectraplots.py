@@ -180,6 +180,63 @@ def xspec_triple(datafile_on, datafile_off, datafile_sub):
 
 
     fig.savefig("threepanelresiduals.pdf")
+ 
+def xspec_triple_2(datafile_on, datafile_off, datafile_sub, nchan):
+    fig = plt.figure(figsize=(13, 16))
+    plt.subplots_adjust(top=.98, right=.98, hspace=.15)
+    outer = gridspec.GridSpec(3, 1, height_ratios=[1/2, 1/2, 1])
+
+    fnames = [datafile_on, datafile_off, datafile_sub]
+    errorbarparams = dict(ls=' ', color='#58508d')
+    modelplotparams = dict(ls='--', color='#ffa600', lw=4)
+    labels = ["On-Pulse", "Off-Pulse", "On-Pulse Background Subtracted"]
+
+    df_list = []
+    for f in fnames:
+        df = pd.read_csv(f, skiprows=3, delimiter=" ", header=None)
+        df.columns = ['energy', 'energy_err', 'counts', 'counts_err', 'model']
+        df_list.append(df)
+
+    ax_on = plt.Subplot(fig, outer[0])
+    ax_off = plt.Subplot(fig, outer[1])
+    inner = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer[2], 
+                                             hspace=0, height_ratios=[3, 1])
+    ax0 = plt.Subplot(fig, inner[0])
+    ax1 = plt.Subplot(fig, inner[1])
+
+    for i, ax in enumerate([ax_on, ax_off, ax0]):
+        ax.errorbar(df_list[i]['energy']*nchan/100, df_list[i]['counts'],
+                    yerr=df_list[i]['counts_err'],
+                    **errorbarparams, marker='o', label='Data', zorder=1)
+        axis_offset = df_list[i]['counts'].min() * .20
+        #ax.set_ylim(bottom=df_list[i]['counts'].min() - axis_offset, 
+                    #top=df_list[i]['counts'].max() + axis_offset)
+        ax = plotparams(ax)
+        for axis in ['top', 'bottom', 'left', 'right']:
+            ax.spines[axis].set_linewidth(1.9)
+        ax.text(.95, .95, labels[i], transform=ax.transAxes, fontsize=20, 
+                 ha='right', va='top')
+        fig.add_subplot(ax)
+    ax0.plot(df_list[2]['energy']*nchan/100, df_list[2]['model'],  **modelplotparams, 
+             zorder=2, label='Bknpower Model')
+    ax0.legend(loc=(.65, .65), fontsize=20, edgecolor='black')
+    residuals = np.subtract(df_list[2]['counts'], df_list[2]['model'])
+    ax1.errorbar(df_list[2]['energy']*nchan/100, residuals,
+                 yerr=df_list[2]['counts_err'], **errorbarparams, marker='.')
+
+    ax1.axhline(0, ls='--', color='0.8', lw=4)
+    ax1 = plotparams(ax1)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        ax1.spines[axis].set_linewidth(1.9)
+    fig.add_subplot(ax1)
+
+    ax0.tick_params(labelbottom=False)
+    fig.text(.05, .55, "Normalized Flux", ha='center', va='center',
+             rotation='vertical', fontsize=30)
+    ax1.set_xlabel("Energy (keV)", fontsize=30)
+
+
+    fig.savefig("ModelPlot.png", dpi=300)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=desc)
@@ -189,5 +246,5 @@ if __name__ == '__main__':
                         default=None)
     args = parser.parse_args()
 
-    xspec_triple('onpeak_data.txt', 
-                       'offpeak_data.txt', '1821_subtracted.txt')
+    xspec_triple_2('onpeak_data.txt', 
+                       'offpeak_data.txt', 'subtracted.txt', 5)
