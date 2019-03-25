@@ -61,7 +61,7 @@ class LightCurve:
     # Produce plot of puslar profile
     def plot(self, n_phase=2, bs=.01, output=None, 
              show=False, extension='pdf', 
-             l1=None, l2=None):
+             l1=None, l2=None, nsigma=3):
 
         if output is not None:
             assert(type(output) == str)
@@ -83,22 +83,34 @@ class LightCurve:
     
         #Use l1 and l2 to define an offpeak region & determine onpeak region
         if l1 is not None and l2 is not None:
-            cutofftup = self.peak_cutoff(l1, l2)
-            ax.axhline(cutofftup.median, ls='--', color='gray')
+            cutofftup = self.peak_cutoff(l1, l2, nsigma=nsigma)
+            #ax.axhline(cutofftup.median, ls='--', color='gray')
             ax.axhline(cutofftup.threesigma, ls=':', color='gray')
-            ax.axvline(cutofftup.min_phase, ls='--', color='black')
-            ax.axvline(cutofftup.max_phase, ls='--', color='black')
+            default_line = dict(ls='--', color='black')
+            default_span = dict(alpha=.2, color='gray')
+            for i in range(n_phase):
+                ax.axvspan(cutofftup.min_phase_ip+i, cutofftup.max_phase_ip+i,
+                           **default_span)
+
+            if cutofftup.min_phase > cutofftup.max_phase:
+                for i in range(n_phase):
+                    ax.axvspan(i, cutofftup.max_phase+i, **default_span)
+                    ax.axvspan(cutofftup.min_phase+i, i+1, **default_span)
+            else:
+                for i in range(n_phase):
+                    ax.axvspan(cutofftup.min_phase+i, cutofftup.max_phase+i, 
+                               **default_span)
         
         #Save/display/return plot
         if output is not None:
-            fig.savefig(f"{output}.{extension}")
+            fig.savefig(f"{output}.{extension}", dpi=300)
         elif show:
             plt.show()
         else:
             return ax
 
     #Use offpeak region to determine pulse phase limits
-    def peak_cutoff(self, l1, l2):
+    def peak_cutoff(self, l1, l2, nsigma=3, interpulse_lower=0.3):
         assert(all([ 0 <= l <= 1 for l in [l1, l2]]))
         assert(l1 < l2)
         if self.counts is None:
@@ -109,10 +121,10 @@ class LightCurve:
                    range(len(self.phasebins)) 
                    if l1 <= self.phasebins[i] <= l2 ]
 
-        #collect phases where counts are greater than 3sigma away
+        #collect phases where counts are greater than nsigma away
         on_peak_phases = self.phasebins[np.where(
-            self.counts >= (np.median(off_pc) + 3*np.std(off_pc)))[0]]
-
+            self.counts >= (np.median(off_pc) + nsigma*np.std(off_pc)))[0]]
+        print(on_peak_phases)
         #If phases wrap around 0 need to take extra care
         wp = []
         for i in range(len(on_peak_phases)):
@@ -138,11 +150,32 @@ class LightCurve:
                         if abs(wp[i+1] - wp[i]) > .02:
                             min_phase = wp[i]
 
+        #Search for interpuse
+        ip_found = False
+        for i in range(len(on_peak_phases)):
+            if ip_found:
+                if i != len(on_peak_phases) - 1:
+                    if on_peak_phases[i+1] - on_peak_phases[i] > .02:
+                        max_phase_interpulse = on_peak_phases[i]
+                        break
+                else:
+                    max_phase_interpulse = on_peak_phases[i]
+            else:
+                if ((on_peak_phases[i] >= interpulse_lower) and 
+                   (on_peak_phases[i+1] - on_peak_phases[i] < .02)):
+                    min_phase_interpulse = on_peak_phases[i]
+                    ip_found = True
+
         #Define return tuple
         CutoffTup = collections.namedtuple('CutoffTup', 
-                ['min_phase', 'max_phase', 'median', 'threesigma'])
-        tup = CutoffTup(min_phase, max_phase, np.median(off_pc), 
-                        np.median(off_pc)+3*np.std(off_pc))
+                ['min_phase', 'max_phase', 
+                 'min_phase_ip', 'max_phase_ip', 
+                 'median', 'nsigma'])
+        tup = CutoffTup(min_phase, max_phase, 
+                        min_phase_interpulse,
+                        max_phase_interpulse,
+                        np.median(off_pc), 
+                        np.median(off_pc)+nsigma*np.std(off_pc))
 
         return tup
 
