@@ -133,6 +133,7 @@ def xspec_wrapper(phafile, channel_lower, channel_upper, save=None):
     xspec.expect("XSPEC12>")
     xspec.sendline("plot data")
     time.sleep(1)
+    
 
 #Pexpect wrapper for grppha to bin spectra
 def grppha_wrapper(pha_in, pha_out, nchan):
