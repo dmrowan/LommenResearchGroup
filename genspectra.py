@@ -145,7 +145,7 @@ def grppha_wrapper(pha_in, pha_out, nchan):
     grppha.expect("GRPPHA")
     grppha.sendline(f"group 0 {1499-nchan} {nchan}")
     grppha.expect("GRPPHA")
-    grppha.sendline("exit")
+    grppha.sendline(f"exit !{pha_out}")
     grppha.wait()
     grppha.close()
     
@@ -159,38 +159,40 @@ def convertPDF(psfile, display=False):
                                                                 
 #Wrap heasarc calls to generate spectra with energy/phase selections
 def gen_spectra(evt, phase_lower, phase_upper, 
-                channel_lower, channel_upper, 
+                channel_lower, channel_upper, nchan,
                 save_pha=None, save_plot=None, display=False):
 
     t = Table.read(evt, hdu=1)
     original_exp = t.meta['EXPOSURE']
     new_exp = original_exp * (phase_upper-phase_lower)
 
-    print("Running fselect")
+    print("-----Running fselect-----")
     fselect_phase(evt, "autofits.fits", 
                   phase_lower, phase_upper, clobber=True)
 
-    test_fselect("autofits.fits", plot=True)
+    #test_fselect("autofits.fits", plot=True)
 
-    print("Running xselect")
+    print("-----Running xselect-----")
     xselect(datadir='./', eventfile="autofits.fits", 
             session='autoxselect')
 
-    print("Updating exposure")
+    print("-----Updating exposure-----")
     update_exp("autoxselect_spec.pha", "autoxselect_spec_2.fits", 
                new_exp)
-    #print(get_exposure("autoxselect_spec.pha"))
     subprocess.run(['mv', 'autoxselect_spec_2.fits',
                     'autoxselect_spec_2.pha'])
-    #print(get_exposure("autoxselect_spec_2.pha"))
+
+    print("-----Running grppha-----")
+    grppha_wrapper("autoxselect_spec_2.pha", "autoxselect_spec_grppha.pha", nchan)
+
     if save_pha is not None:
-        subprocess.run(['cp', 'autoxselect_spec_2.pha', save_pha])
-    print("Running xspec")
-    xspec_wrapper('autoxselect_spec_2.pha', 
+        subprocess.run(['cp', 'autoxselect_spec_grppha.pha', save_pha])
+    print("-----Running xspec-----")
+    xspec_wrapper('autoxselect_spec_grppha.pha', 
                   channel_lower, channel_upper, save=save_plot)
 
     if save_plot is not None:
-        print("Converting to PDF")
+        print("-----Converting to PDF-----")
         convertPDF(f"{save}.ps", display=display)
 
 if __name__ == '__main__':
@@ -213,6 +215,9 @@ if __name__ == '__main__':
     parser.add_argument("--up", 
                         help="Upper phase for xselect filtering", 
                         type=float, default=1)
+    parser.add_argument("--nchan", 
+                        help="Number of channels for grppha",
+                        default=1000, type=int)
     parser.add_argument("--save_plot", 
                         help="Save plot", 
                         default=None, type=str)
@@ -226,6 +231,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     gen_spectra(args.evt, args.lp, args.up, args.le, args.ue, 
-                save_pha=args.save_pha, save_plot=args.save_plot,
-                display=args.display)
+                args.nchan, save_pha=args.save_pha, 
+                save_plot=args.save_plot, display=args.display)
 
