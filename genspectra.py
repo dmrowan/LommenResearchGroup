@@ -134,6 +134,22 @@ def xspec_wrapper(phafile, channel_lower, channel_upper, save=None):
     xspec.sendline("plot data")
     time.sleep(1)
 
+#Pexpect wrapper for grppha to bin spectra
+def grppha_wrapper(pha_in, pha_out, nchan):
+    #Spawn grppha child with pexpect
+    grppha = pexpect.spawn("grppha")
+    grppha.expect("Please enter PHA filename")
+    grppha.sendline(f"{pha_in}")
+    grppha.expect("Please enter output filename")
+    grppha.sendline(f"{pha_out}")
+    grppha.expect("GRPPHA")
+    grppha.sendline(f"group 0 {1499-nchan} {nchan}")
+    grppha.expect("GRPPHA")
+    grppha.sendline("exit")
+    grppha.wait()
+    grppha.close()
+    
+
 #Conver ps to pdf
 def convertPDF(psfile, display=False):
     cmd = ['ps2pdf', psfile, psfile.replace('.ps', '.pdf')]
