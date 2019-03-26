@@ -317,7 +317,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     plot_xspec_subtracted(args.on_data, args.off_data,
-                          args.sub_data, args.output, nchan=args.nchan
+                          args.sub_data, args.output, nchan=args.nchan,
                           mode=args.m, pha_on=args.pha_on,
                           pha_off=args.pha_off, breakenergy=args.be)
 
