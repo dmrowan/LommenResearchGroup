@@ -299,7 +299,7 @@ if __name__ == '__main__':
                         default=None)
     parser.add_argument("off_data", help="Off peak data path", type=str,
                         default=None)
-    parser.add_arugment("sub_data", help="Subtracted data path", type=str,
+    parser.add_argument("sub_data", help="Subtracted data path", type=str,
                         default=None)
     parser.add_argument("output", help="Output filename", type=str,
                         default=None)
