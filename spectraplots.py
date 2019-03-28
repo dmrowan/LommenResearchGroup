@@ -180,9 +180,10 @@ def plot_xspec_three_model(datafile_on, datafile_off, datafile_sub, output):
 
     fig.savefig(output)
  
-def plot_xspec_subtracted(datafile_on, datafile_off, datafile_sub, 
+def plot_xspec_subtracted(datafile_on, datafile_off, datafile_sub,
                           output, nchan=1, mode='p',
-                          pha_on=None, pha_off=None, breakenergy=None):
+                          datafile_sub2=None, pha_on=None, pha_off=None, 
+                          breakenergy=None):
     #Initialize figure
     fig = plt.figure(figsize=(9.75, 12))
     plt.subplots_adjust(top=.98, right=.98, hspace=.15)
@@ -190,8 +191,7 @@ def plot_xspec_subtracted(datafile_on, datafile_off, datafile_sub,
     outer = gridspec.GridSpec(3, 1, height_ratios=[1/2, 1/2, 1])
 
     #Default plot params
-    errorbarparams = dict(ls=' ', color='#300e56')
-    modelplotparams = dict(ls='-', color='#3bbfd5', lw=5)
+    errorbarparams = dict(ls=' ', color='#28145b')
 
     #Generate lists of files/labels
     fnames = [datafile_on, datafile_off, datafile_sub]
@@ -202,6 +202,9 @@ def plot_xspec_subtracted(datafile_on, datafile_off, datafile_sub,
         labels = ["Interpulse", "Off-Pulse", "Interpulse Background Subtracted"]
     else:
         raise ValueError("mode must be primary or interpulse")
+
+    if datafile_sub2 is not None:
+        fnames.append(datafile_sub2)
 
     #Find exposures for annotation
     if pha_on is not None and pha_off is not None:
@@ -244,14 +247,26 @@ def plot_xspec_subtracted(datafile_on, datafile_off, datafile_sub,
 
     #Plot the model for subtracted panel
     ax0.plot(df_list[2]['energy']*nchan/100, df_list[2]['model'],  
-             **modelplotparams, zorder=2, label='Bknpower Model')
+             ls='-', lw=5, color='#0da0ff', zorder=2, 
+             label='Bknpower Model')
 
     #Compute residuals
-    residuals = np.subtract(df_list[2]['counts'], df_list[2]['model'])
+    residuals1 = np.subtract(df_list[2]['counts'], df_list[2]['model'])
+
     #Plot residuals
-    ax1.errorbar(df_list[2]['energy']*nchan/100, residuals,
+    ax1.errorbar(df_list[2]['energy']*nchan/100, residuals1,
                  yerr=df_list[2]['counts_err'], 
-                 **errorbarparams, marker='.')
+                 ls=' ', marker='.', color='#0da0ff')
+
+    #Do same for second model if it exists
+    if len(df_list) == 4:
+        ax0.plot(df_list[3]['energy']*nchan/100, df_list[3]['model'],
+                 ls='-', lw=5, color='#480ebd', zorder=3, 
+                 label='Powerlaw Model')
+        residuals2 = np.subtract(df_list[3]['counts'], df_list[3]['model'])
+        ax1.errorbar(df_list[3]['energy']*nchan/100, residuals2,
+                     yerr=df_list[3]['counts_err'],
+                     ls=' ', marker='.', color='#480ebd')
 
     #Add line at 0 for residual panel
     ax1.axhline(0, ls='--', color='0.8', lw=4)
@@ -279,6 +294,10 @@ def plot_xspec_subtracted(datafile_on, datafile_off, datafile_sub,
     else:
         legend_y = .60
 
+    if len(df_list) == 4:
+        legend_y -= .12
+
+
     #Subtracted panel legend
     ax0.legend(loc=(.55, legend_y), fontsize=20, edgecolor='black')
 
@@ -295,30 +314,33 @@ def plot_xspec_subtracted(datafile_on, datafile_off, datafile_sub,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument("on_data", help="On peak data path", type=str,
+    parser.add_argument("--on_data", help="On peak data path", type=str,
                         default=None)
-    parser.add_argument("off_data", help="Off peak data path", type=str,
+    parser.add_argument("--off_data", help="Off peak data path", type=str,
                         default=None)
-    parser.add_arugment("sub_data", help="Subtracted data path", type=str,
+    parser.add_argument("--sub_data", help="Subtracted data path", type=str,
                         default=None)
-    parser.add_argument("output", help="Output filename", type=str,
+    parser.add_argument("--sub_data2", help="Second subtracted data path",
+                        type=str, default=None)
+    parser.add_argument("--output", help="Output filename", type=str,
                         default=None)
-    parser.add_argument("nchan", help="nchan used for grppha",
+    parser.add_argument("--nchan", help="nchan used for grppha",
                         default=1, type=int)
-    parser.add_argument("m", help="Primary or interpulse mode", 
+    parser.add_argument("--m", help="Primary or interpulse mode", 
                         default='p', type=str)
-    parser.add_argument("pha_on", help="Onpeak pha file",
+    parser.add_argument("--pha_on", help="Onpeak pha file",
                         default=None, type=str)
-    parser.add_argument("pha_off", help="Off peak pha file",  
+    parser.add_argument("--pha_off", help="Off peak pha file",  
                         default=None, type=str)
-    parser.add_argument("be", help="break energy for bknpower", 
+    parser.add_argument("--be", help="break energy for bknpower", 
                         default=None, type=float)
 
     args = parser.parse_args()
 
     plot_xspec_subtracted(args.on_data, args.off_data,
                           args.sub_data, args.output, nchan=args.nchan,
-                          mode=args.m, pha_on=args.pha_on,
+                          mode=args.m, datafile_sub2=args.sub_data2,
+                          pha_on=args.pha_on,
                           pha_off=args.pha_off, breakenergy=args.be)
     """
     ####Example Function Calls####

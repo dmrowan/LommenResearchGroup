@@ -24,6 +24,7 @@ class LightCurve:
         self.pi = self.tab['PI']
         self.ph = self.tab['PULSE_PHASE']
         self.counts = None # Initialize counts to none
+        self.name = None
 
     # Apply energy mask
     def mask(self, lower_pi=0, upper_pi=10, lower_ph=0, upper_ph=1):
@@ -32,6 +33,10 @@ class LightCurve:
         full_mask = en_mask & ph_mask
         self.pi = self.pi[full_mask]
         self.ph = self.ph[full_mask]
+
+    # Give a name to include in plots
+    def set_name(self, name):
+        self.name = name
 
     #Generate count/phasebin information
     def generate(self, n_phase=2, bs=.01):
@@ -80,12 +85,16 @@ class LightCurve:
         ax = spectraplots.plotparams(ax)
         ax.set_xlabel('Phase', fontsize=25)
         ax.set_ylabel('Counts', fontsize=25)
+        ax.set_xlim(left=-.025, right=n_phase+.025)
     
         #Use l1 and l2 to define an offpeak region & determine onpeak region
         if l1 is not None and l2 is not None:
             cutofftup = self.peak_cutoff(l1, l2, nsigma=nsigma)
             #ax.axhline(cutofftup.median, ls='--', color='gray')
-            ax.axhline(cutofftup.threesigma, ls=':', color='gray')
+            ax.axhline(cutofftup.two_sigma, ls=':', color='darkblue', 
+                       label=r'$2\sigma$')
+            ax.axhline(cutofftup.three_sigma, ls=':', color='gray',
+                       label=r'$3\sigma$')
             default_line = dict(ls='--', color='black')
             default_span = dict(alpha=.2, color='gray')
             for i in range(n_phase):
@@ -101,6 +110,12 @@ class LightCurve:
                     ax.axvspan(cutofftup.min_phase+i, cutofftup.max_phase+i, 
                                **default_span)
         
+        #ax.legend(loc=(.85, .85), fontsize=20, edgecolor='black')
+        if self.name is not None:
+            ax.text(.95, .95, self.name, ha='right', va='top', 
+                    transform=ax.transAxes, fontsize=20,
+                    bbox=dict(facecolor='white', edgecolor='black',
+                              alpha=.5))
         #Save/display/return plot
         if output is not None:
             fig.savefig(f"{output}.{extension}", dpi=300)
@@ -170,12 +185,13 @@ class LightCurve:
         CutoffTup = collections.namedtuple('CutoffTup', 
                 ['min_phase', 'max_phase', 
                  'min_phase_ip', 'max_phase_ip', 
-                 'median', 'nsigma'])
+                 'median', 'two_sigma', 'three_sigma'])
         tup = CutoffTup(min_phase, max_phase, 
                         min_phase_interpulse,
                         max_phase_interpulse,
                         np.median(off_pc), 
-                        np.median(off_pc)+nsigma*np.std(off_pc))
+                        np.median(off_pc)+2*np.std(off_pc),
+                        np.median(off_pc)+3*np.std(off_pc))
 
         return tup
 
