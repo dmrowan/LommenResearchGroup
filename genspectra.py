@@ -144,7 +144,7 @@ def grppha_wrapper(pha_in, pha_out, nchan):
     grppha.expect("Please enter output filename")
     grppha.sendline(f"{pha_out}")
     grppha.expect("GRPPHA")
-    grppha.sendline(f"group 0 {1499-nchan} {nchan}")
+    grppha.sendline(f"group min {nchan}")
     grppha.expect("GRPPHA")
     grppha.sendline(f"exit !{pha_out}")
     grppha.wait()
