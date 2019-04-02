@@ -1,9 +1,24 @@
 # Lommen Research Group
 
-Scripts written by students in Dr. Lommen's research group regarding NICER data analysis. 
+A collection of procedures designed for profile and spectral analysis of NICER millisecond pulsars. Developd by students in Prof. Lommen's research group at Haverford College. 
 
-All of this code is likely to contain some sort of issue - use at your own risk. 
+<a href="https://gameon.nasa.gov/projects/deep-space-x-ray-navigation-and-communication/"><img src="https://gameon.nasa.gov/files/2017/03/nicer_logo.png" title="NICERlogo" alt="NICERlogo" width="400"></a>
 
-In order to use these scripts, add this directory to your path and python path in the bashrc file. 
+## Getting Started
 
+
+### Prerequisites
+
+What things you need to install the software and how to install them
+
+```
+Give examples
+```
+
+## Authors
+
+* **Dominick Rowan**
+* **Liam Lynch**
+
+See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
 
