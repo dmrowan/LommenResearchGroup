@@ -199,3 +199,4 @@ class LightCurve:
 
         return tup
 
+# My new edit
