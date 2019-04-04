@@ -16,6 +16,8 @@ import spectraplots
 
 #Andrea adding her name for testing purposes.
 
+#This is a comment that Dom made today!
+
 #LC Class for pulsar profile
 class LightCurve:
     def __init__(self, evtfile):
