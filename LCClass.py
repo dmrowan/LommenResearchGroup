@@ -197,5 +197,7 @@ class LightCurve:
                         np.median(off_pc)+2*np.std(off_pc),
                         np.median(off_pc)+3*np.std(off_pc))
 
+        #Doms new edit
+
         return tup
 
