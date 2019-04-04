@@ -14,6 +14,8 @@ from astropy.table import Table
 import spectraplots
 #Dom Rowan 2019
 
+#Andrea adding her name for testing purposes.
+
 #LC Class for pulsar profile
 class LightCurve:
     def __init__(self, evtfile):
