@@ -14,6 +14,9 @@ from astropy.table import Table
 import spectraplots
 #Dom Rowan 2019
 
+
+#This is a comment that Dom made today!
+
 #LC Class for pulsar profile
 class LightCurve:
     def __init__(self, evtfile):
