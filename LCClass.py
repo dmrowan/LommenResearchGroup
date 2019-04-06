@@ -14,6 +14,10 @@ from astropy.table import Table
 import spectraplots
 #Dom Rowan 2019
 
+#Andrea adding her name for testing purposes.
+
+#This is a comment that Dom made today!
+
 #LC Class for pulsar profile
 class LightCurve:
     def __init__(self, evtfile):
@@ -193,5 +197,8 @@ class LightCurve:
                         np.median(off_pc)+2*np.std(off_pc),
                         np.median(off_pc)+3*np.std(off_pc))
 
+        #Doms new edit
+
         return tup
 
+# My new edit

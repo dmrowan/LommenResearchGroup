@@ -120,7 +120,7 @@ def xspec_wrapper(phafile, channel_lower, channel_upper, save=None):
     xspec.sendline("arf 1 /packages/caldb/data/nicer/xti/cpf/" \
             "arf/nixtiaveonaxis20170601v002.arf")
     xspec.expect("XSPEC12>")
-    xspec.sendline("ig **-0.3, 10.-**")
+    xspec.sendline("ig **-0.5, 10.-**")
     xspec.expect("XSPEC12>")
     if save is None:
         xspec.sendline("cpd /xs")
@@ -144,7 +144,8 @@ def grppha_wrapper(pha_in, pha_out, nchan):
     grppha.expect("Please enter output filename")
     grppha.sendline(f"{pha_out}")
     grppha.expect("GRPPHA")
-    grppha.sendline(f"group 0 {1499-nchan} {nchan}")
+    #grppha.sendline(f"group 0 {1499-nchan} {nchan}")
+    grppha.sendline(f"group min {nchan}")
     grppha.expect("GRPPHA")
     grppha.sendline(f"exit !{pha_out}")
     grppha.wait()
