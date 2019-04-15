@@ -14,9 +14,8 @@ from astropy.table import Table
 import spectraplots
 #Dom Rowan 2019
 
-#Andrea adding her name for testing purposes.
-
-#This is a comment that Dom made today!
+def gaus(x, a, x0, sigma, b):
+    return a*exp(-(x-x0)**2/(2*sigma**2)) + b
 
 #LC Class for pulsar profile
 class LightCurve:
@@ -197,8 +196,19 @@ class LightCurve:
                         np.median(off_pc)+2*np.std(off_pc),
                         np.median(off_pc)+3*np.std(off_pc))
 
-        #Doms new edit
 
         return tup
 
-# My new edit
+    def fit_gauss(self):
+        if self.counts is None:
+            self.generate()
+
+        n = len(self.phasebins)
+        mean = sum(self.phasebins*self.counts) / n
+        sigma = sum(self.counts*(self.phasebins-mean)**2) / n
+        b = np.min(self.counts)
+        popt, pcov = curve_fit(gaus, self.phasebins, 
+                               self.normalizedflux, 
+                               p0=[100, mean, sigma, b])
+
+
