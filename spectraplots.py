@@ -217,7 +217,10 @@ def plot_xspec_subtracted(datafile_on, datafile_off, datafile_sub,
     df_list = []
     for f in fnames:
         df = pd.read_csv(f, skiprows=3, delimiter=" ", header=None)
-        df.columns = ['energy', 'energy_err', 'counts', 'counts_err', 'model']
+        if len(df.columns) == 5:
+            df.columns = ['energy', 'energy_err', 'counts', 'counts_err', 'model']
+        else:
+            df.columns = ['energy', 'energy_err', 'counts', 'counts_err']
         df_list.append(df)
 
     #Locate each axis
@@ -311,6 +314,20 @@ def plot_xspec_subtracted(datafile_on, datafile_off, datafile_sub,
 
     #Save figure
     fig.savefig(output)
+
+def plot_model(txtfile, output, nchan, mode='p', exposure=None):
+    assert(os.path.isfile(txtfile))
+    df = pd.read_csv(txtfile, skiprows=3, delimiter=" ", header=None)
+    assert(len(df.columns) == 5)
+    #Use mode p for primary, i for interpulse
+    if mode in ['p', 'P', 'primary', 'Primary']:
+        labels = ["On-Pulse", "Off-Pulse", "On-Pulse Background Subtracted"]
+    elif mode in ['i', 'I', 'interpulse', 'Interpulse']:
+        labels = ["Interpulse", "Off-Pulse", "Interpulse Background Subtracted"]
+    else:
+        raise ValueError("mode must be primary or interpulse")
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=desc)
