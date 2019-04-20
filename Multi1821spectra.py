@@ -1,14 +1,35 @@
 #!/usr/bin/env python
 import spectraplots
+import collections
 import genspectra
 import pexpect
 import time
 import os
 import pandas as pd
+from LCClass import LightCurve
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from fuzzywuzzy import process
+from spectraplots import plotparams
+import numpy as np
 
 #Dom Rowan 2019
 
-def autofitting(fname_head):
+desc="""
+Generate multiple spectra with different phase selections
+"""
+
+#Fix phasetups that overlap zero
+def phase_correction(phasetup):
+    if phasetup[1] <= phasetup[0]:
+        phasetup = (phasetup[0], phasetup[1]+1)
+    return phasetup
+
+#Default fitting procedure
+def autofitting(fname_head, clobber=True):
+    assert(os.path.isfile(f"{fname_head}.pha"))
+    #This file must exist in current directoy
+    assert(os.path.isfile("autofitting.xcm"))
     xspec = pexpect.spawn("xspec")
     xspec.expect("XSPEC12>")
     xspec.sendline(f"data 1:1 {fname_head}.pha")
@@ -26,28 +47,25 @@ def autofitting(fname_head):
     xspec.expect("XSPEC12>")
     #Plot both at same time then save txt file
     xspec.sendline(f"plot ufspec delchi")
+    time.sleep(3)
     xspec.expect("XSPEC12>")
     xspec.sendline("ipl")
     xspec.expect("XSPEC12>")
     xspec.sendline(f"wdata data_{fname_head}.txt")
     if os.path.isfile(f"data_{fname_head}.txt") and clobber:
-        xspec.expect("XSPEC12>")
         xspec.sendline("yes")
     xspec.expect("XSPEC12>")
     xspec.sendline("exit")
 
 
-def main(evt, clobber=True):
-    offpeak_range = (0.1, 0.4)
-    mincounts_offpeak = 1200 #Not sure how much this matters
-    onpeak_ranges = [(.97, 1.06), (.98, 1.05), (.99, 1.04), (0, .02)]
-    mincounts_onpeak = [1200, 1000, 800, 600]
-    mincounts_interpulse = [1200, 1000, 800, 600]
+def gen_multispectra(evt, onpeak_ranges, interpulse_ranges, 
+                     offpeak_range, mincounts, mincounts_interpulse):
+    assert(os.path.isfile("autofitting.xcm"))
     print("*****Generating Off-Peak Spectra*****")
     genspectra.gen_spectra(evt, 
                            offpeak_range[0], offpeak_range[1], 
                            0, 1200, 
-                           mincounts_offpeak, 
+                           mincounts, 
                            save_pha="offpeak.pha")
 
     print("*****Generating On-peak spectra*****")
@@ -55,27 +73,80 @@ def main(evt, clobber=True):
     for i, tup in enumerate(onpeak_ranges):
         #This generates the pha file we normally open in xspec manually
         genspectra.gen_spectra(evt, tup[0], tup[1],
-                               0, 1200, mincounts_onpeak[i], 
+                               0, 1200, mincounts, 
                                save_pha=f"onpeak_{i}.pha")
 
         #This is opening xspec in python and doing basic fitting 
-        autofitting(f"onpeak_{i}")
+        #autofitting(f"onpeak_{i}")
+
+        xspec = pexpect.spawn("xspec")
+        xspec.expect("XSPEC12>")
+        xspec.sendline(f"data 1:1 onpeak_{i}.pha")
+        xspec.expect("XSPEC12>")
+        #This is an xspec script that loads data and fits model
+        xspec.sendline("@autofitting.xcm")
+        xspec.expect("XSPEC12>")
+        #Save the model params with this command
+        xspec.sendline(f"save model onpeak_model_{i}")
+        if os.path.isfile(f"onpeak_model_{i}.xcm") and clobber:
+            xspec.sendline("y")
+        xspec.expect("XSPEC12>")
+        #Set the xaxis to be keV for our plots (and txt files)
+        xspec.sendline("setplot energy")
+        xspec.expect("XSPEC12>")
+        #Plot both at same time then save txt file
+        xspec.sendline(f"plot ufspec delchi")
+        time.sleep(3)
+        xspec.expect("XSPEC12>")
+        xspec.sendline("ipl")
+        xspec.expect("XSPEC12>")
+        xspec.sendline(f"wdata data_onpeak_{i}.txt")
+        if os.path.isfile(f"data_onpeak_{i}.txt") and clobber:
+            xspec.sendline("yes")
+        xspec.expect("XSPEC12>")
+        xspec.sendline("exit")
 
 
     print("*****Generating interpulse spectra*****")
-    for i, tup in enumerate([(.50, .62), (.51, .61), (.52, .60), (.53, .59)]):
+    for i, tup in enumerate(interpulse_ranges):
         genspectra.gen_spectra(evt, tup[0], tup[1],
-                               0, 1200, mincounts_interpulse[i], 
+                               0, 1200, mincounts_interpulse, 
                                save_pha=f"interpulse_{i}.pha")
 
-        autofitting(f"interpulse_{i}")
+        #autofitting(f"interpulse_{i}")
+        xspec = pexpect.spawn("xspec")
+        xspec.expect("XSPEC12>")
+        xspec.sendline(f"data 1:1 interpulse_{i}.pha")
+        xspec.expect("XSPEC12>")
+        #This is an xspec script that loads data and fits model
+        xspec.sendline("@autofitting.xcm")
+        xspec.expect("XSPEC12>")
+        #Save the model params with this command
+        xspec.sendline(f"save model interpulse_model_{i}")
+        if os.path.isfile(f"interpulse_model_{i}.xcm") and clobber:
+            xspec.sendline("y")
+        xspec.expect("XSPEC12>")
+        #Set the xaxis to be keV for our plots (and txt files)
+        xspec.sendline("setplot energy")
+        xspec.expect("XSPEC12>")
+        #Plot both at same time then save txt file
+        xspec.sendline(f"plot ufspec delchi")
+        time.sleep(3)
+        xspec.expect("XSPEC12>")
+        xspec.sendline("ipl")
+        xspec.expect("XSPEC12>")
+        xspec.sendline(f"wdata data_interpulse_{i}.txt")
+        if os.path.isfile(f"data_interpulse_{i}.txt") and clobber:
+            xspec.sendline("yes")
+        xspec.expect("XSPEC12>")
+        xspec.sendline("exit")
 
 
 #This class reads in the txt file output
 class xspecdata:
     def __init__(self, filename):
         assert(os.path.isfile(filename))
-        with open(filename, 'r') as h:
+        with open(filename) as h:
             lines = h.readlines()
         breakidx = np.where(np.array(lines) == 'NO NO NO NO NO\n')[0][0]
         df0 = pd.read_csv(filename, skiprows=3, delimiter=" ", header=None,
@@ -107,6 +178,7 @@ class xspecdata:
         else:
             return f"Phase: {self.lower} -- {self.upper}"
 
+#Plotting routine (still needs comments)
 def multi_ufspec(sourcename, primarytxts, interpulsetxts, p_ranges, i_ranges):
 
     #Init figure
@@ -147,11 +219,10 @@ def multi_ufspec(sourcename, primarytxts, interpulsetxts, p_ranges, i_ranges):
 
 
     #Plot data
-    colors = ["#0096cf",
-            "#a7cb20",
-            "#6800a2",
-            "#71b07b",
-            "#ff355f"]
+    colors = ["#0062b2",
+            "#ff1e33",
+            "#00d5d3",
+            "#d131e7"]
     labels=["Primary Pulse", "Interpulse"]
     for i, ax in enumerate([axp0, axi0]):
         for j in range(len(alldata[i])):
@@ -200,12 +271,47 @@ def multi_ufspec(sourcename, primarytxts, interpulsetxts, p_ranges, i_ranges):
     axi1.set_xlabel("Energy (keV)", fontsize=30)
     fig.savefig("plotunfolded.pdf", dpi=300)
 
+#Find unique phase regions corresponding to different values of sigma
+def find_phase_ranges(evt, lower, upper, nranges=4):
+    lc = LightCurve(evt)
+    lc.generate()
+    tup = lc.peak_cutoff(lower, upper, 2)
+    primary_ranges = [phase_correction((tup.min_phase, tup.max_phase))]
+    interpulse_ranges = [phase_correction((tup.min_phase_ip, tup.max_phase_ip))]
+    sigma = [2]
+    for n in range(3, 10):
+        if len(sigma)==nranges:
+            break
+        tup = lc.peak_cutoff(lower, upper, nsigma=n)
+        primary = phase_correction((tup.min_phase, tup.max_phase))
+        interpulse = phase_correction((tup.min_phase_ip, tup.max_phase_ip))
+        if (primary_ranges[-1] == primary and 
+                interpulse_ranges[-1] == interpulse):
+            continue
+        else:
+            primary_ranges.append(primary)
+            interpulse_ranges.append(interpulse)
+            sigma.append(n)
+
+    rangetup = collections.namedtuple('rangetup', 
+            ['primary', 'interpulse', 'sigma'])
+    tup = rangetup(primary_ranges, interpulse_ranges, sigma)
+    return tup
+
+#Finds phase regions, generates spectra, and plots
+#lower and upper are for offpeak region
+def wrapper(evt, lower, upper, mincounts, mincounts_interpulse):
+    rangetup = find_phase_ranges(evt, lower, upper)
+    gen_multispectra(evt, rangetup.primary, rangetup.interpulse, 
+                     (lower, upper), mincounts, mincounts_interpulse)
+
+    primarytxts = [f"data_onpeak_{i}.txt" for i in range(4)]
+    interpulsetxts = [f"data_interpulse_{i}.txt" for i in range(4)]
+    multi_ufspec(evt, primarytxts, interpulsetxts,
+                 rangetup.primary, rangetup.interpulse)
+
+
 if __name__ == '__main__':
-    main()
+    #wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200)
+    wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 400)
 
-
-    #Example use of multi_ufspec:
-testufspec("PSR_B1821-24", [f"data_onpeak_{i}.txt" for i in range(4)], 
-            [f"data_interpulse_{i}.txt" for i in range(4)], 
-            [(0.97, 1.06), (0.98, 1.05), (0.99, 1.04), (0.0, 0.02)],
-            [(0.50, .62), (.51, .61), (.52, .60), (.53, 59)])
