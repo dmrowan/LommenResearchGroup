@@ -94,10 +94,8 @@ class LightCurve:
         if l1 is not None and l2 is not None:
             cutofftup = self.peak_cutoff(l1, l2, nsigma=nsigma)
             #ax.axhline(cutofftup.median, ls='--', color='gray')
-            ax.axhline(cutofftup.two_sigma, ls=':', color='darkblue', 
-                       label=r'$2\sigma$')
-            ax.axhline(cutofftup.three_sigma, ls=':', color='gray',
-                       label=r'$3\sigma$')
+            ax.axhline(cutofftup.nsigma, ls=':', color='darkblue', 
+                       label=str(cutofftup.n)+r'$\sigma$')
             default_line = dict(ls='--', color='black')
             default_span = dict(alpha=.2, color='gray')
             for i in range(n_phase):
@@ -112,6 +110,7 @@ class LightCurve:
                 for i in range(n_phase):
                     ax.axvspan(cutofftup.min_phase+i, cutofftup.max_phase+i, 
                                **default_span)
+            ax.legend()
         
         #ax.legend(loc=(.85, .85), fontsize=20, edgecolor='black')
         if self.name is not None:
@@ -142,7 +141,6 @@ class LightCurve:
         #collect phases where counts are greater than nsigma away
         on_peak_phases = self.phasebins[np.where(
             self.counts >= (np.median(off_pc) + nsigma*np.std(off_pc)))[0]]
-        print(on_peak_phases)
         #If phases wrap around 0 need to take extra care
         wp = []
         for i in range(len(on_peak_phases)):
@@ -188,13 +186,13 @@ class LightCurve:
         CutoffTup = collections.namedtuple('CutoffTup', 
                 ['min_phase', 'max_phase', 
                  'min_phase_ip', 'max_phase_ip', 
-                 'median', 'two_sigma', 'three_sigma'])
+                 'median', 'nsigma', 'n'])
         tup = CutoffTup(min_phase, max_phase, 
                         min_phase_interpulse,
                         max_phase_interpulse,
                         np.median(off_pc), 
-                        np.median(off_pc)+2*np.std(off_pc),
-                        np.median(off_pc)+3*np.std(off_pc))
+                        np.median(off_pc)+nsigma*np.std(off_pc),
+                        nsigma)
 
 
         return tup
