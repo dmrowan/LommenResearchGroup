@@ -20,14 +20,14 @@ def find_phase_ranges(evt, off1, off2, nsigma):
 
 
 if __name__ == '__main__':
-    parser = arparse.ArgumentParser(description=desc)
+    parser = argparse.ArgumentParser(description=desc)
     parser.add_argument("--evt", help="Event file", type=str, 
                         required=True)
     parser.add_argument("--lower", help="Lower off peak phase", 
                         type=float, required=True)
     parser.add_argument("--upper", help="Upper off peak phase",
                         type=float, required=True)
-    parser.add_argument("--sigma", help="Sigma limits for cutoff", 
+    parser.add_argument("--nsigma", help="Sigma limits for cutoff", 
                         type=float, default=3.0)
     args= parser.parse_args()
-    find_phase_range(args.evt, args.lower, args.upper, args.sigma)
+    find_phase_ranges(args.evt, args.lower, args.upper, args.nsigma)
