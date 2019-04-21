@@ -25,39 +25,6 @@ def phase_correction(phasetup):
         phasetup = (phasetup[0], phasetup[1]+1)
     return phasetup
 
-#Default fitting procedure
-def autofitting(fname_head, clobber=True):
-    assert(os.path.isfile(f"{fname_head}.pha"))
-    #This file must exist in current directoy
-    assert(os.path.isfile("autofitting.xcm"))
-    xspec = pexpect.spawn("xspec")
-    xspec.expect("XSPEC12>")
-    xspec.sendline(f"data 1:1 {fname_head}.pha")
-    xspec.expect("XSPEC12>")
-    #This is an xspec script that loads data and fits model
-    xspec.sendline("@autofitting.xcm")
-    xspec.expect("XSPEC12>")
-    #Save the model params with this command
-    xspec.sendline(f"save model model_{fname_head}")
-    if os.path.isfile(f"model_{fname_head}.xcm") and clobber:
-        xspec.sendline("y")
-    xspec.expect("XSPEC12>")
-    #Set the xaxis to be keV for our plots (and txt files)
-    xspec.sendline("setplot energy")
-    xspec.expect("XSPEC12>")
-    #Plot both at same time then save txt file
-    xspec.sendline(f"plot ufspec delchi")
-    time.sleep(3)
-    xspec.expect("XSPEC12>")
-    xspec.sendline("ipl")
-    xspec.expect("XSPEC12>")
-    xspec.sendline(f"wdata data_{fname_head}.txt")
-    if os.path.isfile(f"data_{fname_head}.txt") and clobber:
-        xspec.sendline("yes")
-    xspec.expect("XSPEC12>")
-    xspec.sendline("exit")
-
-
 def gen_multispectra(evt, onpeak_ranges, interpulse_ranges, 
                      offpeak_range, mincounts, mincounts_interpulse):
     assert(os.path.isfile("autofitting.xcm"))
@@ -77,8 +44,6 @@ def gen_multispectra(evt, onpeak_ranges, interpulse_ranges,
                                save_pha=f"onpeak_{i}.pha")
 
         #This is opening xspec in python and doing basic fitting 
-        #autofitting(f"onpeak_{i}")
-
         xspec = pexpect.spawn("xspec")
         xspec.expect("XSPEC12>")
         xspec.sendline(f"data 1:1 onpeak_{i}.pha")
@@ -113,7 +78,6 @@ def gen_multispectra(evt, onpeak_ranges, interpulse_ranges,
                                0, 1200, mincounts_interpulse, 
                                save_pha=f"interpulse_{i}.pha")
 
-        #autofitting(f"interpulse_{i}")
         xspec = pexpect.spawn("xspec")
         xspec.expect("XSPEC12>")
         xspec.sendline(f"data 1:1 interpulse_{i}.pha")
@@ -145,12 +109,15 @@ def gen_multispectra(evt, onpeak_ranges, interpulse_ranges,
 #This class reads in the txt file output
 class xspecdata:
     def __init__(self, filename):
+        #Read in file and find where table breaks
         assert(os.path.isfile(filename))
         with open(filename) as h:
             lines = h.readlines()
         breakidx = np.where(np.array(lines) == 'NO NO NO NO NO\n')[0][0]
+        #First table is the spectra
         df0 = pd.read_csv(filename, skiprows=3, delimiter=" ", header=None,
                           nrows=breakidx-3)
+        #Second table gives delchi
         df1 = pd.read_csv(filename, skiprows=breakidx+1, 
                           delimiter=" ", header=None)
         df0.columns = ['energy', 'energy_err', 
@@ -179,7 +146,8 @@ class xspecdata:
             return f"Phase: {self.lower} -- {self.upper}"
 
 #Plotting routine (still needs comments)
-def multi_ufspec(sourcename, primarytxts, interpulsetxts, p_ranges, i_ranges):
+def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts, 
+                      p_ranges, i_ranges):
 
     #Init figure
     fig = plt.figure(figsize=(10, 11))
@@ -266,7 +234,7 @@ def multi_ufspec(sourcename, primarytxts, interpulsetxts, p_ranges, i_ranges):
     plt.setp(axi0.get_xticklabels(), visible=False)
     plt.setp(axp0.get_xticklabels(), visible=False)
 
-    fig.text(.03, .55, "Normalized Flux", ha='center', va='center', 
+    fig.text(.03, .55, "Normalized Cts/S", ha='center', va='center', 
              rotation='vertical', fontsize=30)
     axi1.set_xlabel("Energy (keV)", fontsize=30)
     fig.savefig("plotunfolded.pdf", dpi=300)
@@ -307,7 +275,7 @@ def wrapper(evt, lower, upper, mincounts, mincounts_interpulse):
 
     primarytxts = [f"data_onpeak_{i}.txt" for i in range(4)]
     interpulsetxts = [f"data_interpulse_{i}.txt" for i in range(4)]
-    multi_ufspec(evt, primarytxts, interpulsetxts,
+    plot_multi_ufspec(evt, primarytxts, interpulsetxts,
                  rangetup.primary, rangetup.interpulse)
 
 
