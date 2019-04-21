@@ -163,40 +163,46 @@ def convertPDF(psfile, display=False):
 def gen_spectra(evt, phase_lower, phase_upper, 
                 channel_lower, channel_upper, nchan,
                 save_pha=None, save_plot=None, display=False,
-                run_xspec=True):
+                run_xspec=True, verbose=True):
 
     t = Table.read(evt, hdu=1)
     original_exp = t.meta['EXPOSURE']
     new_exp = original_exp * (phase_upper-phase_lower)
 
-    print("-----Running fselect-----")
+    if verbose:
+        print("-----Running fselect-----")
     fselect_phase(evt, "autofits.fits", 
                   phase_lower, phase_upper, clobber=True)
 
     #test_fselect("autofits.fits", plot=True)
 
-    print("-----Running xselect-----")
+    if verbose:
+        print("-----Running xselect-----")
     xselect(datadir='./', eventfile="autofits.fits", 
             session='autoxselect')
 
-    print("-----Updating exposure-----")
+    if verbose:
+        print("-----Updating exposure-----")
     update_exp("autoxselect_spec.pha", "autoxselect_spec_2.fits", 
                new_exp)
     subprocess.run(['mv', 'autoxselect_spec_2.fits',
                     'autoxselect_spec_2.pha'])
 
-    print("-----Running grppha-----")
+    if verbose:
+        print("-----Running grppha-----")
     grppha_wrapper("autoxselect_spec_2.pha", "autoxselect_spec_grppha.pha", nchan)
 
     if save_pha is not None:
         subprocess.run(['cp', 'autoxselect_spec_grppha.pha', save_pha])
     if run_xspec:
-        print("-----Running xspec-----")
+        if verbose:
+            print("-----Running xspec-----")
         xspec_wrapper('autoxselect_spec_grppha.pha', 
                       channel_lower, channel_upper, save=save_plot)
 
         if save_plot is not None:
-            print("-----Converting to PDF-----")
+            if verbose:
+                print("-----Converting to PDF-----")
             convertPDF(f"{save}.ps", display=display)
 
 if __name__ == '__main__':
