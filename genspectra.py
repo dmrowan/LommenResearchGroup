@@ -162,7 +162,8 @@ def convertPDF(psfile, display=False):
 #Wrap heasarc calls to generate spectra with energy/phase selections
 def gen_spectra(evt, phase_lower, phase_upper, 
                 channel_lower, channel_upper, nchan,
-                save_pha=None, save_plot=None, display=False):
+                save_pha=None, save_plot=None, display=False,
+                run_xspec=True):
 
     t = Table.read(evt, hdu=1)
     original_exp = t.meta['EXPOSURE']
@@ -189,13 +190,14 @@ def gen_spectra(evt, phase_lower, phase_upper,
 
     if save_pha is not None:
         subprocess.run(['cp', 'autoxselect_spec_grppha.pha', save_pha])
-    print("-----Running xspec-----")
-    xspec_wrapper('autoxselect_spec_grppha.pha', 
-                  channel_lower, channel_upper, save=save_plot)
+    if run_xspec:
+        print("-----Running xspec-----")
+        xspec_wrapper('autoxselect_spec_grppha.pha', 
+                      channel_lower, channel_upper, save=save_plot)
 
-    if save_plot is not None:
-        print("-----Converting to PDF-----")
-        convertPDF(f"{save}.ps", display=display)
+        if save_plot is not None:
+            print("-----Converting to PDF-----")
+            convertPDF(f"{save}.ps", display=display)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=desc)
