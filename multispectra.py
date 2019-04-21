@@ -12,11 +12,45 @@ import matplotlib.gridspec as gridspec
 from fuzzywuzzy import process
 from spectraplots import plotparams
 import numpy as np
+from tqdm import tqdm
+from astropy import log
 
 #Dom Rowan 2019
 
 desc="""
 Generate multiple spectra with different phase selections
+
+Wrapper function (equiv to main): 
+    (1) Finds phase regions 
+    (2) Generates spectra 
+    (3) Makes a plot
+
+    Arguments:
+        param evt : input event file 
+        type evt: str
+
+        param lower : lower phase boundary of OFF_PULSE
+        type lower: float
+
+        param upper: upper phase boundary of OFF_PULSE
+        type upper: float
+
+        param mincounts: default mininum counts used for grppha for primary
+        type mincounts: int
+
+        param mincounts_interpulse: default minimum counts used for grppha
+                                    for interpulse
+        type mincounts_interpulse: int
+
+        param use_variable_mincounts: change the grppha mincounts dependending                                      on width of phase selection
+        type use_variable_mincounts: bool (default False)
+
+        param scalefactor: How much to adjust grppha mincounts by if using 
+                           variable mincounts
+        type scalefactor: float (default 1.00)
+
+        param output: output plot filename
+        type output: str (default "multispectra.pdf")
 """
 
 #Fix phasetups that overlap zero
@@ -28,20 +62,22 @@ def phase_correction(phasetup):
 def gen_multispectra(evt, onpeak_ranges, interpulse_ranges, 
                      offpeak_range, mincounts, mincounts_interpulse):
     assert(os.path.isfile("autofitting.xcm"))
+    clobber=True
     print("*****Generating Off-Peak Spectra*****")
     genspectra.gen_spectra(evt, 
                            offpeak_range[0], offpeak_range[1], 
                            0, 1200, 
-                           mincounts, 
-                           save_pha="offpeak.pha")
+                           mincounts[0], 
+                           save_pha="offpeak.pha", run_xspec=False)
 
     print("*****Generating On-peak spectra*****")
     #Define phasebins kinda manually, iterate through them
-    for i, tup in enumerate(onpeak_ranges):
+    for i, tup in enumerate(tqdm(onpeak_ranges)):
         #This generates the pha file we normally open in xspec manually
         genspectra.gen_spectra(evt, tup[0], tup[1],
-                               0, 1200, mincounts, 
-                               save_pha=f"onpeak_{i}.pha")
+                               0, 1200, mincounts[i], 
+                               save_pha=f"onpeak_{i}.pha", run_xspec=False,
+                               verbose=False)
 
         #This is opening xspec in python and doing basic fitting 
         xspec = pexpect.spawn("xspec")
@@ -73,10 +109,11 @@ def gen_multispectra(evt, onpeak_ranges, interpulse_ranges,
 
 
     print("*****Generating interpulse spectra*****")
-    for i, tup in enumerate(interpulse_ranges):
+    for i, tup in enumerate(tqdm(interpulse_ranges)):
         genspectra.gen_spectra(evt, tup[0], tup[1],
-                               0, 1200, mincounts_interpulse, 
-                               save_pha=f"interpulse_{i}.pha")
+                               0, 1200, mincounts_interpulse[i], 
+                               save_pha=f"interpulse_{i}.pha", 
+                               run_xspec=False, verbose=False)
 
         xspec = pexpect.spawn("xspec")
         xspec.expect("XSPEC12>")
@@ -147,7 +184,7 @@ class xspecdata:
 
 #Plotting routine (still needs comments)
 def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts, 
-                      p_ranges, i_ranges):
+                      p_ranges, i_ranges, output="multispectra.pdf"):
 
     #Init figure
     fig = plt.figure(figsize=(10, 11))
@@ -237,7 +274,7 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
     fig.text(.03, .55, "Normalized Cts/S", ha='center', va='center', 
              rotation='vertical', fontsize=30)
     axi1.set_xlabel("Energy (keV)", fontsize=30)
-    fig.savefig("plotunfolded.pdf", dpi=300)
+    fig.savefig(output, dpi=300)
 
 #Find unique phase regions corresponding to different values of sigma
 def find_phase_ranges(evt, lower, upper, nranges=4):
@@ -253,7 +290,7 @@ def find_phase_ranges(evt, lower, upper, nranges=4):
         tup = lc.peak_cutoff(lower, upper, nsigma=n)
         primary = phase_correction((tup.min_phase, tup.max_phase))
         interpulse = phase_correction((tup.min_phase_ip, tup.max_phase_ip))
-        if (primary_ranges[-1] == primary and 
+        if (primary_ranges[-1] == primary or 
                 interpulse_ranges[-1] == interpulse):
             continue
         else:
@@ -266,20 +303,68 @@ def find_phase_ranges(evt, lower, upper, nranges=4):
     tup = rangetup(primary_ranges, interpulse_ranges, sigma)
     return tup
 
+#Adjust the minimum counts depending on the width of selection
+def variable_mincounts(primary_ranges, interpulse_ranges, 
+        mincounts, mincounts_interpulse, scalefactor=1.00):
+
+    mincounts_both = [np.zeros(len(primary_ranges), dtype=int), 
+                      np.zeros(len(interpulse_ranges), dtype=int)]
+    initial_values = [mincounts, mincounts_interpulse]
+    for i, ranges in enumerate([primary_ranges, interpulse_ranges]):
+        width = np.array([ r[1] - r[0] for r in ranges ])
+        max_idx = np.where(width == max(width))[0][0]
+        init_width = width[max_idx]
+        for j in range(len(width)):
+            ratio = width[j] / init_width
+            if ratio != 1:
+                new_value = int(round(ratio*initial_values[i]*scalefactor))
+                if new_value > initial_values[i]:
+                    new_value = initial_values[i]
+                mincounts_both[i][j] = new_value
+            else:
+                mincounts_both[i][j] = int(round(initial_values[i]))
+    
+    mincounts_tup = collections.namedtuple('mincounts_tup',
+            ['primary', 'interpulse', 'scalefactor'])
+    tup = mincounts_tup(mincounts_both[0], mincounts_both[1], scalefactor)
+ 
+    return tup
+
+
 #Finds phase regions, generates spectra, and plots
 #lower and upper are for offpeak region
-def wrapper(evt, lower, upper, mincounts, mincounts_interpulse):
+def wrapper(evt, lower, upper, mincounts, mincounts_interpulse, 
+            use_variable_mincounts=False, scalefactor=1.00, 
+            output="multispectra.pdf"):
+
+    log.info(f"Finding phase ranges for {evt}")
     rangetup = find_phase_ranges(evt, lower, upper)
+    if use_variable_mincounts:
+        log.info(f"Using variable mincounts with initial {mincounts} "\
+                  f"for primary and {mincounts_interpulse} for interpulse")
+        mincounts_tup = variable_mincounts(
+                rangetup.primary, rangetup.interpulse,
+                mincounts, mincounts_interpulse)
+        mincounts = mincounts_tup.primary
+        mincounts_interpulse = mincounts_tup.interpulse
+    else:
+        mincounts = [mincounts]*len(rangetup.primary)
+        mincounts_interpulse = [mincounts_interpulse]*len(
+                rangetup.interpulse)
+
     gen_multispectra(evt, rangetup.primary, rangetup.interpulse, 
                      (lower, upper), mincounts, mincounts_interpulse)
 
     primarytxts = [f"data_onpeak_{i}.txt" for i in range(4)]
     interpulsetxts = [f"data_interpulse_{i}.txt" for i in range(4)]
     plot_multi_ufspec(evt, primarytxts, interpulsetxts,
-                 rangetup.primary, rangetup.interpulse)
+                 rangetup.primary, rangetup.interpulse, output=output)
+
 
 
 if __name__ == '__main__':
-    #wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200)
-    wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 400)
+    wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200, 800, 
+            use_variable_mincounts=True, scalefactor=1.25, 
+            output="1821multispectra.pdf")
+    #wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 400)
 
