@@ -63,14 +63,14 @@ def gen_multispectra(evt, onpeak_ranges, interpulse_ranges,
                      offpeak_range, mincounts, mincounts_interpulse):
     assert(os.path.isfile("autofitting.xcm"))
     clobber=True
-    print("*****Generating Off-Peak Spectra*****")
+    log.info("Generating Off-Peak Spectra")
     genspectra.gen_spectra(evt, 
                            offpeak_range[0], offpeak_range[1], 
                            0, 1200, 
                            mincounts[0], 
                            save_pha="offpeak.pha", run_xspec=False)
 
-    print("*****Generating On-peak spectra*****")
+    log.info("Generating On-Peak Spectra")
     #Define phasebins kinda manually, iterate through them
     for i, tup in enumerate(tqdm(onpeak_ranges)):
         #This generates the pha file we normally open in xspec manually
@@ -108,7 +108,7 @@ def gen_multispectra(evt, onpeak_ranges, interpulse_ranges,
         xspec.sendline("exit")
 
 
-    print("*****Generating interpulse spectra*****")
+    log.info("Generating Interpulse spectra")
     for i, tup in enumerate(tqdm(interpulse_ranges)):
         genspectra.gen_spectra(evt, tup[0], tup[1],
                                0, 1200, mincounts_interpulse[i], 
@@ -168,6 +168,7 @@ class xspecdata:
         self.lower = None
         self.upper = None
         self.component = None
+        self.mincounts = None
     def set_component(self, component):
         self.component = process.extract(component, ['primary', 'interpulse'],
                                          limit=1)[0][0]
@@ -175,16 +176,25 @@ class xspecdata:
         self.width=p2-p1
         self.lower = p1
         self.upper = p2
+
+    def set_counts(self, n):
+        self.mincounts = n
     def get_label(self):
         if self.lower is None or self.upper is None:
             print("No phase region specified")
             return -1
         else:
-            return f"Phase: {self.lower} -- {self.upper}"
+            label = f"Phase: {self.lower} -- {self.upper}"
+
+        if self.mincounts is not None:
+            label = label + f", Mincounts: {self.mincounts}"
+            
+        return label
 
 #Plotting routine (still needs comments)
 def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts, 
-                      p_ranges, i_ranges, output="multispectra.pdf"):
+                      p_ranges, i_ranges, mincounts, mincounts_interpulse,
+                      output="multispectra.pdf"):
 
     #Init figure
     fig = plt.figure(figsize=(10, 11))
@@ -206,10 +216,12 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
     for i in range(len(primarytxts)):
         xd = xspecdata(primarytxts[i])
         xd.set_phaserange(p_ranges[i][0], p_ranges[i][1])
+        xd.set_counts(mincounts[i])
         primary_data.append(xd)
     for i in range(len(interpulsetxts)):
         xd = xspecdata(interpulsetxts[i])
         xd.set_phaserange(i_ranges[i][0], i_ranges[i][1])
+        xd.set_counts(mincounts_interpulse[i])
         interpulse_data.append(xd)
     alldata = [primary_data, interpulse_data]
 
@@ -224,10 +236,12 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
 
 
     #Plot data
-    colors = ["#0062b2",
-            "#ff1e33",
-            "#00d5d3",
-            "#d131e7"]
+    colors = ["#d5483a",
+            "#70c84c",
+            "#853bce",
+            "#d4ae2f",
+            "#625cce",
+            "#c24ebe"]
     labels=["Primary Pulse", "Interpulse"]
     for i, ax in enumerate([axp0, axi0]):
         for j in range(len(alldata[i])):
@@ -263,6 +277,7 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
                     ls=' ', marker='.', color=colors[j], alpha=0.8,
                     zorder=i)
         ax = plotparams(ax)
+        ax.axhline(0, ls=':', lw=.5, color='gray')
         ax.set_xscale('log')
         ax.set_xlim(right=10)
         fig.add_subplot(ax)
@@ -308,6 +323,8 @@ def find_phase_ranges(evt, lower, upper, nranges=4, sigma0=2):
     tup = rangetup(primary_ranges, interpulse_ranges, sigma)
     return tup
 
+def find_phase_ranges_v2(evt, lower, upper, nranges, sigma0=2)
+
 #Adjust the minimum counts depending on the width of selection
 def variable_mincounts(primary_ranges, interpulse_ranges, 
         mincounts, mincounts_interpulse, scalefactor=1.00):
@@ -336,14 +353,15 @@ def variable_mincounts(primary_ranges, interpulse_ranges,
     return tup
 
 def manual_mincounts(pulse):
-    s = input("Enter minimum counts for {pulse} --- ")
+    s = input(f"Enter minimum counts for {pulse} --- ")
     output = []
     while (s != ''):
         try:
             output.append(int(s))
         except:
             print("Invalid input")
-        s = input("Enter minimum counts for {pulse} --- ")
+        s = input(f"Enter minimum counts for {pulse} --- ")
+    print("\n")
     return output
 
 #Finds phase regions, generates spectra, and plots
@@ -382,14 +400,6 @@ def wrapper(evt, lower, upper, mincounts, mincounts_interpulse,
         primary_ranges = rangetup.primary*nfiles
         interpulse_ranges = rangetup.interpulse*nfiles
 
-        log.info(f"Using variable mincounts with initial {mincounts} "\
-                  f"for primary and {mincounts_interpulse} for interpulse")
-        mincounts_tup = variable_mincounts(
-                rangetup.primary, rangetup.interpulse,
-                mincounts, mincounts_interpulse)
-        mincounts = mincounts_tup.primary
-        mincounts_interpulse = mincounts_tup.interpulse
-
     elif not use_variable_mincounts and use_variable_ranges:
         log.info(f"Finding phase ranges for {evt}")
         rangetup = find_phase_ranges(evt, lower, upper)
@@ -413,17 +423,20 @@ def wrapper(evt, lower, upper, mincounts, mincounts_interpulse,
         mincounts = [mincounts]
         mincounts_interpulse = [mincounts_interpulse]
     
-    gen_multispectra(evt, rangetup.primary, rangetup.interpulse, 
+    gen_multispectra(evt, primary_ranges, interpulse_ranges,
                      (lower, upper), mincounts, mincounts_interpulse)
 
     primarytxts = [f"data_onpeak_{i}.txt" for i in range(nfiles)]
     interpulsetxts = [f"data_interpulse_{i}.txt" for i in range(nfiles)]
     plot_multi_ufspec(evt, primarytxts, interpulsetxts,
-                 primary_ranges, interpulse_ranges, output=output)
+                      primary_ranges, interpulse_ranges, 
+                      mincounts, mincounts_interpulse, output=output)
 
 
 
 if __name__ == '__main__':
+    """
+    #These 1821 calls all work fine
     wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200, 800, 
             use_variable_mincounts=True, scalefactor=1.25, 
             output="spectra_CT_RT.pdf", use_variable_ranges=True)
@@ -437,6 +450,24 @@ if __name__ == '__main__':
             use_variable_ranges=False)
 
     wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200, 800, 
+            use_variable_mincounts=False, output="spectra_CF_RF.pdf",
+            use_variable_ranges=False)
+    """
+
+    #Some 1937 Calls
+    wrapper("../PSR_B1937+21_combined.evt", .1, .4, 2000, 1000, 
+            use_variable_mincounts=True, scalefactor=1.25, 
+            output="spectra_CT_RT.pdf", use_variable_ranges=True)
+
+    wrapper("../PSR_B1937+21_combined.evt", .1, .4, 2000, 1000, 
+            use_variable_mincounts=False, output="spectra_CF_RT.pdf", 
+            use_variable_ranges=True)
+
+    wrapper("../PSR_B1937+21_combined.evt", .1, .4, 2000, 1000,
+            use_variable_mincounts=True, output="spectra_CT_RF.pdf", 
+            use_variable_ranges=False)
+
+    wrapper("../PSR_B1937+21_combined.evt", .1, .4, 2000, 1000,
             use_variable_mincounts=False, output="spectra_CF_RF.pdf",
             use_variable_ranges=False)
 
