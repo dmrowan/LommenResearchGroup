@@ -323,7 +323,33 @@ def find_phase_ranges(evt, lower, upper, nranges=4, sigma0=2):
     tup = rangetup(primary_ranges, interpulse_ranges, sigma)
     return tup
 
-def find_phase_ranges_v2(evt, lower, upper, nranges, sigma0=2)
+def find_phase_ranges_v2(evt, lower, upper, nranges, sigma0=2):
+    assert(0 < sigma0 < 10)
+    lc = LightCurve(evt)
+    lc.generate()
+    tup = lc.peak_cutoff(lower, upper, sigma0)
+    primary_ranges = [phase_correction((tup.min_phase, tup.max_phase))]
+    interpulse_ranges = [phase_correction((tup.min_phase_ip, tup.max_phase_ip))]
+    while (len(primary_ranges) < nranges):
+        if primary_ranges[-1][1] - primary_ranges[-1][0] > 0.02:
+            newtup = (primary_ranges[-1][0]+.01, primary_ranges[-1][1]-.01)
+            primary_ranges.append(newtup)
+        else:
+            break
+
+    while (len(interpulse_ranges) < nranges):
+        if interpulse_ranges[-1][1] - interpulse_ranges[-1][0] > 0.02:
+            newtup = (interpulse_ranges[-1][0]+.01, interpulse_ranges[-1][1]-.01)
+            interpulse_ranges.append(newtup)
+        else:
+            break
+    
+    rangetup = collections.namedtupe('rangetup', ['primary', 'interpulse', 'nfound'])
+    tup = rangetup(primary_ranges, interpulse_ranges, 
+                   min(len(primary_ranges), len(interpulse_ranges)))
+    return tup
+
+
 
 #Adjust the minimum counts depending on the width of selection
 def variable_mincounts(primary_ranges, interpulse_ranges, 
@@ -405,13 +431,15 @@ def wrapper(evt, lower, upper, mincounts, mincounts_interpulse,
         rangetup = find_phase_ranges(evt, lower, upper)
         primary_ranges = rangetup.primary
         interpulse_ranges = rangetup.interpulse
+        #primary_ranges = rangetup.primary[:rangetup.nfound]
+        #interpulse_ranges = rangetup.interpulse[:rangetup.nfound]
         nfiles = len(rangetup.primary)
+        #nfiles = rangetup.nfound
 
         log.info(f"Using static mincounts {mincounts}"\
                  f"and {mincounts_interpulse}")
-        mincounts = [mincounts]*len(rangetup.primary)
-        mincounts_interpulse = [mincounts_interpulse]*len(
-                rangetup.interpulse)
+        mincounts = [mincounts]*nfiles
+        mincounts_interpulse = [mincounts_interpulse]*nfiles
 
     else:
         nfiles = 1
