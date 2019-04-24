@@ -149,7 +149,6 @@ class LightCurve:
             if on_peak_phases[i] > .9:
                 wp.append(on_peak_phases[i])
 
-        print(on_peak_phases)
         #Look for gap in selected phases to determine pulse region
         for i in range(len(on_peak_phases)):
             if i != len(on_peak_phases) - 1:
