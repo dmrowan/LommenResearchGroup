@@ -98,9 +98,11 @@ class LightCurve:
                        label=str(cutofftup.n)+r'$\sigma$')
             default_line = dict(ls='--', color='black')
             default_span = dict(alpha=.2, color='gray')
-            for i in range(n_phase):
-                ax.axvspan(cutofftup.min_phase_ip+i, cutofftup.max_phase_ip+i,
-                           **default_span)
+            if cutofftup.min_phase_ip is not None:
+                for i in range(n_phase):
+                    ax.axvspan(cutofftup.min_phase_ip+i, 
+                               cutofftup.max_phase_ip+i,
+                               **default_span)
 
             if cutofftup.min_phase > cutofftup.max_phase:
                 for i in range(n_phase):
@@ -153,6 +155,8 @@ class LightCurve:
                 if on_peak_phases[i+1] - on_peak_phases[i] > .02:
                     max_phase = on_peak_phases[i]
                     break
+            else:
+                max_phase = on_peak_phases[i]
         #If we have no wrapped phases the min of pulse is first index
         if len(wp) == 0:
             min_phase = on_peak_phases[0]
@@ -177,10 +181,15 @@ class LightCurve:
                 else:
                     max_phase_interpulse = on_peak_phases[i]
             else:
-                if ((on_peak_phases[i] >= interpulse_lower) and 
-                   (on_peak_phases[i+1] - on_peak_phases[i] < .02)):
-                    min_phase_interpulse = on_peak_phases[i]
-                    ip_found = True
+                if i != len(on_peak_phases) - 1:
+                    if ((on_peak_phases[i] >= interpulse_lower) and 
+                       (on_peak_phases[i+1] - on_peak_phases[i] < .02)):
+                        min_phase_interpulse = on_peak_phases[i]
+                        ip_found = True
+        if not ip_found:
+            min_phase_interpulse = None
+            max_phase_interpulse = None
+
 
         #Define return tuple
         CutoffTup = collections.namedtuple('CutoffTup', 
