@@ -112,7 +112,7 @@ class LightCurve:
                 for i in range(n_phase):
                     ax.axvspan(cutofftup.min_phase+i, cutofftup.max_phase+i, 
                                **default_span)
-            ax.legend()
+                    #ax.legend()
         
         #ax.legend(loc=(.85, .85), fontsize=20, edgecolor='black')
         if self.name is not None:
@@ -122,7 +122,7 @@ class LightCurve:
                               alpha=.5))
         #Save/display/return plot
         if output is not None:
-            fig.savefig(f"{output}.{extension}", dpi=300)
+            fig.savefig(f"{output}.{extension}", dpi=500)
         elif show:
             plt.show()
         else:

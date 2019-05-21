@@ -14,6 +14,7 @@ from spectraplots import plotparams
 import numpy as np
 from tqdm import tqdm
 from astropy import log
+import subprocess
 
 #Dom Rowan 2019
 
@@ -169,6 +170,8 @@ class xspecdata:
         self.upper = None
         self.component = None
         self.mincounts = None
+        self.phot_index = None
+        self.filename = filename
     def set_component(self, component):
         self.component = process.extract(component, ['primary', 'interpulse'],
                                          limit=1)[0][0]
@@ -179,22 +182,39 @@ class xspecdata:
 
     def set_counts(self, n):
         self.mincounts = n
+
+
+    def phot_index_from_file(self, fname):
+        assert(os.path.isfile(fname))
+        self.phot_index = parse_model(fname)
+
     def get_label(self):
+        ask_for_error = True #temp variable
         if self.lower is None or self.upper is None:
             print("No phase region specified")
             return -1
         else:
-            label = f"Phase: {self.lower} -- {self.upper}"
+            #label = f"Phase: {self.lower} -- {self.upper}"
+            label = f"Phase: {self.lower}" + r'$-$' + str(self.upper)
 
         if self.mincounts is not None:
             label = label + f", Mincounts: {self.mincounts}"
+
+        if self.phot_index is not None:
+            if ask_for_error:
+                error = input(f"Enter error for {self.filename}:")
+                error = float(error)
+            label = label + f", PhotIndex: {round(self.phot_index, 2)}" + r'$\pm$' + str(error)
             
         return label
+
 
 #Plotting routine (still needs comments)
 def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts, 
                       p_ranges, i_ranges, mincounts, mincounts_interpulse,
-                      output="multispectra.pdf"):
+                      output="multispectra.pdf",
+                      primary_models=[],
+                      interpulse_models=[]):
 
     #Init figure
     fig = plt.figure(figsize=(10, 11))
@@ -213,15 +233,22 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
 
     primary_data = []
     interpulse_data = []
+    use_counts_label=False #Setting this manually for now
     for i in range(len(primarytxts)):
         xd = xspecdata(primarytxts[i])
         xd.set_phaserange(p_ranges[i][0], p_ranges[i][1])
-        xd.set_counts(mincounts[i])
+        if use_counts_label:
+            xd.set_counts(mincounts[i])
+        if len(primary_models) != 0:
+            xd.phot_index_from_file(primary_models[i])
         primary_data.append(xd)
     for i in range(len(interpulsetxts)):
         xd = xspecdata(interpulsetxts[i])
         xd.set_phaserange(i_ranges[i][0], i_ranges[i][1])
-        xd.set_counts(mincounts_interpulse[i])
+        if use_counts_label:
+            xd.set_counts(mincounts_interpulse[i])
+        if len(interpulse_models) != 0:
+            xd.phot_index_from_file(interpulse_models[i])
         interpulse_data.append(xd)
     alldata = [primary_data, interpulse_data]
 
@@ -262,7 +289,7 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
         ax.set_yscale('log')
         ax.text(.95, .95, labels[i], transform=ax.transAxes, 
                 fontsize=20, ha='right', va='top')
-        ax.legend(loc=(.40, 0.05), fontsize=13, edgecolor='black')
+        ax.legend(loc=(.30, 0.05), fontsize=13, edgecolor='black')
         ax.set_xlim(right=10)
         fig.add_subplot(ax)
 
@@ -277,9 +304,10 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
                     ls=' ', marker='.', color=colors[j], alpha=0.8,
                     zorder=i)
         ax = plotparams(ax)
-        ax.axhline(0, ls=':', lw=.5, color='gray')
+        ax.axhline(0, ls=':', lw=1.5, color='gray')
         ax.set_xscale('log')
         ax.set_xlim(right=10)
+        ax.set_ylabel(r'Residuals ($\sigma$)', fontsize=15)
         fig.add_subplot(ax)
 
 
@@ -390,6 +418,15 @@ def manual_mincounts(pulse):
     print("\n")
     return output
 
+def parse_model(xcm):
+    assert(os.path.isfile(xcm))
+    with open(xcm) as f:
+        lines = np.array(f.readlines())
+    prefix_end = [ i for i in range(len(lines)) if lines[i].find("model") >= 0 ][0]
+    phot_index = float(lines[prefix_end+1].split()[0])
+    return phot_index
+    
+
 #Finds phase regions, generates spectra, and plots
 #lower and upper are for offpeak region
 def wrapper(evt, lower, upper, mincounts, mincounts_interpulse, 
@@ -451,24 +488,29 @@ def wrapper(evt, lower, upper, mincounts, mincounts_interpulse,
         mincounts = [mincounts]
         mincounts_interpulse = [mincounts_interpulse]
     
-    gen_multispectra(evt, primary_ranges, interpulse_ranges,
-                     (lower, upper), mincounts, mincounts_interpulse)
+    print(primary_ranges, interpulse_ranges)
+    #gen_multispectra(evt, primary_ranges, interpulse_ranges,
+    #                 (lower, upper), mincounts, mincounts_interpulse)
 
     primarytxts = [f"data_onpeak_{i}.txt" for i in range(nfiles)]
     interpulsetxts = [f"data_interpulse_{i}.txt" for i in range(nfiles)]
+    primary_models = [f"onpeak_model_{i}.xcm" for i in range(nfiles)]
+    interpulse_models = [f"interpulse_model_{i}.xcm" for i in range(nfiles)]
+    log.info("Plotting spectra")
     plot_multi_ufspec(evt, primarytxts, interpulsetxts,
                       primary_ranges, interpulse_ranges, 
-                      mincounts, mincounts_interpulse, output=output)
+                      mincounts, mincounts_interpulse, output=output,
+                      primary_models=primary_models, 
+                      interpulse_models=interpulse_models)
 
 
 
 if __name__ == '__main__':
-    """
     #These 1821 calls all work fine
     wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200, 800, 
             use_variable_mincounts=True, scalefactor=1.25, 
             output="spectra_CT_RT.pdf", use_variable_ranges=True)
-
+    """
     wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200, 800, 
             use_variable_mincounts=False, output="spectra_CF_RT.pdf", 
             use_variable_ranges=True)
@@ -480,22 +522,22 @@ if __name__ == '__main__':
     wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200, 800, 
             use_variable_mincounts=False, output="spectra_CF_RF.pdf",
             use_variable_ranges=False)
-    """
 
     #Some 1937 Calls
-    wrapper("../PSR_B1937+21_combined.evt", .1, .4, 2000, 1000, 
+    wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 1000, 
             use_variable_mincounts=True, scalefactor=1.25, 
             output="spectra_CT_RT.pdf", use_variable_ranges=True)
 
-    wrapper("../PSR_B1937+21_combined.evt", .1, .4, 2000, 1000, 
+    wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 1000, 
             use_variable_mincounts=False, output="spectra_CF_RT.pdf", 
             use_variable_ranges=True)
 
-    wrapper("../PSR_B1937+21_combined.evt", .1, .4, 2000, 1000,
+    wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 1000,
             use_variable_mincounts=True, output="spectra_CT_RF.pdf", 
             use_variable_ranges=False)
 
-    wrapper("../PSR_B1937+21_combined.evt", .1, .4, 2000, 1000,
+    wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 1000,
             use_variable_mincounts=False, output="spectra_CF_RF.pdf",
             use_variable_ranges=False)
 
+    """ 
