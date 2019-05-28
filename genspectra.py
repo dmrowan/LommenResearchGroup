@@ -174,7 +174,7 @@ def gen_spectra(evt, phase_lower, phase_upper,
     fselect_phase(evt, "autofits.fits", 
                   phase_lower, phase_upper, clobber=True)
 
-    #test_fselect("autofits.fits", plot=True)
+    #test_fselect("autofits.fits")
 
     if verbose:
         print("-----Running xselect-----")
