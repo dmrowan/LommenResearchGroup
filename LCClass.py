@@ -67,9 +67,9 @@ class LightCurve:
             self.phasebins_extended = None
 
     # Produce plot of puslar profile
-    def plot(self, n_phase=2, bs=.01, output=None, 
-             show=False, extension='pdf', 
-             l1=None, l2=None, nsigma=3):
+    def plot(self, n_phase=2, bs=.01, 
+             output=None, extension='pdf', 
+             l1=None, l2=None, nsigma=3, ax=None):
 
         if output is not None:
             assert(type(output) == str)
@@ -78,18 +78,23 @@ class LightCurve:
         if self.counts is None:
             self.generate(n_phase, bs=bs)
 
-        #Initialize matplotlib figure
-        fig, ax = plt.subplots(1, 1, figsize=(8,4))
-        plt.subplots_adjust(bottom=.2, top=.98, right=.98, left=.15)
-        ax.plot(self.phasebins_extended, self.counts_extended, 
-                marker='.', ls='-', color='xkcd:violet')
+        if ax is None:
+            #Initialize matplotlib figure
+            fig, ax = plt.subplots(1, 1, figsize=(8,4))
+            plt.subplots_adjust(bottom=.2, top=.98, right=.98, left=.15)
+            created_fig=True
+        else:
+            created_fig=False
 
         #Default plot paramaters
         ax = spectraplots.plotparams(ax)
         ax.set_xlabel('Phase', fontsize=25)
         ax.set_ylabel('Counts', fontsize=25)
         ax.set_xlim(left=-.025, right=n_phase+.025)
-    
+
+        ax.plot(self.phasebins_extended, self.counts_extended, 
+                marker='.', ls='-', color='xkcd:violet')
+
         #Use l1 and l2 to define an offpeak region & determine onpeak region
         if l1 is not None and l2 is not None:
             cutofftup = self.peak_cutoff(l1, l2, nsigma=nsigma)
@@ -123,8 +128,12 @@ class LightCurve:
         #Save/display/return plot
         if output is not None:
             fig.savefig(f"{output}.{extension}", dpi=500)
-        elif show:
+
+        #If the figure is within class, show
+        if created_fig:
             plt.show()
+            return 0
+        #If appending to input axis, return modifying axis
         else:
             return ax
 
