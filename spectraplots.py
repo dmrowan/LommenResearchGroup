@@ -359,7 +359,6 @@ if __name__ == '__main__':
                           mode=args.m, datafile_sub2=args.sub_data2,
                           pha_on=args.pha_on,
                           pha_off=args.pha_off, breakenergy=args.be)
-
     """
     ####Example Function Calls####
 
@@ -373,5 +372,5 @@ if __name__ == '__main__':
                           'interpulse_subtracted.txt', 
                           'InterpulseModel.pdf', nchan=5, mode='i', 
                           pha_on='interpulse.pha', pha_off='offpeak.pha', 
-                          breakenergy=1.59) 
+                          breakenergy=1.59 
     """
