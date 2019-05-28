@@ -215,6 +215,15 @@ class LightCurve:
 
         return tup
 
+    def peak_center(self):
+        if self.counts is None:
+            self.generate()
+
+        idx = np.where(np.array(self.counts_extended) == max(self.counts_extended))[0]
+        return self.phasebins_extended[idx]
+       
+
+
     def fit_gauss(self):
         if self.counts is None:
             self.generate()
