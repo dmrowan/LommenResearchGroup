@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import spectraplots
+import argparse
 import collections
 import genspectra
 import pexpect
@@ -62,8 +63,11 @@ def phase_correction(phasetup):
     return phasetup
 
 def gen_multispectra(evt, onpeak_ranges, interpulse_ranges, 
-                     offpeak_range, mincounts, mincounts_interpulse):
+                     offpeak_range, mincounts, mincounts_interpulse,
+                     lower_energy_primary=1.0, 
+                     lower_energy_interpulse=1.0):
     assert(os.path.isfile("autofitting.xcm"))
+    assert(os.path.isfile("runsetup.xcm"))
     clobber=True
     log.info("Generating Off-Peak Spectra")
     genspectra.gen_spectra(evt, 
@@ -87,8 +91,15 @@ def gen_multispectra(evt, onpeak_ranges, interpulse_ranges,
         xspec.sendline(f"data 1:1 onpeak_{i}.pha")
         xspec.expect("XSPEC12>")
         #This is an xspec script that loads data and fits model
+        xspec.sendline("@runsetup.xcm")
+        xspec.expect("XSPEC12>")
+
+        xspec.sendline(f"ig **-{lower_energy_primary}, 10.-**")
+        xspec.expect("XSPEC12>")
+        
         xspec.sendline("@autofitting.xcm")
         xspec.expect("XSPEC12>")
+
         #Save the model params with this command
         xspec.sendline(f"save model onpeak_model_{i}")
         if os.path.isfile(f"onpeak_model_{i}.xcm") and clobber:
@@ -121,9 +132,16 @@ def gen_multispectra(evt, onpeak_ranges, interpulse_ranges,
         xspec.expect("XSPEC12>")
         xspec.sendline(f"data 1:1 interpulse_{i}.pha")
         xspec.expect("XSPEC12>")
-        #This is an xspec script that loads data and fits model
+
+        xspec.sendline("@runsetup.xcm")
+        xspec.expect("XSPEC12>")
+
+        xspec.sendline(f"ig **-{lower_energy_interpulse}, 10.-**")
+        xspec.expect("XSPEC12>")
+
         xspec.sendline("@autofitting.xcm")
         xspec.expect("XSPEC12>")
+
         #Save the model params with this command
         xspec.sendline(f"save model interpulse_model_{i}")
         if os.path.isfile(f"interpulse_model_{i}.xcm") and clobber:
@@ -299,8 +317,12 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
         ax = plotparams(ax)
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.text(.05, .95, labels[i], transform=ax.transAxes, 
-                fontsize=20, ha='left', va='top')
+        if sourcename == 'PSR_B1837+21':
+            ax.text(.05, .95, labels[i], transform=ax.transAxes, 
+                    fontsize=20, ha='left', va='top')
+        else:
+            ax.text(.95, .95, labels[i], transform=ax.transAxes, 
+                    fontsize=20, ha='right', va='top')
         ax.legend(loc=(.30, 0.05), fontsize=13, edgecolor='black')
         ax.set_xlim(right=10)
         fig.add_subplot(ax)
@@ -386,7 +408,7 @@ def find_phase_ranges_v2(evt, lower, upper, nranges, sigma0=2):
         else:
             break
     
-    rangetup = collections.namedtupe('rangetup', ['primary', 'interpulse', 'nfound'])
+    rangetup = collections.namedtuple('rangetup', ['primary', 'interpulse', 'nfound'])
     tup = rangetup(primary_ranges, interpulse_ranges, 
                    min(len(primary_ranges), len(interpulse_ranges)))
     return tup
@@ -447,11 +469,12 @@ def parse_model(xcm):
 #lower and upper are for offpeak region
 def wrapper(evt, lower, upper, mincounts, mincounts_interpulse, 
             use_variable_mincounts=False, scalefactor=1.00, 
-            output="multispectra.pdf", use_variable_ranges=True):
+            output="multispectra.pdf", use_variable_ranges=True, 
+            lower_energy_primary=1.0, lower_energy_interpulse=1.0):
 
     if use_variable_mincounts and use_variable_ranges:
         log.info(f"Finding phase ranges for {evt}")
-        rangetup = find_phase_ranges(evt, lower, upper)
+        rangetup = find_phase_ranges_v2(evt, lower, upper, 4)
         primary_ranges = rangetup.primary
         interpulse_ranges = rangetup.interpulse
         nfiles = len(rangetup.primary)
@@ -505,7 +528,9 @@ def wrapper(evt, lower, upper, mincounts, mincounts_interpulse,
         mincounts_interpulse = [mincounts_interpulse]
     
     gen_multispectra(evt, primary_ranges, interpulse_ranges,
-                     (lower, upper), mincounts, mincounts_interpulse)
+                     (lower, upper), mincounts, mincounts_interpulse, 
+                     lower_energy_primary=lower_energy_primary,
+                     lower_energy_interpulse=lower_energy_interpulse)
 
     primarytxts = [f"data_onpeak_{i}.txt" for i in range(nfiles)]
     interpulsetxts = [f"data_interpulse_{i}.txt" for i in range(nfiles)]
@@ -529,7 +554,25 @@ def wrapper(evt, lower, upper, mincounts, mincounts_interpulse,
 
 
 if __name__ == '__main__':
-    #In theory we would have command line args
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument("source", help="Source name", type=str)
+    args=parser.parse_args()
+                        
+
+    source= process.extract(args.source, ['PSR_B1821-24', 'PSR_B1937+21'],
+                            limit=1)[0][0]
+    if source == 'PSR_B1821-24':
+        wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200, 800, 
+                use_variable_mincounts=True, scalefactor=1.25, 
+                output="spectra_CT_RT.pdf", use_variable_ranges=True, 
+                lower_energy_primary=.6, lower_energy_interpulse=.8)
+    elif source == 'PSR_B1937+21':
+        wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 1000, 
+                use_variable_mincounts=True, scalefactor=1.25, 
+                output="spectra_CT_RT.pdf", use_variable_ranges=True)
+    else:
+        print("Invalid source")
+
     """
     wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200, 800, 
             use_variable_mincounts=True, scalefactor=1.25, 
@@ -547,11 +590,9 @@ if __name__ == '__main__':
             use_variable_ranges=False)
 
     #Some 1937 Calls
-    """
     wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 1000, 
             use_variable_mincounts=True, scalefactor=1.25, 
             output="spectra_CT_RT.pdf", use_variable_ranges=True)
-    """
     wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 1000, 
             use_variable_mincounts=False, output="spectra_CF_RT.pdf", 
             use_variable_ranges=True)
