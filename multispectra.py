@@ -15,6 +15,7 @@ import numpy as np
 from tqdm import tqdm
 from astropy import log
 import subprocess
+import isolate_errorbars
 
 #Dom Rowan 2019
 
@@ -188,8 +189,7 @@ class xspecdata:
         assert(os.path.isfile(fname))
         self.phot_index = parse_model(fname)
 
-    def get_label(self):
-        ask_for_error = True #temp variable
+    def get_label(self, ask_for_error=False):
         if self.lower is None or self.upper is None:
             print("No phase region specified")
             return -1
@@ -201,15 +201,16 @@ class xspecdata:
             label = label + f", Mincounts: {self.mincounts}"
 
         if self.phot_index is not None:
+            label = label + f", PhotIndex: {round(self.phot_index, 2)}" 
             if ask_for_error:
                 error = input(f"Enter error for {self.filename}:")
                 error = float(error)
-            label = label + f", PhotIndex: {round(self.phot_index, 2)}" + r'$\pm$' + str(error)
-            
+                label += r'$\pm$' + str(error)
+
         return label
 
 
-#Plotting routine (still needs comments)
+#Plotting routine 
 def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts, 
                       p_ranges, i_ranges, mincounts, mincounts_interpulse,
                       output="multispectra.pdf",
@@ -219,21 +220,26 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
     #Init figure
     fig = plt.figure(figsize=(10, 11))
     plt.subplots_adjust(top=.98, right=.98, hspace=.15, left=.15)
+    #Outer gridspec of size 2
     outer = gridspec.GridSpec(2, 1, height_ratios=[1,1])
 
+    #Each spec of outer contains ufspec and delchi
     inner_p = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer[0],
                                                hspace=0, height_ratios=[3, 1])
     inner_i = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer[1],
                                                hspace=0, height_ratios=[3,1])
+
+    #Make axes we can plot onto
     axp1 = plt.Subplot(fig, inner_p[1])
     axp0 = plt.Subplot(fig, inner_p[0], sharex=axp1)
     axi1 = plt.Subplot(fig, inner_i[1])
     axi0 = plt.Subplot(fig, inner_i[0], sharex=axi1)
     
-
+    #Fill lists of xspecdata objects
     primary_data = []
     interpulse_data = []
-    use_counts_label=False #Setting this manually for now
+
+    use_counts_label=False #Setting this manually for now 
     for i in range(len(primarytxts)):
         xd = xspecdata(primarytxts[i])
         xd.set_phaserange(p_ranges[i][0], p_ranges[i][1])
@@ -250,6 +256,8 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
         if len(interpulse_models) != 0:
             xd.phot_index_from_file(interpulse_models[i])
         interpulse_data.append(xd)
+
+    #Make one list with both to easily iterate through
     alldata = [primary_data, interpulse_data]
 
     #Match sourcename
@@ -258,7 +266,7 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
                                  limit=1)[0][0]
     assert(sourcename in ['PSR_B1821-24', 'PSR_B1937+21'])
 
-
+    #Labels for each plot
     labels=["Primary Pulse", "Interpulse"]
 
 
@@ -269,7 +277,8 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
             "#d4ae2f",
             "#625cce",
             "#c24ebe"]
-    labels=["Primary Pulse", "Interpulse"]
+
+    #Iterate through xspecdata and axes
     for i, ax in enumerate([axp0, axi0]):
         for j in range(len(alldata[i])):
             ax.errorbar(alldata[i][j].data['energy'], 
@@ -284,11 +293,14 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
                     ls='-', lw=3, color=colors[j],
                     zorder=len(alldata[i])+i, 
                     label='_nolegend_')
+            #Testing isolation of errorbars
+            ax = isolate_errorbars.flag_energies(alldata[i][j], ax, 2, colors[j]) 
+        #Set plot parameters
         ax = plotparams(ax)
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.text(.95, .95, labels[i], transform=ax.transAxes, 
-                fontsize=20, ha='right', va='top')
+        ax.text(.05, .95, labels[i], transform=ax.transAxes, 
+                fontsize=20, ha='left', va='top')
         ax.legend(loc=(.30, 0.05), fontsize=13, edgecolor='black')
         ax.set_xlim(right=10)
         fig.add_subplot(ax)
@@ -310,10 +322,11 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
         ax.set_ylabel(r'Residuals ($\sigma$)', fontsize=15)
         fig.add_subplot(ax)
 
-
+    #Dont want to show xtick labels for ufspec
     plt.setp(axi0.get_xticklabels(), visible=False)
     plt.setp(axp0.get_xticklabels(), visible=False)
 
+    #Add axes labels
     fig.text(.03, .55, "Normalized Cts/S", ha='center', va='center', 
              rotation='vertical', fontsize=30)
     axi1.set_xlabel("Energy (keV)", fontsize=30)
@@ -351,6 +364,7 @@ def find_phase_ranges(evt, lower, upper, nranges=4, sigma0=2):
     tup = rangetup(primary_ranges, interpulse_ranges, sigma)
     return tup
 
+#Varation of V1. Starts with nsigma and increments smaller
 def find_phase_ranges_v2(evt, lower, upper, nranges, sigma0=2):
     assert(0 < sigma0 < 10)
     lc = LightCurve(evt)
@@ -406,6 +420,7 @@ def variable_mincounts(primary_ranges, interpulse_ranges,
  
     return tup
 
+#Enter min counts manually for grppha
 def manual_mincounts(pulse):
     s = input(f"Enter minimum counts for {pulse} --- ")
     output = []
@@ -418,6 +433,7 @@ def manual_mincounts(pulse):
     print("\n")
     return output
 
+#Function to read through output xcm file for phot index
 def parse_model(xcm):
     assert(os.path.isfile(xcm))
     with open(xcm) as f:
@@ -488,9 +504,8 @@ def wrapper(evt, lower, upper, mincounts, mincounts_interpulse,
         mincounts = [mincounts]
         mincounts_interpulse = [mincounts_interpulse]
     
-    print(primary_ranges, interpulse_ranges)
-    #gen_multispectra(evt, primary_ranges, interpulse_ranges,
-    #                 (lower, upper), mincounts, mincounts_interpulse)
+    gen_multispectra(evt, primary_ranges, interpulse_ranges,
+                     (lower, upper), mincounts, mincounts_interpulse)
 
     primarytxts = [f"data_onpeak_{i}.txt" for i in range(nfiles)]
     interpulsetxts = [f"data_interpulse_{i}.txt" for i in range(nfiles)]
@@ -503,14 +518,22 @@ def wrapper(evt, lower, upper, mincounts, mincounts_interpulse,
                       primary_models=primary_models, 
                       interpulse_models=interpulse_models)
 
+    colors = ["#d5483a",
+            "#70c84c",
+            "#853bce",
+            "#d4ae2f",
+            "#625cce",
+            "#c24ebe"]
+    log.info("Plotting error distributions")
+    isolate_errorbars.error_hists(primarytxts, primary_ranges, mincounts, colors)
 
 
 if __name__ == '__main__':
-    #These 1821 calls all work fine
+    #In theory we would have command line args
+    """
     wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200, 800, 
             use_variable_mincounts=True, scalefactor=1.25, 
             output="spectra_CT_RT.pdf", use_variable_ranges=True)
-    """
     wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200, 800, 
             use_variable_mincounts=False, output="spectra_CF_RT.pdf", 
             use_variable_ranges=True)
@@ -524,10 +547,11 @@ if __name__ == '__main__':
             use_variable_ranges=False)
 
     #Some 1937 Calls
+    """
     wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 1000, 
             use_variable_mincounts=True, scalefactor=1.25, 
             output="spectra_CT_RT.pdf", use_variable_ranges=True)
-
+    """
     wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 1000, 
             use_variable_mincounts=False, output="spectra_CF_RT.pdf", 
             use_variable_ranges=True)
