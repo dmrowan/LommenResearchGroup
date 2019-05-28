@@ -111,8 +111,12 @@ def find_edge(lc_input, off1, off2, nsigma):
 
     cutofftup = find_phase_ranges(lc, off1, off2, nsigma, verbose=False)
     edge_tuple = collections.namedtuple('edge_tuple', ['peak', 'min', 'max'])
-    tup = edge_tuple(lc.peak_center()[0], cutofftup.min_phase, 
-                     cutofftup.max_phase)
+    if cutofftup.min_phase < cutofftup.max_phase:
+        tup = edge_tuple(lc.peak_center()[0], cutofftup.min_phase, 
+                         cutofftup.max_phase)
+    else:
+        tup = edge_tuple(lc.peak_center()[0]+1, cutofftup.min_phase, 
+                         cutofftup.max_phase+1)
     return tup
 
 def multiple_profiles(evt, energy_ranges):
