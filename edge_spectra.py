@@ -143,6 +143,18 @@ def edge_phase_ranges(evt, off1, off2, nsigma=2, nranges=4):
         else:
             trailing_ranges.append( (edge_tup.peak, trailing_ranges[-1][1]-0.01) )
 
+    for i in range(len(trailing_ranges)):
+        pair = trailing_ranges[i]
+        if pair[0] >= 1.0 and pair[1] >= 1.0:
+            pair = (pair[0] - 1.0, pair[1] - 1.0)
+        trailing_ranges[i] = pair
+
+    for i in range(len(leading_ranges)):
+        pair = leading_ranges[i]
+        if pair[0] >= 1.0 and pair[1] >= 1.0:
+            pair = (pair[0] - 1.0, pair[1] - 1.0)
+        leading_ranges[i] = pair
+
     return (leading_ranges, trailing_ranges)
 
 #Plotting routine 
@@ -286,10 +298,10 @@ def main(evt, off1, off2, lower_energy, mcl, mct):
     mincounts_leading = mincounts_tup.primary
     mincounts_trailing = mincounts_tup.interpulse
     log.info("Generating Spectra")
-    #gen_edge_spectra(evt, off1, off2, 
-    #                 leading_ranges, trailing_ranges, 
-    #                 mincounts_leading, mincounts_trailing,
-    #                 lower_energy=lower_energy)
+    gen_edge_spectra(evt, off1, off2, 
+                     leading_ranges, trailing_ranges, 
+                     mincounts_leading, mincounts_trailing,
+                     lower_energy=lower_energy)
 
     leadingtxts = [f"data_leading_{i}.txt" for i in range(len(leading_ranges))]
     trailingtxts = [f"data_trailing_{i}.txt" for i in range(len(trailing_ranges))]
@@ -305,4 +317,5 @@ def main(evt, off1, off2, lower_energy, mcl, mct):
 
 
 if __name__ == '__main__':
-    main("../PSR_B1937+21_combined.evt", .2, .4, .8, 200, 800)
+    #main("../PSR_B1937+21_combined.evt", .2, .4, .8, 200, 800)
+    main("../PSR_B1821-24_combined.evt", .2, .4, .8, 200, 600)
