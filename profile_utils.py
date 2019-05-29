@@ -6,6 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from LCClass import LightCurve
 import argparse
+from fuzzywuzzy import process
 import os
 
 desc="""
@@ -13,16 +14,14 @@ Various profile tools to use for generating pulse profiles
 """
 
 # Produce energy profile over selected energy range in keV
-def energy_filtered_profile(evt, energy_min, energy_max, ax=None,
+def energy_filtered_profile(lc_input, energy_min, energy_max, ax=None,
                             phase_min=None, phase_max=None):
-    if type(evt) != str:
-        raise ValueError("filename must be string")
+
+
     for var_in in [energy_min, energy_max, phase_min, phase_max]:
         if var_in is not None:
             if type(var_in) not in [int, float]:
                 raise ValueError(f"{var_in} must be int or float")
-    if not os.path.isfile(evt):
-        raise FileNotFoundError
 
     if ax is None:
         fig, ax = plt.subplots(1, 1, figsize=(8,4))
@@ -30,9 +29,10 @@ def energy_filtered_profile(evt, energy_min, energy_max, ax=None,
     else:
         created_fig=False
 
-    lc = LightCurve(evt)
     pi_min = energy_min * 100
     pi_max = energy_max * 100
+
+    lc = parse_lc_input(lc_input)
     lc.mask(lower_pi=pi_min, upper_pi=pi_max)
     lc.generate()
 
@@ -119,7 +119,8 @@ def find_edge(lc_input, off1, off2, nsigma):
                          cutofftup.max_phase+1)
     return tup
 
-def multiple_profiles(evt, energy_ranges):
+#Produce multiple profiles with different energy ranges
+def multiple_profiles(evt, energy_ranges, fit=False, component=None):
     if type(evt) != str:
         raise ValueError("filename must be string")
     if type(energy_ranges) not in [list, tuple]:
@@ -132,19 +133,64 @@ def multiple_profiles(evt, energy_ranges):
         if any( [type(v) not in [float, int] for v in range_pair] ):
             raise ValueError("value must be int or float")
 
+    sourcename = process.extract(evt, ['PSR B1821-24', 'PSR B1937+21'],
+                                 limit=1)[0][0]
+    if fit and component is None:
+        raise ValueError("component must be defined for fit")
+
     fig, ax = plt.subplots(len(energy_ranges), 1, figsize=(8, len(energy_ranges)*4))
+    ratios = []
     for i in range(len(energy_ranges)):
         a = ax.reshape(-1)[i]
-        a = energy_filtered_profile(evt, energy_ranges[i][0], 
-                                    energy_ranges[i][1], ax=a)
-        a.text(.05, .95, f"{energy_ranges[i][0]}"+r'$-$'+f"{energy_ranges[i][1]} keV", 
-               ha='left', va='top', fontsize=20, transform=a.transAxes)
+        if fit:
+            lc = LightCurve(evt)
+            lc.mask(lower_pi=energy_ranges[i][0]*100, upper_pi=energy_ranges[i][1]*100)
+            lc.generate()
+            a, chisq, p, ratio = lc.fit_gauss(component, ax=a)
+            ratios.append(ratio)
+        else:
+            a = energy_filtered_profile(evt, energy_ranges[i][0], 
+                                        energy_ranges[i][1], ax=a)
+        a.text(.95, .82, f"{energy_ranges[i][0]}"+r'$-$'+f"{energy_ranges[i][1]} keV", 
+               ha='right', va='top', fontsize=15, transform=a.transAxes)
         a.set_xlabel("")
+        if i != len(energy_ranges)-1:
+            a.tick_params(labelbottom=False)
 
     ax.reshape(-1)[len(energy_ranges)-1].set_xlabel("Phase", fontsize=20)
-    plt.subplots_adjust(hspace=.3, bottom=.08, top=.98, right=.98)
-
+    plt.subplots_adjust(hspace=0, bottom=.08, top=.98, right=.98)
     plt.show()
+    if fit:
+        return ratios
+
+#Test different energy range fits to find optimal spectra range
+def find_min_energy(evt, component):
+    if type(evt) != str:
+        raise ValueError("filename must be string")
+    if type(component) != str:
+        raise ValuerError ("component must be string")
+
+    sourcename = process.extract(evt, ['PSR B1821-24', 'PSR B1937+21'], 
+                                 limit=1)[0][0]
+
+    attempted_energies = [ round(a, 2) for a in np.arange(0, 2, 0.1) ]
+    successful_energies = []
+    fig, ax = plt.subplots(len(attempted_energies), 1, figsize=(8, len(attempted_energies)*4))
+    for i in range(len(attempted_energies)):
+        eng = attempted_energies[i]
+        lc = LightCurve(evt)
+        a = ax.reshape(-1)[i]
+        print(eng)
+        lc.mask(lower_pi=0, upper_pi=eng*100)
+        lc.generate()
+        a, chisq, p, ratio = lc.fit_gauss(component, ax=a)
+        if ratio > 1:
+            successful_energies.append(eng)
+    plt.show()
+    return successful_energies
+
+
+
 
 
 
