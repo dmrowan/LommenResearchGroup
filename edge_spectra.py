@@ -30,7 +30,8 @@ of primary peak component
 def gen_edge_spectra(evt, off1, off2,
                      leading_ranges, trailing_ranges,
                      leading_mincounts, trailing_mincounts,
-                     lower_energy=1.0):
+                     lower_energy_leading=1.0,
+                     lower_energy_trailing=1.0):
     
     assert(os.path.isfile("autofitting.xcm"))
     assert(os.path.isfile("runsetup.xcm"))
@@ -57,17 +58,15 @@ def gen_edge_spectra(evt, off1, off2,
         xspec.sendline("@runsetup.xcm")
         xspec.expect("XSPEC12>")
 
-        xspec.sendline(f"ig **-{lower_energy}, 10.-**")
+        xspec.sendline(f"ig **-{lower_energy_leading}, 10.-**")
         xspec.expect("XSPEC12>")
         
         xspec.sendline("@autofitting.xcm")
         xspec.expect("XSPEC12>")
-
-        #Save the model params with this command
-        xspec.sendline(f"save model leading_model_{i}")
-        if os.path.isfile(f"leading_model_{i}.xcm") and clobber:
-            xspec.sendline("y")
+        
+        xspec.sendline("error 1")
         xspec.expect("XSPEC12>")
+
         #Set the xaxis to be keV for our plots (and txt files)
         xspec.sendline("setplot energy")
         xspec.expect("XSPEC12>")
@@ -81,6 +80,18 @@ def gen_edge_spectra(evt, off1, off2,
         if os.path.isfile(f"data_leading_{i}.txt") and clobber:
             xspec.sendline("yes")
         xspec.expect("XSPEC12>")
+        
+        lines = []
+        xspec.timeout=2
+        for j in range(300):
+            try:
+                lines.append(xspec.readline(j).decode("utf-8"))
+            except:
+                break
+        with open(f"log_leading_{i}.txt", 'w') as handle:
+            for l in lines:
+                handle.write(l)
+
         xspec.sendline("exit")
 
     log.info("Generating Trailing Edge Spectra")
@@ -100,17 +111,15 @@ def gen_edge_spectra(evt, off1, off2,
         xspec.sendline("@runsetup.xcm")
         xspec.expect("XSPEC12>")
 
-        xspec.sendline(f"ig **-{lower_energy}, 10.-**")
+        xspec.sendline(f"ig **-{lower_energy_trailing}, 10.-**")
         xspec.expect("XSPEC12>")
         
         xspec.sendline("@autofitting.xcm")
         xspec.expect("XSPEC12>")
 
-        #Save the model params with this command
-        xspec.sendline(f"save model trailing_model_{i}")
-        if os.path.isfile(f"trailing_model_{i}.xcm") and clobber:
-            xspec.sendline("y")
+        xspec.sendline("error 1")
         xspec.expect("XSPEC12>")
+
         #Set the xaxis to be keV for our plots (and txt files)
         xspec.sendline("setplot energy")
         xspec.expect("XSPEC12>")
@@ -124,24 +133,37 @@ def gen_edge_spectra(evt, off1, off2,
         if os.path.isfile(f"data_trailing_{i}.txt") and clobber:
             xspec.sendline("yes")
         xspec.expect("XSPEC12>")
+
+        lines = []
+        xspec.timeout=2
+        for j in range(300):
+            try:
+                lines.append(xspec.readline(j).decode("utf-8"))
+            except:
+                break
+        with open(f"log_trailing_{i}.txt", 'w') as handle:
+            for l in lines:
+                handle.write(l)
+
         xspec.sendline("exit")
 
 def edge_phase_ranges(evt, off1, off2, nsigma=2, nranges=4):
     edge_tup = profile_utils.find_edge(evt, off1, off2, nsigma=2)
     
-    leading_ranges = [ (edge_tup.min, edge_tup.peak) ]
+    leading_ranges = [ (round(edge_tup.min, 2), round(edge_tup.peak, 2)) ]
     while len(leading_ranges) < nranges:
         if leading_ranges[-1][0] + 0.01 == edge_tup.peak:
             break
         else:
-            leading_ranges.append( (leading_ranges[-1][0]+0.01, edge_tup.peak) )
+            leading_ranges.append( (round(leading_ranges[-1][0]+0.01,2), round(edge_tup.peak,2)) )
 
-    trailing_ranges = [ (edge_tup.peak, edge_tup.max) ]
+    trailing_ranges = [ (round(edge_tup.peak,2), round(edge_tup.max, 2)) ]
     while len(trailing_ranges) < nranges:
         if trailing_ranges[-1][0] - 0.01 == edge_tup.peak:
             break
         else:
-            trailing_ranges.append( (edge_tup.peak, trailing_ranges[-1][1]-0.01) )
+            trailing_ranges.append( (round(edge_tup.peak, 2), 
+                                    round(trailing_ranges[-1][1]-0.01, 2)) )
 
     for i in range(len(trailing_ranges)):
         pair = trailing_ranges[i]
@@ -162,8 +184,8 @@ def plot_multi_edge_spec(sourcename, leadingtxts, trailingtxts,
                          leading_ranges, trailing_ranges, 
                          leading_mincounts, trailing_mincounts,
                          output="edgespectra.pdf",
-                         leading_models=[],
-                         trailing_models=[]):
+                         leading_logs=[],
+                         trailing_logs=[]):
 
     log.info("Plotting Spectra")
     #Init figure
@@ -195,8 +217,8 @@ def plot_multi_edge_spec(sourcename, leadingtxts, trailingtxts,
                           round(leading_ranges[i][1], 2))
         if use_counts_label:
             xd.set_counts(leading_mincounts[i])
-        if len(leading_models) != 0:
-            xd.phot_index_from_file(leading_models[i])
+        if len(leading_logs) != 0:
+            xd.phot_index_from_file(leading_logs[i])
         leading_data.append(xd)
     for i in range(len(trailingtxts)):
         xd = multispectra.xspecdata(trailingtxts[i])
@@ -204,8 +226,8 @@ def plot_multi_edge_spec(sourcename, leadingtxts, trailingtxts,
                           round(trailing_ranges[i][1],2))
         if use_counts_label:
             xd.set_counts(trailing_mincounts[i])
-        if len(trailing_models) != 0:
-            xd.phot_index_from_file(trailing_models[i])
+        if len(trailing_logs) != 0:
+            xd.phot_index_from_file(trailing_logs[i])
         trailing_data.append(xd)
 
     #Make one list with both to easily iterate through
@@ -213,9 +235,9 @@ def plot_multi_edge_spec(sourcename, leadingtxts, trailingtxts,
 
     #Match sourcename
     sourcename = process.extract(sourcename, 
-                                 ['PSR_B1821-24', 'PSR_B1937+21'],
+                                 ['PSR B1821-24', 'PSR B1937+21'],
                                  limit=1)[0][0]
-    assert(sourcename in ['PSR_B1821-24', 'PSR_B1937+21'])
+    assert(sourcename in ['PSR B1821-24', 'PSR B1937+21'])
 
     #Labels for each plot
     labels=["Leading Edge", "Trailing Edge"]
@@ -224,9 +246,10 @@ def plot_multi_edge_spec(sourcename, leadingtxts, trailingtxts,
     colors = ["#d5483a",
             "#70c84c",
             "#853bce",
-            "#d4ae2f",
-            "#625cce",
-            "#c24ebe"]
+            #"#d4ae2f",
+            #"#625cce",
+            #"#c24ebe", 
+            "xkcd:azure"]
 
     #Iterate through xspecdata and axes
     for i, ax in enumerate([axl0, axt0]):
@@ -249,14 +272,17 @@ def plot_multi_edge_spec(sourcename, leadingtxts, trailingtxts,
         ax = plotparams(ax)
         ax.set_xscale('log')
         ax.set_yscale('log')
-        if sourcename == 'PSR_B1837+21':
-            ax.text(.05, .95, labels[i], transform=ax.transAxes, 
-                    fontsize=20, ha='left', va='top')
-        else:
-            ax.text(.95, .95, labels[i], transform=ax.transAxes, 
-                    fontsize=20, ha='right', va='top')
-        ax.legend(loc=(.30, 0.05), fontsize=13, edgecolor='black')
-        ax.set_xlim(right=10)
+        if sourcename == 'PSR B1937+21':
+            print("here")
+            ax.set_ylim(top=ax.get_ylim()[1]*2)
+
+        ax.text(.95, .95, sourcename, transform=ax.transAxes, 
+                ha='right', va='top', fontsize=20)
+        ax.text(.95, .85, labels[i], transform=ax.transAxes, 
+                fontsize=15, ha='right', va='top')
+
+        ax.legend(loc=(.15, 0.05), fontsize=13, edgecolor='black')
+        ax.set_xlim(right=10.1)
         fig.add_subplot(ax)
 
     #Plot residuals
@@ -286,7 +312,10 @@ def plot_multi_edge_spec(sourcename, leadingtxts, trailingtxts,
     axt1.set_xlabel("Energy (keV)", fontsize=30)
     fig.savefig(output, dpi=300)
 
-def main(evt, off1, off2, lower_energy, mcl, mct):
+def main(evt, off1, off2, 
+         lower_energy_leading, 
+         lower_energy_trailing, 
+         mcl, mct):
     log.info("Finding leading and trailing phase ranges")
     leading_ranges, trailing_ranges = edge_phase_ranges(evt, off1, off2)
     
@@ -298,24 +327,37 @@ def main(evt, off1, off2, lower_energy, mcl, mct):
     mincounts_leading = mincounts_tup.primary
     mincounts_trailing = mincounts_tup.interpulse
     log.info("Generating Spectra")
-    gen_edge_spectra(evt, off1, off2, 
-                     leading_ranges, trailing_ranges, 
-                     mincounts_leading, mincounts_trailing,
-                     lower_energy=lower_energy)
+    #gen_edge_spectra(evt, off1, off2, 
+    #                 leading_ranges, trailing_ranges, 
+    #                 mincounts_leading, mincounts_trailing,
+    #                 lower_energy_leading=lower_energy_leading, 
+    #                 lower_energy_trailing=lower_energy_trailing)
 
     leadingtxts = [f"data_leading_{i}.txt" for i in range(len(leading_ranges))]
     trailingtxts = [f"data_trailing_{i}.txt" for i in range(len(trailing_ranges))]
-    leading_models = [f"leading_model_{i}.xcm" for i in range(len(leading_ranges))]
-    trailing_models = [f"trailing_model_{i}.xcm" for i in range(len(trailing_ranges))]
+    leading_logs = [f"log_leading_{i}.txt" for i in range(len(leading_ranges))]
+    trailing_logs = [f"log_trailing_{i}.txt" for i in range(len(trailing_ranges))]
+
 
     plot_multi_edge_spec(evt, leadingtxts, trailingtxts, 
                          leading_ranges, trailing_ranges, 
                          mincounts_leading, mincounts_trailing,
                          output="edgespectra.pdf",
-                         leading_models=leading_models,
-                         trailing_models=trailing_models)
+                         leading_logs=leading_logs,
+                         trailing_logs=trailing_logs)
 
 
 if __name__ == '__main__':
-    #main("../PSR_B1937+21_combined.evt", .2, .4, .8, 200, 800)
-    main("../PSR_B1821-24_combined.evt", .2, .4, .8, 200, 600)
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument("source", help="sourcename", type=str)
+    args = parser.parse_args()
+
+    source = process.extract(args.source, ['PSR B1821-24', 'PSR B1937+21'], 
+                             limit=1)[0][0]
+
+    if source == 'PSR B1821-24':
+        main("../PSR_B1821-24_combined.evt", .2, .4, .9, .7, 200, 600)
+    elif source == 'PSR B1937+21':
+        main("../PSR_B1937+21_combined.evt", .2, .4, .7, .8, 200, 800)
+    else:
+        print("invalid source")
