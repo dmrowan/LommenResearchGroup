@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import spectraplots
 import argparse
+import ast
 import collections
 import genspectra
 import pexpect
@@ -100,11 +101,10 @@ def gen_multispectra(evt, onpeak_ranges, interpulse_ranges,
         xspec.sendline("@autofitting.xcm")
         xspec.expect("XSPEC12>")
 
-        #Save the model params with this command
-        xspec.sendline(f"save model onpeak_model_{i}")
-        if os.path.isfile(f"onpeak_model_{i}.xcm") and clobber:
-            xspec.sendline("y")
+        xspec.sendline("error 1")
         xspec.expect("XSPEC12>")
+
+
         #Set the xaxis to be keV for our plots (and txt files)
         xspec.sendline("setplot energy")
         xspec.expect("XSPEC12>")
@@ -115,9 +115,22 @@ def gen_multispectra(evt, onpeak_ranges, interpulse_ranges,
         xspec.sendline("ipl")
         xspec.expect("XSPEC12>")
         xspec.sendline(f"wdata data_onpeak_{i}.txt")
+
+        #Save a log file
         if os.path.isfile(f"data_onpeak_{i}.txt") and clobber:
             xspec.sendline("yes")
         xspec.expect("XSPEC12>")
+        lines = []
+        xspec.timeout=2
+        for j in range(300):
+            try:
+                lines.append(xspec.readline(j).decode("utf-8"))
+            except:
+                break
+        with open(f"log_onpeak_{i}.txt", 'w') as handle:
+            for l in lines:
+                handle.write(l)
+
         xspec.sendline("exit")
 
 
@@ -142,11 +155,9 @@ def gen_multispectra(evt, onpeak_ranges, interpulse_ranges,
         xspec.sendline("@autofitting.xcm")
         xspec.expect("XSPEC12>")
 
-        #Save the model params with this command
-        xspec.sendline(f"save model interpulse_model_{i}")
-        if os.path.isfile(f"interpulse_model_{i}.xcm") and clobber:
-            xspec.sendline("y")
+        xspec.sendline("error 1")
         xspec.expect("XSPEC12>")
+
         #Set the xaxis to be keV for our plots (and txt files)
         xspec.sendline("setplot energy")
         xspec.expect("XSPEC12>")
@@ -160,6 +171,18 @@ def gen_multispectra(evt, onpeak_ranges, interpulse_ranges,
         if os.path.isfile(f"data_interpulse_{i}.txt") and clobber:
             xspec.sendline("yes")
         xspec.expect("XSPEC12>")
+
+        lines = []
+        xspec.timeout=2
+        for j in range(300):
+            try:
+                lines.append(xspec.readline(j).decode("utf-8"))
+            except:
+                break
+        with open(f"log_interpulse_{i}.txt", 'w') as handle:
+            for l in lines:
+                handle.write(l)
+
         xspec.sendline("exit")
 
 
@@ -196,8 +219,8 @@ class xspecdata:
                                          limit=1)[0][0]
     def set_phaserange(self, p1, p2):
         self.width=p2-p1
-        self.lower = p1
-        self.upper = p2
+        self.lower = round(p1, 2)
+        self.upper = round(p2, 2)
 
     def set_counts(self, n):
         self.mincounts = n
@@ -205,7 +228,11 @@ class xspecdata:
 
     def phot_index_from_file(self, fname):
         assert(os.path.isfile(fname))
-        self.phot_index = parse_model(fname)
+        if fname.endswith('.xcm'):
+            self.phot_index = parse_model(fname)
+            self.phot_index_err = None
+        elif fname.endswith('.txt'):
+            self.phot_index, self.phot_index_err = parse_log(fname)
 
     def get_label(self, ask_for_error=False):
         if self.lower is None or self.upper is None:
@@ -220,7 +247,9 @@ class xspecdata:
 
         if self.phot_index is not None:
             label = label + f", PhotIndex: {round(self.phot_index, 2)}" 
-            if ask_for_error:
+            if self.phot_index_err is not None:
+                label += r'$\pm$' + str(round(self.phot_index_err, 2))
+            elif ask_for_error:
                 error = input(f"Enter error for {self.filename}:")
                 error = float(error)
                 label += r'$\pm$' + str(error)
@@ -232,8 +261,8 @@ class xspecdata:
 def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts, 
                       p_ranges, i_ranges, mincounts, mincounts_interpulse,
                       output="multispectra.pdf",
-                      primary_models=[],
-                      interpulse_models=[]):
+                      primary_logs=[],
+                      interpulse_logs=[]):
 
     #Init figure
     fig = plt.figure(figsize=(10, 11))
@@ -263,16 +292,16 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
         xd.set_phaserange(p_ranges[i][0], p_ranges[i][1])
         if use_counts_label:
             xd.set_counts(mincounts[i])
-        if len(primary_models) != 0:
-            xd.phot_index_from_file(primary_models[i])
+        if len(primary_logs) != 0:
+            xd.phot_index_from_file(primary_logs[i])
         primary_data.append(xd)
     for i in range(len(interpulsetxts)):
         xd = xspecdata(interpulsetxts[i])
         xd.set_phaserange(i_ranges[i][0], i_ranges[i][1])
         if use_counts_label:
             xd.set_counts(mincounts_interpulse[i])
-        if len(interpulse_models) != 0:
-            xd.phot_index_from_file(interpulse_models[i])
+        if len(interpulse_logs) != 0:
+            xd.phot_index_from_file(interpulse_logs[i])
         interpulse_data.append(xd)
 
     #Make one list with both to easily iterate through
@@ -280,9 +309,9 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
 
     #Match sourcename
     sourcename = process.extract(sourcename, 
-                                 ['PSR_B1821-24', 'PSR_B1937+21'],
+                                 ['PSR B1821-24', 'PSR B1937+21'],
                                  limit=1)[0][0]
-    assert(sourcename in ['PSR_B1821-24', 'PSR_B1937+21'])
+    assert(sourcename in ['PSR B1821-24', 'PSR B1937+21'])
 
     #Labels for each plot
     labels=["Primary Pulse", "Interpulse"]
@@ -292,9 +321,10 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
     colors = ["#d5483a",
             "#70c84c",
             "#853bce",
-            "#d4ae2f",
-            "#625cce",
-            "#c24ebe"]
+            #"#d4ae2f",
+            #"#625cce",
+            #"#c24ebe", 
+            "xkcd:azure"]
 
     #Iterate through xspecdata and axes
     for i, ax in enumerate([axp0, axi0]):
@@ -312,20 +342,23 @@ def plot_multi_ufspec(sourcename, primarytxts, interpulsetxts,
                     zorder=len(alldata[i])+i, 
                     label='_nolegend_')
             #Testing isolation of errorbars
-            ax = isolate_errorbars.flag_energies(alldata[i][j], ax, 2, colors[j]) 
+            #ax = isolate_errorbars.flag_energies(alldata[i][j], ax, 2, colors[j]) 
         #Set plot parameters
         ax = plotparams(ax)
         ax.set_xscale('log')
         ax.set_yscale('log')
-        if sourcename == 'PSR_B1837+21':
-            ax.text(.05, .95, labels[i], transform=ax.transAxes, 
-                    fontsize=20, ha='left', va='top')
-        else:
-            ax.text(.95, .95, labels[i], transform=ax.transAxes, 
-                    fontsize=20, ha='right', va='top')
-        ax.legend(loc=(.30, 0.05), fontsize=13, edgecolor='black')
+
+        ax.text(.95, .95, sourcename, transform=ax.transAxes, 
+                ha='right', va='top', fontsize=20)
+        ax.text(.95, .85, labels[i], transform=ax.transAxes, 
+                fontsize=15, ha='right', va='top')
+
+        ax.legend(loc=(.10, 0.05), fontsize=13, edgecolor='black', framealpha=.9)
         ax.set_xlim(right=10)
         fig.add_subplot(ax)
+
+    if sourcename == 'PSR B1937+21':
+        axi0.set_ylim(top=axi0.get_ylim()[1]*2)
 
     #Plot residuals
     for i, ax in enumerate([axp1, axi1]):
@@ -463,6 +496,26 @@ def parse_model(xcm):
     prefix_end = [ i for i in range(len(lines)) if lines[i].find("model") >= 0 ][0]
     phot_index = float(lines[prefix_end+1].split()[0])
     return phot_index
+
+#Parse through pexpect xspec line to find the phot index
+def parse_log(txt):
+    assert(os.path.isfile(txt))
+    with open(txt, 'r') as f:
+        lines = np.array(f.readlines())
+
+    idx_conf = np.where(np.array(lines) == 'XSPEC12>error 1\n')[0][0]
+    try:
+        conf_tuple = ast.literal_eval(lines[idx_conf+2].split()[3])
+        error = np.mean([ abs(val) for val in conf_tuple])
+    except:
+        error = float('NaN')
+
+    idx_model = np.where(np.array(lines) == ' par  comp\n')[0][1]
+    assert(lines[idx_model+1].split()[3]=='PhoIndex')
+    phot_index = float(lines[idx_model+1].split()[4])
+    err = float(lines[idx_model+1].split()[6])
+
+    return phot_index, err
     
 
 #Finds phase regions, generates spectra, and plots
@@ -527,28 +580,29 @@ def wrapper(evt, lower, upper, mincounts, mincounts_interpulse,
         mincounts = [mincounts]
         mincounts_interpulse = [mincounts_interpulse]
     
-    gen_multispectra(evt, primary_ranges, interpulse_ranges,
-                     (lower, upper), mincounts, mincounts_interpulse, 
-                     lower_energy_primary=lower_energy_primary,
-                     lower_energy_interpulse=lower_energy_interpulse)
+    #gen_multispectra(evt, primary_ranges, interpulse_ranges,
+    #                 (lower, upper), mincounts, mincounts_interpulse, 
+    #                 lower_energy_primary=lower_energy_primary,
+    #                 lower_energy_interpulse=lower_energy_interpulse)
 
-    primarytxts = [f"data_onpeak_{i}.txt" for i in range(nfiles)]
-    interpulsetxts = [f"data_interpulse_{i}.txt" for i in range(nfiles)]
-    primary_models = [f"onpeak_model_{i}.xcm" for i in range(nfiles)]
-    interpulse_models = [f"interpulse_model_{i}.xcm" for i in range(nfiles)]
+    primarytxts = [f"data_onpeak_{i}.txt" for i in range(len(primary_ranges))]
+    interpulsetxts = [f"data_interpulse_{i}.txt" for i in range(len(interpulse_ranges))]
+    primary_logs = [f"log_onpeak_{i}.txt" for i in range(len(primary_ranges))]
+    interpulse_logs = [f"log_interpulse_{i}.txt" for i in range(len(interpulse_ranges))]
     log.info("Plotting spectra")
     plot_multi_ufspec(evt, primarytxts, interpulsetxts,
                       primary_ranges, interpulse_ranges, 
                       mincounts, mincounts_interpulse, output=output,
-                      primary_models=primary_models, 
-                      interpulse_models=interpulse_models)
+                      primary_logs=primary_logs, 
+                      interpulse_logs=interpulse_logs)
 
     colors = ["#d5483a",
             "#70c84c",
             "#853bce",
-            "#d4ae2f",
-            "#625cce",
-            "#c24ebe"]
+            #"#d4ae2f",
+            #"#625cce",
+            #"#c24ebe", 
+            "xkcd:azure"]
     log.info("Plotting error distributions")
     isolate_errorbars.error_hists(primarytxts, primary_ranges, mincounts, colors)
 
@@ -565,7 +619,7 @@ if __name__ == '__main__':
         wrapper("../PSR_B1821-24_combined.evt", .1, .4, 1200, 800, 
                 use_variable_mincounts=True, scalefactor=1.25, 
                 output="spectra_CT_RT.pdf", use_variable_ranges=True, 
-                lower_energy_primary=.6, lower_energy_interpulse=.8)
+                lower_energy_primary=.8, lower_energy_interpulse=.8)
     elif source == 'PSR_B1937+21':
         wrapper("../PSR_B1937+21_combined.evt", .2, .4, 2000, 1000, 
                 use_variable_mincounts=True, scalefactor=1.25, 
