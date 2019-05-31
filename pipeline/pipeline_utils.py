@@ -2,11 +2,14 @@
 import os
 import argparse
 from astropy.io import fits
+from astropy.table import Table
 import subprocess
+import sys
 import pint
 from fuzzywuzzy import process
 import pandas as pd
 import dateutil
+from tqdm import tqdm
 
 #Dom Rowan 2019
 
@@ -30,6 +33,8 @@ def version_check():
 	print subprocess.check_output('stat -c %y /homes/pipeline/nicersoft/.git/FETCH_HEAD', shell=True)
 	print "pint version: " 
 	print pint.__version__
+	print "Python version: "
+	print sys.version
 
 def get_dates():
 	obsIDs = []
@@ -50,15 +55,47 @@ def get_dates():
 	df = df.reset_index(drop=True)
 	print(df)
 
-					
+def get_exposure():
+	obsIDs = []
+	clean_exp = []
+	raw_exp = []
+	cut_exp = []
+	for d in tqdm(os.listdir("./")):
+		if os.path.isdir(d):
+			try:
+				int_d = int(d)
+				obsIDs.append(d)
+				good_path=True
+			except:
+				continue
+			
+			if good_path:
+				if os.path.isfile(d+"_pipe/cleanfilt.evt"):
+					clean_time = Table.read(d+"_pipe/cleanfilt.evt", hdu=2).meta['EXPOSURE']
+				else:
+					clean_time = 0
 
+				raw_time = Table.read(d+"/xti/event_cl/ni"+d+"_0mpu7_ufa.evt", hdu=1).meta["EXPOSURE"]
+
+				if os.path.isfile(d+"_pipe/cleanfilt_cut.evt"):
+					cut_time = Table.read(d+"_pipe/cleanfilt_cut.evt", hdu=1).meta['EXPOSURE']
+				else:
+					cut_time = 0
+
+				clean_exp.append(clean_time)
+				raw_exp.append(raw_time)
+				cut_exp.append(cut_time)
+
+	df = pd.DataFrame({'obsID':obsIDs, 'raw':raw_exp, 'clean':clean_exp, 'cut':cut_exp})
+	df.to_csv("exposures.csv", index=False)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description=desc)
 	parser.add_argument("function", help="Options: clean, version_check, get_dates", type=str)
 	args=parser.parse_args()
 
-	function = process.extract(args.function, ['clean', 'version_check', 'get_dates'],
+	function = process.extract(args.function, 
+							   ['clean', 'version_check', 'get_dates', 'get_exposure'],
 							   limit=1)[0][0]
 
 	if function == 'clean':
@@ -67,6 +104,8 @@ if __name__ == '__main__':
 		version_check()
 	elif function == 'get_dates':
 		get_dates()
+	elif function == 'get_exposure':
+		get_exposure()
 	else:
 		print("Invalid function input")
 
