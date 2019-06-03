@@ -89,6 +89,37 @@ def get_exposure():
 	df = pd.DataFrame({'obsID':obsIDs, 'raw':raw_exp, 'clean':clean_exp, 'cut':cut_exp})
 	df.to_csv("exposures.csv", index=False)
 
+def calc_exposure(csv, source, to_latex=None):
+    if type(evt) != str:
+        raise ValueError("filename must be string")
+    if not os.path.isfile(evt):
+        raise FileNotFoundError
+
+    df = pd.read_csv(calc_exposure)
+
+    name = process.extract(source, ['PSR B1821-24', 'PSR B1937+21'], 
+                           limit=1)[0][0]
+
+    if name == 'PSR_B1821-24':
+        command_head = '1821'
+    else:
+        command_head = '1937'
+
+    total_raw = np.sum(df['raw'])
+    total_clean = np.sum(df['clean'])
+    total_cut = np.sum(df['cut'])
+    
+    if to_latex is not None:
+        with open(to_latex, 'w') as f:
+            f.write("\\newcommand{\\"+command_head+"_raw_exp}{"+total_raw+"}")
+            f.write("\\newcommand{\\"+command_head+"_clean_exp}{"+total_clean+"}")
+            f.write("\\newcommand{\\"+command_head+"_cut_exp}{"+total_cut+"}")
+
+            f.write("\\newcommand{\\"+command_head+"_raw_exp}{"+total_raw+"}")
+            f.write("\\newcommand{\\"+command_head+"_clean_exp}{"+total_clean+"}")
+            f.write("\\newcommand{\\"+command_head+"_cut_exp}{"+total_cut+"}")
+    
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description=desc)
 	parser.add_argument("function", help="Options: clean, version_check, get_dates", type=str)
