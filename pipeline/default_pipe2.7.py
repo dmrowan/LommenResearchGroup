@@ -308,4 +308,3 @@ if __name__ == '__main__':
 				args.cormin, args.cut, args.filterbinsize, 
 				args.filtpolar, args.shrinkelvcut)
 
-
