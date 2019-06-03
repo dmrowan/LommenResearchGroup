@@ -25,6 +25,13 @@ def gaus(x, a, x0, sigma, b):
 def round_1sigfig(x):
     return round(x, -int(floor(log10(abs(x)))))
 
+def two_gaus(x, 
+             a_0, x0_0, sigma_0, 
+             a_1, x0_1, sigma_1, b,
+             ):
+               
+    return a_0*exp(-(x-x0_0)**2/(2*sigma_0**2)) + a_1*exp(-(x-x0_1)**2/(2*sigma_1**2)) + b
+
 #LC Class for pulsar profile
 class LightCurve:
     def __init__(self, evtfile):
@@ -291,12 +298,12 @@ class LightCurve:
             fig, ax = plt.subplots(1, 1, figsize=(8, 4))
             plt.subplots_adjust(bottom=.2, top=.98, right=.98, left=.15)
             created_fig = True
+            ax.set_xlabel('Phase', fontsize=25)
+            ax.set_ylabel('Counts', fontsize=25)
         else:
             created_fig=False
 
         ax = spectraplots.plotparams(ax)
-        ax.set_xlabel('Phase', fontsize=25)
-        ax.set_ylabel('Counts', fontsize=25)
         ax.set_xlim(left=phase_min-.025, right=phase_max+.025)
 
         ax.plot(phasebins_fitting, counts_fitting,
@@ -317,16 +324,110 @@ class LightCurve:
             color = 'xkcd:red'
         ax.text(.95, .95, f"{self.name}", ha='right', va='top', 
                 fontsize=20, transform=ax.transAxes)
-        #ax.text(.95, .85, r'$\chi^2=$'+f"{round(chisq, 2)}, p={round_1sigfig(p)}",
-        #        ha='right', va='top', fontsize=15, transform=ax.transAxes)
-
-        #ax.text(.95, .84, r'$\rm{Amp}/\sigma=$'+str(round_1sigfig(ratio)),
-        #        ha='right', va='top', fontsize=15, transform=ax.transAxes, 
-        #        color=color)
+        ax.text(.95, .85, f"Center: {round(popt[1], 3)}",
+                ha='right', va='top', fontsize=15, transform=ax.transAxes)
 
         if created_fig:
             plt.show()
-            return chisq, p
+            return popt, ratio
         else:
-            return ax, chisq, p, ratio
+            return ax, popt, ratio
+
+
         
+    def fit_two_gauss(self, include_phases=None, ax=None, annotate=True):
+        if self.counts is None:
+            self.generate()
+        
+    
+        if include_phases is None:
+            phase_min = .75
+            phase_max = 1.75
+        else:
+            phase_min = include_phases[0]
+            phase_max = include_phases[1]
+
+        phasebins_fitting = np.array([ p for p in self.phasebins_extended 
+                                       if phase_min <= p < phase_max ])
+        counts_fitting = np.array([ self.counts_extended[i] 
+                                    for i in range(len(self.counts_extended)) 
+                                    if phase_min <= self.phasebins_extended[i] < phase_max ])
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+            created_fig = True
+
+        else:
+            created_fig = False
+
+        ax.set_xlim(left=phase_min-.025, right=phase_max+.025)
+        ax = spectraplots.plotparams(ax)
+
+        if self.name == 'PSR B1821-24':
+            p0_b = min(counts_fitting)
+            p0_a_0 = max(counts_fitting) - p0_b
+            p0_a_1 = p0_a_0 *0.5
+            p0_sigma_0 = .01
+            p0_sigma_1 = .01
+            p0_x0_0 = 1.0
+            p0_x0_1 = 1.55
+
+            bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
+                     [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
+
+            p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+
+        elif self.name == 'PSR B1937+21':
+            p0_b = min(counts_fitting)
+            p0_a_0 = max(counts_fitting) - p0_b
+            p0_a_1 = p0_a_0 *0.1
+            p0_sigma_0 = .01
+            p0_sigma_1 = .01
+            p0_x0_0 = self.peak_center()[0]+1.0
+            p0_x0_1 = self.interpulse_center()[0]+1.0
+
+            bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
+                     [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
+
+            p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+
+        else:
+            print("Invalid sourcename")
+            return -1
+
+        #for i in range(len(p0)):
+        #    print(bounds[0][i], p0[i], bounds[1][i])
+
+        popt, pcov = curve_fit(two_gaus, phasebins_fitting, 
+                               counts_fitting, 
+                               p0=[p0_a_0, p0_x0_0, p0_sigma_0,
+                                   p0_a_1, p0_x0_1, p0_sigma_1, p0_b],
+                               bounds=bounds)
+
+        fit_counts = two_gaus(phasebins_fitting, *popt)
+
+        n_phase = 3
+        fit_counts_extended = np.array([])
+        for i in range(n_phase):
+            fit_counts_extended = np.append(fit_counts_extended, fit_counts)
+        phasebins_fitting_extended = np.array([round(b,4) - 1.0 
+            for b in np.arange(phase_min, phase_max+n_phase-1, self.bs) ])
+        ax.set_xlim(0, 2)
+
+        ax.plot(phasebins_fitting, counts_fitting)
+        ax.plot(phasebins_fitting_extended,
+                fit_counts_extended,
+                 color='xkcd:azure', lw=6, zorder=1, alpha=.4)
+        ax.plot(self.phasebins_extended, self.counts_extended, 
+                marker='.', color='xkcd:violet', zorder=2)
+        if annotate:
+            ax.text(.95, .95, f"{round(popt[1], 4)}, {round(popt[4], 4)}", 
+                    fontsize=20, transform=ax.transAxes, 
+                    ha='right', va='top')
+
+        if created_fig:
+            plt.show()
+            return popt
+        else:
+            return ax, popt
+
