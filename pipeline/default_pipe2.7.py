@@ -308,7 +308,4 @@ if __name__ == '__main__':
 				args.cormin, args.cut, args.filterbinsize, 
 				args.filtpolar, args.shrinkelvcut)
 
-#allprocedures('1070030132', .25, 12, -1, "PSR_J0218+4232.par", 4, 2, 8)
-#allprocedures('1070010247', .25, 12, -1, "PSR_B1821-24.par", 4, 2, 8)
-#allprocedures('1070020233', .25, 12, -1, "PSR_B1937+21.par", 4, 2, 8)
-#run_niextract("PSR_B1937+21")
+
