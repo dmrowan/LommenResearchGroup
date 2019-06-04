@@ -412,7 +412,9 @@ class LightCurve:
             fit_counts_extended = np.append(fit_counts_extended, fit_counts)
         phasebins_fitting_extended = np.array([round(b,4) - 1.0 
             for b in np.arange(phase_min, phase_max+n_phase-1, self.bs) ])
-        ax.set_xlim(0, 2)
+        ax.set_xlim(0,2)
+        plt.setp(ax.get_xticklabels()[0], visible=False)
+        plt.setp(ax.get_xticklabels()[-1], visible=False)
 
         ax.plot(phasebins_fitting, counts_fitting)
         ax.plot(phasebins_fitting_extended,
