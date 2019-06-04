@@ -11,8 +11,9 @@ import pexpect
 import sys
 import subprocess
 from astropy.table import Table
+from astropy.io import ascii
 import spectraplots
-#Dom Rowan 2019
+#Dom Rowan and Lauren Lugo 2019
 
 def gaus(x, a, x0, sigma, b):
     return a*exp(-(x-x0)**2/(2*sigma**2)) + b
@@ -26,6 +27,7 @@ class LightCurve:
         self.tab = Table.read(evtfile, hdu=1)
         self.pi = self.tab['PI']
         self.ph = self.tab['PULSE_PHASE']
+        self.piratio = self.tab['PI_RATIO']
         self.counts = None # Initialize counts to none
         self.name = None
 
@@ -36,7 +38,55 @@ class LightCurve:
         full_mask = en_mask & ph_mask
         self.pi = self.pi[full_mask]
         self.ph = self.ph[full_mask]
+    
+    # Apply Trumpet Cut using this mask and changing the threshold	
+    def TrumpMask(self,fastconst = 1.1):
+        #fastconst = 1.1 is the overall ratio threshold (normal ratio is 1.0 with a tolerance of 0.1=10%)
+        # I recommend changing the threshold number by small amounts to see the difference in info
+        
+        t = np.arange(0,1201,1)
+        newLine = []
+        for pi in t:
+            newLine.append(fastconst +((1200/10)/pi))
+        # Creating temporary storage for data that will be lost once the mask is        # applied
 
+        oldData =[]
+        oldEnergy =[]
+        #Creating a temp array to make a mask
+        t_mask = []
+        erase = []
+        print(len(self.tab['PI']))
+
+        # loop goes through the rows one by one
+        for py in range(len(self.piratio)):
+
+            #Creating a mask by deciding on boolean
+            t_mask.append(self.piratio[py] < newLine[self.pi[py]]) 
+            #Saving all "false" information so it can be plotted before
+            if (self.piratio[py] > newLine[self.pi[py]]):
+                #print (self.pi[py])
+                erase.append(py)
+                oldData.append(self.piratio[py])
+                oldEnergy.append(self.pi[py])
+
+        #Applying the mask
+        self.piratio = self.piratio[t_mask]
+        self.pi = self.pi[t_mask]
+        
+        print("here 4")
+        #for num in range(len(self.pi)):
+            #print(num)
+           #if(t_mask[num] == False):
+        print("here 5")
+        self.tab.remove_rows(erase)
+        print(len(self.tab['PI']))
+                  # num = num-1
+
+        self.tab.write('../TrumpetCutfile.fits', format = 'fits', overwrite = True)
+
+        plt.scatter(oldEnergy,oldData, s=1)
+        plt.scatter(self.pi,self.piratio, s= 1)
+        plt.show() 
     # Give a name to include in plots
     def set_name(self, name):
         self.name = name
