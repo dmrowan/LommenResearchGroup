@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function, division, absolute_import
 import argparse
+from astropy import log
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
@@ -20,7 +21,10 @@ Procedure to generate spectra for pulsar in phase region
 
 #Make phase selections using fselect
 #Input event file .evt, output .fits file
-def fselect_phase(evt, output, phase_lower, phase_upper, clobber=False):
+def fselect_phase(evt, output, phase_lower, phase_upper, 
+                  clobber=False, verbose=True):
+    if verbose:
+        log.info("Selecting phase with fselect")
     if os.path.isfile(output) and (not clobber):
         print("File already exists")
         return
@@ -39,7 +43,9 @@ def fselect_phase(evt, output, phase_lower, phase_upper, clobber=False):
         subprocess.run(cmd)
 
 #Update exposure keyword to reflect phase selection
-def update_exp(fits, output, new_exp, hdu=1):
+def update_exp(fits, output, new_exp, hdu=1, verbose=True):
+    if verbose:
+        log.info("Updating exposure")
     t = Table.read(fits, hdu=hdu)
     t.meta['EXPOSURE'] = new_exp
     t.write(output, overwrite=True)
@@ -61,8 +67,10 @@ def test_fselect(fits, plot=False):
 #Spawn xselect child 
 def xselect(lower_e=0, upper_e=1200, lower_phase=0, upper_phase=1, 
             epoch=50000, period=1, datadir=None, eventfile=None,
-            session="autopython"):
+            session="autopython", verbose=True):
 
+    if verbose:
+        log.info("Producing phase in xselect")
     assert(all([type(val) in [int, float] for val in [
                 lower_phase, upper_phase, 
                 epoch, period]]))
@@ -108,8 +116,11 @@ def xselect(lower_e=0, upper_e=1200, lower_phase=0, upper_phase=1,
     xsel.close()
 
 #Pexpect wrapper for xspec to generate xspec plot
-def xspec_wrapper(phafile, channel_lower, channel_upper, save=None):
+def xspec_wrapper(phafile, channel_lower, channel_upper, 
+                  save=None, verbose=True):
     #Spawn xspec child with pexpect
+    if verbose:
+        log.info("Running xspec")
     xspec = pexpect.spawn("xspec")
     xspec.expect("XSPEC12>")
     xspec.sendline(f"data 1:1 {phafile}")
@@ -136,8 +147,10 @@ def xspec_wrapper(phafile, channel_lower, channel_upper, save=None):
     
 
 #Pexpect wrapper for grppha to bin spectra
-def grppha_wrapper(pha_in, pha_out, nchan):
+def grppha_wrapper(pha_in, pha_out, nchan, verbose=True):
     #Spawn grppha child with pexpect
+    if verbose:
+        log.info("Grouping energy bins with grppha")
     grppha = pexpect.spawn("grppha")
     grppha.expect("Please enter PHA filename")
     grppha.sendline(f"{pha_in}")
@@ -153,7 +166,9 @@ def grppha_wrapper(pha_in, pha_out, nchan):
     
 
 #Conver ps to pdf
-def convertPDF(psfile, display=False):
+def convertPDF(psfile, display=False, verbose=True):
+    if verbose:
+        log.info("Converting to pdf")
     cmd = ['ps2pdf', psfile, psfile.replace('.ps', '.pdf')]
     subprocess.run(cmd)
     if display:
@@ -169,41 +184,32 @@ def gen_spectra(evt, phase_lower, phase_upper,
     original_exp = t.meta['EXPOSURE']
     new_exp = original_exp * (phase_upper-phase_lower)
 
-    if verbose:
-        print("-----Running fselect-----")
     fselect_phase(evt, "autofits.fits", 
-                  phase_lower, phase_upper, clobber=True)
+                  phase_lower, phase_upper, clobber=True, 
+                  verbose=verbose)
 
     #test_fselect("autofits.fits")
 
-    if verbose:
-        print("-----Running xselect-----")
     xselect(datadir='./', eventfile="autofits.fits", 
-            session='autoxselect')
+            session='autoxselect', verbose=verbose)
 
-    if verbose:
-        print("-----Updating exposure-----")
     update_exp("autoxselect_spec.pha", "autoxselect_spec_2.fits", 
-               new_exp)
+               new_exp, verbose=verbose)
     subprocess.run(['mv', 'autoxselect_spec_2.fits',
                     'autoxselect_spec_2.pha'])
 
-    if verbose:
-        print("-----Running grppha-----")
-    grppha_wrapper("autoxselect_spec_2.pha", "autoxselect_spec_grppha.pha", nchan)
+    grppha_wrapper("autoxselect_spec_2.pha", "autoxselect_spec_grppha.pha", 
+                   nchan, verbose=verbose)
 
     if save_pha is not None:
         subprocess.run(['cp', 'autoxselect_spec_grppha.pha', save_pha])
     if run_xspec:
-        if verbose:
-            print("-----Running xspec-----")
         xspec_wrapper('autoxselect_spec_grppha.pha', 
-                      channel_lower, channel_upper, save=save_plot)
+                      channel_lower, channel_upper, save=save_plot,
+                      verbose=verbose)
 
         if save_plot is not None:
-            if verbose:
-                print("-----Converting to PDF-----")
-            convertPDF(f"{save}.ps", display=display)
+            convertPDF(f"{save}.ps", display=display, verbose=verbose)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=desc)
@@ -243,4 +249,5 @@ if __name__ == '__main__':
     gen_spectra(args.evt, args.lp, args.up, args.le, args.ue, 
                 args.nchan, save_pha=args.save_pha, 
                 save_plot=args.save_plot, display=args.display)
+
 

@@ -2,6 +2,7 @@
 from __future__ import print_function, division, absolute_import
 import argparse
 import collections
+from math import log10, floor
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
@@ -12,11 +13,25 @@ import sys
 import subprocess
 from astropy.table import Table
 from astropy.io import ascii
+from fuzzywuzzy import process
+from scipy.optimize import curve_fit
+from scipy.stats import chisquare
+from scipy import exp
 import spectraplots
 #Dom Rowan and Lauren Lugo 2019
 
 def gaus(x, a, x0, sigma, b):
     return a*exp(-(x-x0)**2/(2*sigma**2)) + b
+
+def round_1sigfig(x):
+    return round(x, -int(floor(log10(abs(x)))))
+
+def two_gaus(x, 
+             a_0, x0_0, sigma_0, 
+             a_1, x0_1, sigma_1, b,
+             ):
+               
+    return a_0*exp(-(x-x0_0)**2/(2*sigma_0**2)) + a_1*exp(-(x-x0_1)**2/(2*sigma_1**2)) + b
 
 #LC Class for pulsar profile
 class LightCurve:
@@ -29,7 +44,10 @@ class LightCurve:
         self.ph = self.tab['PULSE_PHASE']
         self.piratio = self.tab['PI_RATIO']
         self.counts = None # Initialize counts to none
-        self.name = None
+        self.name = process.extract(evtfile, 
+                                    ['PSR B1821-24', 'PSR B1937+21'],
+                                    limit=1)[0][0]
+                                               
 
     # Apply energy mask
     def mask(self, lower_pi=0, upper_pi=10, lower_ph=0, upper_ph=1):
@@ -172,9 +190,7 @@ class LightCurve:
         #ax.legend(loc=(.85, .85), fontsize=20, edgecolor='black')
         if self.name is not None:
             ax.text(.95, .95, self.name, ha='right', va='top', 
-                    transform=ax.transAxes, fontsize=20,
-                    bbox=dict(facecolor='white', edgecolor='black',
-                              alpha=.5))
+                    transform=ax.transAxes, fontsize=20)
         #Save/display/return plot
         if output is not None:
             fig.savefig(f"{output}.{extension}", dpi=500)
@@ -265,16 +281,205 @@ class LightCurve:
 
         return tup
 
-    def fit_gauss(self):
+    def peak_center(self):
         if self.counts is None:
             self.generate()
 
-        n = len(self.phasebins)
-        mean = sum(self.phasebins*self.counts) / n
-        sigma = sum(self.counts*(self.phasebins-mean)**2) / n
-        b = np.min(self.counts)
-        popt, pcov = curve_fit(gaus, self.phasebins, 
-                               self.normalizedflux, 
-                               p0=[100, mean, sigma, b])
+        idx = np.where(np.array(self.counts_extended) == max(self.counts_extended))[0]
+        return self.phasebins_extended[idx]
+       
+    def interpulse_center(self):
+        if self.counts is None:
+            self.generate()
+        
+        interpulse_counts = [ self.counts[i] for i in range(len(self.counts))
+                              if 0.2 <= self.phasebins[i] <= 0.8 ]
 
+        idx = np.where(np.array(self.counts) == max(interpulse_counts))[0]
+        return self.phasebins[idx]
+
+
+    def fit_gauss(self, component, include_phases=None, ax=None):
+        if self.counts is None:
+            self.generate()
+        
+        #Parse user entered component type
+        component = process.extract(component, ['primary', 'interpulse'], 
+                                    limit=1)[0][0]
+    
+        if include_phases is None:
+            if component == 'primary':
+                phase_min = .75
+                phase_max = 1.25
+            elif component == 'interpulse':
+                phase_min = .4 
+                phase_max = .7
+            else:
+                print("Invalid component")
+                return -1
+        else:
+            phase_min = include_phases[0]
+            phase_max = include_phases[1]
+
+        phasebins_fitting = np.array([ p for p in self.phasebins_extended 
+                                       if phase_min <= p <= phase_max ])
+        counts_fitting = np.array([ self.counts_extended[i] 
+                                    for i in range(len(self.counts_extended)) 
+                                    if phase_min <= self.phasebins_extended[i] <= phase_max ])
+
+        
+
+        p0_a = max(counts_fitting)
+        if component == 'primary':
+            p0_x0 = self.peak_center()[0] + 1.0
+        elif component == 'interpulse':
+            p0_x0 = self.interpulse_center()[0]
+        else:
+            print("Invalid component")
+            return -1
+
+        p0_sigma = 0.1
+        p0_b = min(counts_fitting)
+        popt, pcov = curve_fit(gaus, phasebins_fitting, 
+                               counts_fitting, 
+                               p0=[p0_a, p0_x0, p0_sigma, p0_b])
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+            plt.subplots_adjust(bottom=.2, top=.98, right=.98, left=.15)
+            created_fig = True
+            ax.set_xlabel('Phase', fontsize=25)
+            ax.set_ylabel('Counts', fontsize=25)
+        else:
+            created_fig=False
+
+        ax = spectraplots.plotparams(ax)
+        ax.set_xlim(left=phase_min-.025, right=phase_max+.025)
+
+        ax.plot(phasebins_fitting, counts_fitting,
+                marker='.', ls='-', color='xkcd:violet', zorder=2)
+        ax.plot(phasebins_fitting, 
+                gaus(phasebins_fitting, *popt),
+                color='xkcd:azure', ls='-', zorder=1, alpha=.4, lw=6)
+
+        chisq, p = chisquare(counts_fitting, gaus(phasebins_fitting, *popt))
+        chisq = chisq / (len(counts_fitting)-len(popt))
+        ratio = popt[0] / np.std(counts_fitting)
+        if any(np.sqrt(np.diag(pcov)) == np.inf):
+            ratio=-1.0
+
+        if ratio > 1:
+            color = 'xkcd:green'
+        else:
+            color = 'xkcd:red'
+        ax.text(.95, .95, f"{self.name}", ha='right', va='top', 
+                fontsize=20, transform=ax.transAxes)
+        ax.text(.95, .85, f"Center: {round(popt[1], 3)}",
+                ha='right', va='top', fontsize=15, transform=ax.transAxes)
+
+        if created_fig:
+            plt.show()
+            return popt, ratio
+        else:
+            return ax, popt, ratio
+
+
+        
+    def fit_two_gauss(self, include_phases=None, ax=None, annotate=True):
+        if self.counts is None:
+            self.generate()
+        
+    
+        if include_phases is None:
+            phase_min = .75
+            phase_max = 1.75
+        else:
+            phase_min = include_phases[0]
+            phase_max = include_phases[1]
+
+        phasebins_fitting = np.array([ p for p in self.phasebins_extended 
+                                       if phase_min <= p < phase_max ])
+        counts_fitting = np.array([ self.counts_extended[i] 
+                                    for i in range(len(self.counts_extended)) 
+                                    if phase_min <= self.phasebins_extended[i] < phase_max ])
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+            created_fig = True
+
+        else:
+            created_fig = False
+
+        ax.set_xlim(left=phase_min-.025, right=phase_max+.025)
+        ax = spectraplots.plotparams(ax)
+
+        if self.name == 'PSR B1821-24':
+            p0_b = min(counts_fitting)
+            p0_a_0 = max(counts_fitting) - p0_b
+            p0_a_1 = p0_a_0 *0.5
+            p0_sigma_0 = .01
+            p0_sigma_1 = .01
+            p0_x0_0 = 1.0
+            p0_x0_1 = 1.55
+
+            bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
+                     [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
+
+            p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+
+        elif self.name == 'PSR B1937+21':
+            p0_b = min(counts_fitting)
+            p0_a_0 = max(counts_fitting) - p0_b
+            p0_a_1 = p0_a_0 *0.1
+            p0_sigma_0 = .01
+            p0_sigma_1 = .01
+            p0_x0_0 = self.peak_center()[0]+1.0
+            p0_x0_1 = self.interpulse_center()[0]+1.0
+
+            bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
+                     [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
+
+            p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+
+        else:
+            print("Invalid sourcename")
+            return -1
+
+        #for i in range(len(p0)):
+        #    print(bounds[0][i], p0[i], bounds[1][i])
+
+        popt, pcov = curve_fit(two_gaus, phasebins_fitting, 
+                               counts_fitting, 
+                               p0=[p0_a_0, p0_x0_0, p0_sigma_0,
+                                   p0_a_1, p0_x0_1, p0_sigma_1, p0_b],
+                               bounds=bounds)
+
+        fit_counts = two_gaus(phasebins_fitting, *popt)
+
+        n_phase = 3
+        fit_counts_extended = np.array([])
+        for i in range(n_phase):
+            fit_counts_extended = np.append(fit_counts_extended, fit_counts)
+        phasebins_fitting_extended = np.array([round(b,4) - 1.0 
+            for b in np.arange(phase_min, phase_max+n_phase-1, self.bs) ])
+        ax.set_xlim(0,2)
+        plt.setp(ax.get_xticklabels()[0], visible=False)
+        plt.setp(ax.get_xticklabels()[-1], visible=False)
+
+        ax.plot(phasebins_fitting, counts_fitting)
+        ax.plot(phasebins_fitting_extended,
+                fit_counts_extended,
+                 color='xkcd:azure', lw=6, zorder=1, alpha=.4)
+        ax.plot(self.phasebins_extended, self.counts_extended, 
+                marker='.', color='xkcd:violet', zorder=2)
+        if annotate:
+            ax.text(.95, .95, f"{round(popt[1], 4)}, {round(popt[4], 4)}", 
+                    fontsize=20, transform=ax.transAxes, 
+                    ha='right', va='top')
+
+        if created_fig:
+            plt.show()
+            return popt
+        else:
+            return ax, popt
 
