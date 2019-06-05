@@ -218,18 +218,21 @@ def merge_spectra(sourcename):
 		   'outfil=combined.pha']
 	subprocess.call(cmd)
 
+"""
+#Need to change this to work with decrypt key
 def cronjob(heasarc_user, heasarc_pwd, decryptkey, emin, emax, mask,
 			cormin, cut, filterbinsize, filtpolar, shrinkelvcut):
 	### Running on PSR_B1821-24 & PSR_B1937+21 ###
 	os.chdir("/students/pipeline/PSR_B1821-24")
 	par_1821 = "/students/pipeline/parfiles/PSR_B1821-24.par"
 	update("PSR_B1821-24", heasarc_user, heasarc_pwd, './', decryptkey, 
-		   emin, emax, mask, par_1821, cormin, cut, filterbinsize, filtpolar,			 shrinkelvcut)
+		   emin, emax, mask, par_1821, cormin, cut, filterbinsize, filtpolar, shrinkelvcut)
 
 	os.chdir("/students/pipeline/PSR_B1937+21")
 	par_1937 = "/students/pipeline/parfiles/PSR_B1937+21.par"
 	update("PSR_B1937+21", heasarc_user, heasarc_pwd, './', decryptkey,
-		   emin, emax, mask, par_1937, cormin, cut, filterbinsize, filtpolar,			 shrinkelvcut)
+		   emin, emax, mask, par_1937, cormin, cut, filterbinsize, filtpolar, shrinkelvcut)
+"""
 	
 
 if __name__ == '__main__':
