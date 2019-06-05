@@ -352,13 +352,18 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
                       second_logs,
                       first_label,
                       second_label,
-                      output="multispectra.pdf"):
+                      output="multispectra.pdf",
+                      vertical=True):
 
     #Init figure
-    fig = plt.figure(figsize=(10, 11))
-    plt.subplots_adjust(top=.98, right=.98, hspace=.15, left=.15)
-    #Outer gridspec of size 2
-    outer = gridspec.GridSpec(2, 1, height_ratios=[1,1])
+    if vertical:
+        plt = plt.figure(figsize=(10,11))
+        plt.subplots-adjust(top=.98, right=.98, hspace=.15, left=.15)
+        outer = gridspec.GridSpec(2, 1, height_ratios=[1,1])
+    else:
+        fig = plt.figure(figsize=(20, 6.5))
+        plt.subplots_adjust(top=.98, right=.98, wspace=.08, left=.05, bottom=.17)
+        outer = gridspec.GridSpec(1, 2, width_ratios=[1,1])
 
     #Each spec of outer contains ufspec and delchi
     inner_f = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer[0],
@@ -473,7 +478,10 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
         ax.axhline(0, ls=':', lw=1.5, color='gray')
         ax.set_xscale('log')
         ax.set_xlim(right=10)
-        ax.set_ylabel(r'Residuals ($\sigma$)', fontsize=15)
+        if vertical:
+            ax.set_ylabel(r'Residuals ($\sigma$)', fontsize=15)
+        else:
+            ax.set_xlabel("Energy (keV)", fontsize=30)
         fig.add_subplot(ax)
 
     #Dont want to show xtick labels for ufspec
@@ -481,9 +489,13 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
     plt.setp(axf0.get_xticklabels(), visible=False)
 
     #Add axes labels
-    fig.text(.03, .55, "Normalized Cts/S", ha='center', va='center', 
-             rotation='vertical', fontsize=30)
-    axs1.set_xlabel("Energy (keV)", fontsize=30)
+    if vertical:
+        axs1.set_xlabel("Energy (keV)", fontsize=30)
+        fig.text(.03, .55, "Counts/Sec", ha='center', va='center', 
+                 rotation='vertical', fontsize=30)
+    else:
+        axf0.set_ylabel("Counts/sec", fontsize=30)
+        axf1.set_ylabel(r'Residuals ($\sigma$)', fontsize=15)
     fig.savefig(output, dpi=2000)
 
 
@@ -556,9 +568,11 @@ def wrapper(evt, lower_back, upper_back,
         firstlogs = [f"log_first_{i}.txt" for i in range(len(first_ranges))]
         secondlogs = [f"log_second_{i}.txt" for i in range(len(second_ranges))]
 
+        log.info("Plotting Spectra")
+
         plot_multi_ufspec(evt, firsttxts, secondtxts,
                           first_ranges, second_ranges, first_mincounts, second_mincounts,
-                          firstlogs, secondlogs, first_label, second_label, 'posterspectra.jpeg')
+                          firstlogs, secondlogs, first_label, second_label, 'posterspectra.svg')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=desc)
