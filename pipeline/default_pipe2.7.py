@@ -36,7 +36,7 @@ def outdircheck(sourcename):
 	print("WARNING: source name {}\
 			inconsistent with output dir".format(sourcename))
 	check = input("Continue -- [y/n] ")
-	if check not in ['y', 'Y']:
+	if any([check == ['y', 'Y']]):
 		return -1
 	else:
 		return 0
