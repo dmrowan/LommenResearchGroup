@@ -10,6 +10,7 @@ from fuzzywuzzy import process
 import pandas as pd
 import dateutil
 from tqdm import tqdm
+import numpy as np
 
 #Dom Rowan 2019
 
@@ -55,7 +56,7 @@ def get_dates():
 	df = df.reset_index(drop=True)
 	print(df)
 
-def get_exposure():
+def get_exposure_table():
 	obsIDs = []
 	clean_exp = []
 	raw_exp = []
@@ -89,40 +90,63 @@ def get_exposure():
 	df = pd.DataFrame({'obsID':obsIDs, 'raw':raw_exp, 'clean':clean_exp, 'cut':cut_exp})
 	df.to_csv("exposures.csv", index=False)
 
-def calc_exposure(csv, source, to_latex=None):
-    if type(evt) != str:
-        raise ValueError("filename must be string")
-    if not os.path.isfile(evt):
-        raise FileNotFoundError
+def get_exposure(tex_out):
+	df = print_nicer_segment(username='nicer_team', password='sextant')
+	source = df[df['Target Name']==sourcename]
 
-    df = pd.read_csv(calc_exposure)
+	n_obdIDs = len(source)
+	good_exp = np.sum(source['Good Expo[s]'])
 
-    name = process.extract(source, ['PSR B1821-24', 'PSR B1937+21'], 
-                           limit=1)[0][0]
+	heads = ['1821', '1937', '0218']
+	exps = []
+	for sourcename in ['PSR_B1821-24', 'PSR_B1937+21', 'PSR_J0218+4232']:
+		source = df[df['Target Name']==sourcename]
+		n_obdIDs = len(source)
+		good_exp = np.sum(source['Good Expo[s]'])
+		exps.append(good_exp)
 
-    if name == 'PSR_B1821-24':
-        command_head = '1821'
-    else:
-        command_head = '1937'
+	with open(tex_out, 'w') as f:
+		f.write("\\newcommand{\\"+command_head+"_raw_exp}{"+total_raw+"}\n")
+		f.write("\\newcommand{\\"+command_head+"_clean_exp}{"+total_clean+"}\n")
+		f.write("\\newcommand{\\"+command_head+"_cut_exp}{"+total_cut+"}\n")
 
-    total_raw = np.sum(df['raw'])
-    total_clean = np.sum(df['clean'])
-    total_cut = np.sum(df['cut'])
-    
-    if to_latex is not None:
-        with open(to_latex, 'w') as f:
-            f.write("\\newcommand{\\"+command_head+"_raw_exp}{"+total_raw+"}")
-            f.write("\\newcommand{\\"+command_head+"_clean_exp}{"+total_clean+"}")
-            f.write("\\newcommand{\\"+command_head+"_cut_exp}{"+total_cut+"}")
+		f.write("\\newcommand{\\"+command_head+"_raw_exp}{"+total_raw+"}\n")
+		f.write("\\newcommand{\\"+command_head+"_clean_exp}{"+total_clean+"}\n")
+		f.write("\\newcommand{\\"+command_head+"_cut_exp}{"+total_cut+"}")
 
-            f.write("\\newcommand{\\"+command_head+"_raw_exp}{"+total_raw+"}")
-            f.write("\\newcommand{\\"+command_head+"_clean_exp}{"+total_clean+"}")
-            f.write("\\newcommand{\\"+command_head+"_cut_exp}{"+total_cut+"}")
-    
+
+def print_nicer_segment(url = 'https://heasarc.gsfc.nasa.gov/docs/nicer/team_schedule/nicer_seg_team.html',
+                        username = None, password=None):
+    """
+    This prints out the segment detail table in text format
+
+    usage: % print_nicer_segment(username = "nicer_user_name" password = "nicer password")
+
+    outputs: prints the nicer segment table to the terminal
+
+    :param url: location of the segment detail page
+    :param username: nicer team username
+    :param password: nicer team password
+    :return:
+    """
+    from bs4 import BeautifulSoup
+    import requests
+    if (not username) or (not password):
+        raise ValueError("must supply username and password to access the NICER obs page")
+    req = requests.get(url, auth=(username, password))
+    if req.status_code != 200:
+        raise ValueError('Problem accessing {0} with ({1}, {2}) \nReturn code: {3}'.format(
+            url, username, password, req.status_code))
+
+    soup = BeautifulSoup(req.text, 'lxml')
+    tabs = soup.find_all('table')[1]
+    df = pd.read_html(str(tabs))
+    return df[0]
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description=desc)
 	parser.add_argument("function", help="Options: clean, version_check, get_dates", type=str)
+	parser.add_argument("--source", help="Sourcename for get exposure", type=str, default=None)
 	args=parser.parse_args()
 
 	function = process.extract(args.function, 
@@ -136,7 +160,7 @@ if __name__ == '__main__':
 	elif function == 'get_dates':
 		get_dates()
 	elif function == 'get_exposure':
-		get_exposure()
+		get_exposure(args.source)
 	else:
 		print("Invalid function input")
 
