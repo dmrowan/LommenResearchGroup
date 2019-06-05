@@ -146,7 +146,7 @@ def print_nicer_segment(url = 'https://heasarc.gsfc.nasa.gov/docs/nicer/team_sch
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description=desc)
 	parser.add_argument("function", help="Options: clean, version_check, get_dates", type=str)
-	parser.add_argument("--source", help="Sourcename for get exposure", type=str, default=None)
+	parser.add_argument("--tex", help="Output tex name", type=str, default=None)
 	args=parser.parse_args()
 
 	function = process.extract(args.function, 
@@ -160,7 +160,7 @@ if __name__ == '__main__':
 	elif function == 'get_dates':
 		get_dates()
 	elif function == 'get_exposure':
-		get_exposure(args.source)
+		get_exposure(args.tex)
 	else:
 		print("Invalid function input")
 
