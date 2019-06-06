@@ -1,33 +1,34 @@
 #!/usr/bin/env python
-import spectraplots
 import argparse
 import ast
+from astropy import log
 import collections
-import genspectra
-import pexpect
-import time
+from fuzzywuzzy import process
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+import numpy as np
 import os
 import pandas as pd
-from LCClass import LightCurve
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from fuzzywuzzy import process
-from spectraplots import plotparams
-import numpy as np
-from tqdm import tqdm
-from astropy import log
+import pexpect
 import subprocess
+import time
+from tqdm import tqdm
+from LCClass import LightCurve
+from spectraplots import plotparams
 import isolate_errorbars
 import profile_utils
+import genspectra
 
 #Dom Rowan 2019
 
 desc="""
-Generate multiple spectra with different phase selections
+Generate multiple spectra with different phase selections and plot
 """
 
 #Fix phasetups that overlap zero
 def phase_correction(phasetup):
+    if type(phasetup) != tuple:
+        raise TypeError
     if phasetup[1] <= phasetup[0]:
         phasetup = (phasetup[0], phasetup[1]+1)
     return phasetup
@@ -357,8 +358,8 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
 
     #Init figure
     if vertical:
-        plt = plt.figure(figsize=(10,11))
-        plt.subplots-adjust(top=.98, right=.98, hspace=.15, left=.15)
+        fig = plt.figure(figsize=(10,11))
+        plt.subplots_adjust(top=.98, right=.98, hspace=.15, left=.15)
         outer = gridspec.GridSpec(2, 1, height_ratios=[1,1])
     else:
         fig = plt.figure(figsize=(20, 6.5))
@@ -501,7 +502,9 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
 
 def wrapper(evt, lower_back, upper_back, 
             first_label, second_label,
-            mincounts_scalefactor=1.0 ):
+            output,
+            mincounts_scalefactor=1.0,
+            vertical=True):
 
         source = process.extract(evt, ['PSR B1821-24', 'PSR B1937+21'],
                                  limit=1)[0][0]
@@ -572,21 +575,28 @@ def wrapper(evt, lower_back, upper_back,
 
         plot_multi_ufspec(evt, firsttxts, secondtxts,
                           first_ranges, second_ranges, first_mincounts, second_mincounts,
-                          firstlogs, secondlogs, first_label, second_label, 'posterspectra.svg')
+                          firstlogs, secondlogs, first_label, second_label, output, 
+                          vertical=vertical)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument("evt", help='Event file', type=str)
+    parser.add_argument("output", help="Output image file", type=str, nargs='?', 
+                        default="plot_spectra.pdf")
+    parser.add_argument("--h", help="Make plot horizontal instead of vertical",
+                        action='store_true', default=False)
     args= parser.parse_args()
 
     source = process.extract(args.evt, ['PSR B1821-24', 'PSR B1937+21'],
                              limit=1)[0][0]
 
     if source == 'PSR B1821-24':
-        wrapper(args.evt, .2, .4, "Primary & Interpulse", "Leading & Trailing")
+        wrapper(args.evt, .2, .4, "Primary & Interpulse", "Leading & Trailing", args.output,
+                vertical=(not args.h))
 
     elif source == 'PSR B1937+21':
-        wrapper(args.evt, .2, .4, "Primary & Interpulse", "Leading & Trailing")
+        wrapper(args.evt, .2, .4, "Primary & Interpulse", "Leading & Trailing", args.output, 
+                vertical=(not args.h))
 
 
 
