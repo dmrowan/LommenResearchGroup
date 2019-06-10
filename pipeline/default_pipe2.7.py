@@ -63,12 +63,14 @@ def run_datadownload(sourcename, heasarc_user, heasarc_pwd, outdir,
 
 	subprocess.call(cmd)
 
-def run_nicerl2(obsID, clobber=True):
+def run_nicerl2(obsID, clobber=True, no_trumpet=False):
 	log.info("Running nicerl2")
 	assert(os.path.isdir(obsID))
 	cmd = ['nicerl2', obsID]
 	if clobber:
 		cmd.append("clobber=YES")
+	if no_trumpet:
+		cmd.append("trumpetfilet=NO")
 	subprocess.call(cmd)
 
 def run_niprefilter2(obsID):
@@ -126,7 +128,8 @@ def run_cr_cut(obsID, cut, filterbinsize):
 def allprocedures(obsID, emin, emax, 
 				  mask, par, cormin, 
 				  cut, filterbinsize,
-				  filtpolar=True, shrinkelvcut=True):
+				  filtpolar=True, shrinkelvcut=True, 
+				  no_trumpet=False):
 	
 	if os.path.isfile("{}_pipe/cleanfilt_cut.evt".format(obsID)):
 		return 0
@@ -137,7 +140,7 @@ def allprocedures(obsID, emin, emax,
 		return -1
 	
 
-	run_nicerl2(obsID)
+	run_nicerl2(obsID, no_trumpet=no_trumpet)
 	run_niprefilter2(obsID)
 	run_psrpipe(obsID, emin, emax, mask, 
 				par, cormin, filtpolar=filtpolar,
@@ -148,7 +151,8 @@ def allprocedures(obsID, emin, emax,
 	return "{}: {} seconds".format(obsID, elapsed)
 
 def wrapper(emin, emax, mask, par, cormin, cut, filterbinsize,
-			   filtpolar=True, shrinkelvcut=True, output="OutputTimes.txt"):
+			filtpolar=True, shrinkelvcut=True, output="OutputTimes.txt",
+			no_trumpet=False):
 	pool = mp.Pool(processes=mp.cpu_count())
 	jobs = []
 	times = []
@@ -158,7 +162,8 @@ def wrapper(emin, emax, mask, par, cormin, cut, filterbinsize,
 								   (f, emin, emax, mask, par, cormin,
 									     cut, filterbinsize,),
 								   dict(filtpolar=filtpolar, 
-									    shrinkelvcut=shrinkelvcut))
+									    shrinkelvcut=shrinkelvcut, 
+										no_trumpet=no_trumpet))
 			jobs.append(job)
 	for job in jobs:
 		output = job.get()
@@ -167,7 +172,7 @@ def wrapper(emin, emax, mask, par, cormin, cut, filterbinsize,
 
 def update(sourcename, heasarc_user, heasarc_pwd, outdir, decryptkey,
 		   emin, emax, mask, par, cormin, cut, filterbinsize,
-		   filtpolar, shrinkelvcut):
+		   filtpolar, shrinkelvcut, no_trumpet):
 	source_dir = os.getcwd().split('/')[-1]
 	log.info("Checking sourcename")
 	if sourcename != source_dir:
@@ -181,7 +186,8 @@ def update(sourcename, heasarc_user, heasarc_pwd, outdir, decryptkey,
 			if not os.path.isdir(f+"_pipe"):
 				allprocedures(f, emin, emax, mask, par, cormin, 
 							  cut, filterbinsize,
-							  filtpolar=filtpolar, shrinkelvcut=shrinkelvcut)
+							  filtpolar=filtpolar, shrinkelvcut=shrinkelvcut,
+							  no_trumpet=no_trumpet)
 	run_niextract(sourcename)
 	#merge_spectra(sourcename)
 
@@ -285,6 +291,8 @@ if __name__ == '__main__':
 						help="Update single source with full procedure")
 	parser.add_argument("--cron", help="Run cron job", 
 						default=False, action='store_true')
+	parser.add_argument("--no_trumpet", help="Run nicerl2 without trumpet cut",
+						default=False, action='store_true')
 	args = parser.parse_args()
 
 	if args.download:
@@ -297,14 +305,16 @@ if __name__ == '__main__':
 				args.cut, args.filterbinsize, 
 				filtpolar=args.filtpolar, 
 				shrinkelvcut=args.shrinkelvcut, 
-				output="OutputTimes.txt")
+				output="OutputTimes.txt", 
+				no_trumpet=args.no_trumpet)
 	elif args.combine:
 		run_niextract(args.sourcename)
 	elif args.update:
 		update(args.sourcename, args.user, args.passwd, 
 			   args.outdir, args.key, args.emin, args.emax, 
 			   args.mask, args.par, args.cormin, args.cut, 
-			   args.filterbinsize, args.filtpolar, args.shrinkelvcut)
+			   args.filterbinsize, args.filtpolar, args.shrinkelvcut,
+			   args.no_trumpet)
 	elif args.cron:
 		cronjob(args.user, args.passwd, args.key, 
 				args.emin, args.emax, args.mask,
