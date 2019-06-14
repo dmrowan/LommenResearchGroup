@@ -45,7 +45,8 @@ class LightCurve:
         self.piratio = self.tab['PI_RATIO']
         self.counts = None # Initialize counts to none
         self.name = process.extract(evtfile, 
-                                    ['PSR B1821-24', 'PSR B1937+21'],
+                                    ['PSR B1821-24', 'PSR B1937+21', 
+                                     'PSR J0218+4232'],
                                     limit=1)[0][0]
                                                
 
@@ -442,7 +443,7 @@ class LightCurve:
             p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
 
         else:
-            print("Invalid sourcename")
+            print("Still need to make params for J0218")
             return -1
 
         #for i in range(len(p0)):
