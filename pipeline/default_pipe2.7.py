@@ -70,7 +70,8 @@ def run_nicerl2(obsID, clobber=True, no_trumpet=False):
 	if clobber:
 		cmd.append("clobber=YES")
 	if no_trumpet:
-		cmd.append("trumpetfilet=NO")
+		log.info("Not using trumpet filter")
+		cmd.append("trumpetfilt=NO")
 	subprocess.call(cmd)
 
 def run_niprefilter2(obsID):
@@ -141,7 +142,7 @@ def allprocedures(obsID, emin, emax,
 	
 
 	run_nicerl2(obsID, no_trumpet=no_trumpet)
-	run_niprefilter2(obsID)
+	#run_niprefilter2(obsID)
 	run_psrpipe(obsID, emin, emax, mask, 
 				par, cormin, filtpolar=filtpolar,
 				shrinkelvcut=shrinkelvcut)
@@ -153,7 +154,7 @@ def allprocedures(obsID, emin, emax,
 def wrapper(emin, emax, mask, par, cormin, cut, filterbinsize,
 			filtpolar=True, shrinkelvcut=True, output="OutputTimes.txt",
 			no_trumpet=False):
-	pool = mp.Pool(processes=mp.cpu_count())
+	pool = mp.Pool(processes=mp.cpu_count()+2)
 	jobs = []
 	times = []
 	for f in os.listdir("./"):
@@ -224,21 +225,22 @@ def merge_spectra(sourcename):
 		   'outfil=combined.pha']
 	subprocess.call(cmd)
 
-"""
 #Need to change this to work with decrypt key
 def cronjob(heasarc_user, heasarc_pwd, decryptkey, emin, emax, mask,
 			cormin, cut, filterbinsize, filtpolar, shrinkelvcut):
-	### Running on PSR_B1821-24 & PSR_B1937+21 ###
+	### Running on PSR_B1821-24 ###
 	os.chdir("/students/pipeline/PSR_B1821-24")
 	par_1821 = "/students/pipeline/parfiles/PSR_B1821-24.par"
 	update("PSR_B1821-24", heasarc_user, heasarc_pwd, './', decryptkey, 
-		   emin, emax, mask, par_1821, cormin, cut, filterbinsize, filtpolar, shrinkelvcut)
+		   emin, emax, mask, par_1821, cormin, cut, 
+		   filterbinsize, filtpolar, shrinkelvcut)
 
+	### Running on PSR_B1937+21 ###
 	os.chdir("/students/pipeline/PSR_B1937+21")
 	par_1937 = "/students/pipeline/parfiles/PSR_B1937+21.par"
 	update("PSR_B1937+21", heasarc_user, heasarc_pwd, './', decryptkey,
-		   emin, emax, mask, par_1937, cormin, cut, filterbinsize, filtpolar, shrinkelvcut)
-"""
+		   emin, emax, mask, par_1937, cormin, cut, 
+		   filterbinsize, filtpolar, shrinkelvcut)
 	
 
 if __name__ == '__main__':
@@ -295,6 +297,7 @@ if __name__ == '__main__':
 						default=False, action='store_true')
 	args = parser.parse_args()
 
+
 	if args.download:
 		assert(all([arg is not None for arg in [
 					args.sourcename, args.user, args.passwd, args.key]]))
@@ -320,4 +323,3 @@ if __name__ == '__main__':
 				args.emin, args.emax, args.mask,
 				args.cormin, args.cut, args.filterbinsize, 
 				args.filtpolar, args.shrinkelvcut)
-
