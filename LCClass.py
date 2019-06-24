@@ -138,7 +138,8 @@ class LightCurve:
     # Produce plot of puslar profile
     def plot(self, n_phase=2, bs=.01, 
              output=None, extension='pdf', 
-             l1=None, l2=None, nsigma=3, ax=None):
+             l1=None, l2=None, nsigma=3, ax=None,
+             label=True):
 
         if output is not None:
             assert(type(output) == str)
@@ -157,8 +158,9 @@ class LightCurve:
 
         #Default plot paramaters
         ax = spectraplots.plotparams(ax)
-        ax.set_xlabel('Phase', fontsize=25)
-        ax.set_ylabel('Counts', fontsize=25)
+        if label:
+            ax.set_xlabel('Phase', fontsize=25)
+            ax.set_ylabel('Counts', fontsize=25)
         ax.set_xlim(left=-.025, right=n_phase+.025)
 
         ax.plot(self.phasebins_extended, self.counts_extended, 
@@ -189,7 +191,7 @@ class LightCurve:
                     #ax.legend()
         
         #ax.legend(loc=(.85, .85), fontsize=20, edgecolor='black')
-        if self.name is not None:
+        if self.name is not None and label:
             ax.text(.95, .95, self.name, ha='right', va='top', 
                     transform=ax.transAxes, fontsize=20)
         #Save/display/return plot
