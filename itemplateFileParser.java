@@ -15,7 +15,7 @@ public class itemplateFileParser{
     /* this method parses an itemplate file and
      * generates 3 plain .gauss files containing the types, values
      * and errors from the itemplate.gauss
-     * @param name of the itemplate file to be parsed 
+     * @param name of the itemplate file to be parsed
      */
     public static void itemplateFileParser(String filename) throws FileNotFoundException{
 	Scanner parser = new Scanner(new File(filename));
@@ -26,7 +26,7 @@ public class itemplateFileParser{
 	//skip first two obsolete lines of header
 	String obs1 = parser.nextLine();
 	String obs2 = parser.nextLine();
-	
+
 	while (parser.hasNextLine()){
 	    String line = parser.nextLine();
 	    //exclude last line starting with "-"
@@ -57,7 +57,7 @@ public class itemplateFileParser{
 	}
 	out3.close();
     }
-    
+
     /*
      * main driver for the java script
      */
@@ -84,9 +84,9 @@ public class itemplateFileParser{
 	    mPhaseFile.println(args[i].substring(10,11)+"."+args[i].substring(11,13)+" "+args[i].substring(14,15)+"."+args[i].substring(15,17)+" "+phase_query);
 	    //record phase_error
 	    mPhaseError.println(phaseError_query);
-	    //record energy range and corresponding FWHM of main pulse 
+	    //record energy range and corresponding FWHM of main pulse
 	    mFWHMFile.println(args[i].substring(10,13)+" "+args[i].substring(14,17)+" "+FWHM_query);
-	    
+
 
 	}
 	//close written files
@@ -97,8 +97,8 @@ public class itemplateFileParser{
 	 * The code below parses the resulting output files
 	 *  containing the values and fetches phase and FWHM of interpulse
 	 */
-	PrintWriter iPhaseFile_= new PrintWriter("interPhase.gauss");
-	PrintWriter iPhaseError_= new PrintWriter("interPhase_errors.gauss");
+	PrintWriter iPhaseFile= new PrintWriter("interPhase.gauss");
+	PrintWriter iPhaseError= new PrintWriter("interPhase_errors.gauss");
 	PrintWriter iFWHMFile = new PrintWriter("interFWHM.gauss");
 	for(int i=0;i<args.length;i++){
 	    String filename = "values_"+args[i];
@@ -111,16 +111,16 @@ public class itemplateFileParser{
 	    iPhaseFile.println(args[i].substring(10,11)+"."+args[i].substring(11,13)+" "+args[i].substring(14,15)+"."+args[i].substring(15,17)+" "+phase_query);
 	    //record phase_error
 	    iPhaseError.println(phaseError_query);
-	    //record energy range and corresponding FWHM of interpulse 
+	    //record energy range and corresponding FWHM of interpulse
 	    mFWHMFile.println(args[i].substring(10,13)+" "+args[i].substring(14,17)+" "+FWHM_query);
 	}
 	//close written files
-	iPhaseFile_.close();
+	iPhaseFile.close();
 	iPhaseError.close();
 	iFWHMFile.close();
-	
+
     }
-    /* 
+    /*
      * @return phase of main pulse
      */
     public static double findMainPhase(String file) throws FileNotFoundException{
@@ -129,7 +129,7 @@ public class itemplateFileParser{
 	for (int i=0; i<4; i++) fileParser.nextLine();
 	return Double.parseDouble(fileParser.nextLine());
     }
-    /* 
+    /*
      * @return phase-error of main pulse
      */
     public static double findMainPhaseErr(String file) throws FileNotFoundException{
@@ -138,7 +138,7 @@ public class itemplateFileParser{
 	for (int i=0; i<4; i++) fileParser.nextLine();
 	return Double.parseDouble(fileParser.nextLine());
     }
-    /* 
+    /*
      * @return FWHM of main pulse
      */
     public static double findMainFWHM(String file) throws FileNotFoundException{
@@ -147,7 +147,7 @@ public class itemplateFileParser{
 	for (int i=0; i<5; i++) fileParser.nextLine();
 	return Double.parseDouble(fileParser.nextLine());
     }
-    /* 
+    /*
      * @return phase of interpulse
      */
     public static double findInterPhase(String file) throws FileNotFoundException{
@@ -156,7 +156,7 @@ public class itemplateFileParser{
 	fileParser.nextLine();
 	return Double.parseDouble(fileParser.nextLine());
     }
-    /* 
+    /*
      * @return phase-error of interpulse
      */
     public static double findInterPhaseErr(String file) throws FileNotFoundException{
@@ -165,21 +165,13 @@ public class itemplateFileParser{
 	fileParser.nextLine();
 	return Double.parseDouble(fileParser.nextLine());
     }
-    /* 
+    /*
      * @return FWHM of interpulse
      */
-    public static double findInterFWHM(String file) throws FileNotFpundException{
+    public static double findInterFWHM(String file) throws FileNotFoundException{
 	Scanner fileParser = new Scanner (new File(file));
 	//skip first 2 lines
 	for (int i=0; i<2; i++) fileParser.nextLine();
 	return Double.parseDouble(fileParser.nextLine());
     }
 }
-
-	
-
-	
-	
-
-	    
-	    

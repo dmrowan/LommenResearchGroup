@@ -11,14 +11,12 @@ A collection of procedures designed for profile and spectral analysis of NICER m
 
 What things you need to install the software and how to install them
 
-```
-Give examples
-```
-
 ## Authors
 
 * **Dominick Rowan**
 * **Liam Lynch**
+* **Zaynab Ghazi**
+* **Lauren Lugo**
 
-See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
+See also the list of [contributors](https://github.com/dmrowan/LommenResearchGroup/contributors) who participated in this project.
 
