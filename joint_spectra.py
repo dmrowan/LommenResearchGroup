@@ -36,7 +36,7 @@ class joint_data:
         except:
             self.parse_file()
 
-        if i >= len(self.tel_names)
+        if i >= len(self.tel_names):
             raise ValueError("Invalid telescope index")
 
         self.tel_names[i] = name
