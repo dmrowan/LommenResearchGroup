@@ -1,68 +1,138 @@
 #!/usr/bin/env python
-import spectraplots
 import argparse
-import ast
-import collections
-import genspectra
-import pexpect
-import time
-import os
-import pandas as pd
-from LCClass import LightCurve
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from fuzzywuzzy import process
-from spectraplots import plotparams
 import numpy as np
-from tqdm import tqdm
-from astropy import log
-import subprocess
-import isolate_errorbars
-import multispectra
+import os
+import pandas as pd
+from spectraplots import plotparams
 
 #Dom Rowan 2019
+desc="""
+Plot a simulatneously modeled spectra for multiple telescope txt files as output from Xspec
+"""
 
-#Plotting routine 
-def plot_multi_telescope(txtfiles_1821, txtfiles_1937, 
-                         labels_1821, labels_1937,
-                         output):
+#Class for parsing the joint data file from simultaneous fitting
+class joint_data:
+
+    def __init__(self, fname):
+    
+        if not os.path.isfile(fname):
+            raise FileNotFoundError
+
+        self.fname = fname
+        self.source = fname
+
+        self.parse_file()
+   
+    #Option to set sourcename unique from fname
+    def set_source(self, source):
+        self.source = source
+
+    #Method to set the telescope names for the joint table
+    def set_tel(self, i, name):
+        try:
+            type(self.tel_names) == list
+        except:
+            self.parse_file()
+
+        if i >= len(self.tel_names)
+            raise ValueError("Invalid telescope index")
+
+        self.tel_names[i] = name
+
+
+    #File parser method
+    def parse_file(self):
+        with open(self.fname) as f:
+            lines = f.readlines()
+
+        #Find all break indicies
+        breakidx = np.where(np.array(lines) == 'NO NO NO NO NO\n')[0]
+
+        #read in fist df seperately with skiprows=3
+        df0 = pd.read_csv(self.fname, skiprows=3, delimiter=" ", header=None,
+                          nrows=breakidx[0]-3)
+        #reset column names
+        df0.columns = ['energy', 'energy_err', 'counts', 'counts_err', 'model']
+
+        self.df_list = [df0]
+
+        #iterate through other indicies to create new data frames
+        for i in range(len(breakidx)):
+            if i != len(breakidx)-1:
+                df = pd.read_csv(self.fname, skiprows=breakidx[i]+1, delimiter=" ",
+                                 header=None, nrows=breakidx[i+1]-breakidx[i]-1)
+
+            else:
+                df = pd.read_csv(self.fname, skiprows=breakidx[i]+1, delimiter=" ",
+                                 header=None)
+
+            df.columns = ['energy', 'energy_err', 
+                           'counts', 'counts_err', 'model']
+            self.df_list.append(df)
+
+        #Check that we have the correct number of data frames with correct lengths
+        self.check_parse()
+
+        #Attributes for data and residuals
+        self.data = [ self.df_list[i] for i in range(int(len(self.df_list)/2)) ]
+        self.residuals = [ self.df_list[i] 
+                           for i in range(
+                           int(len(self.df_list)/2), len(self.df_list)) ]
+
+        #Reset column names for residuals
+        for df in self.residuals:
+            df.columns = ['energy', 'energy_err',
+                          'delchi', 'delchi_err', 'model']
+
+
+        #Setup empty telescope names list
+        self.tel_names = [ "" for i in range(len(self.data)) ]
+
+        return 0
+
+    #Method to verify parse
+    def check_parse(self):
+        #file parse must be attempted before verification
+        try:
+            type(self.df_list) == list
+        except:
+            self.parse_file()
+
+        #Use lengths to verify. Should be two dfs with each length
+        df_lengths = [ len(df) for df in self.df_list ]
+        if len(df_lengths) != 2*len(set(df_lengths)):
+            raise ValueError("Error in file parse inconsistent lengths")
+
+        #Order of lengths should go data dfs then residual dfs
+        for i in range(int(len(self.df_list)/2)):
+            if len(self.df_list[i]) != len(self.df_list[i+int(len(self.df_list)/2)]):
+                raise ValueError("Error in file parse inconsistent lengths")
+
+        return 0
+
+#Plotting routine for joint fit
+def plot_joint_telescope(fname, source, output):
 
     #Init figure
-    fig = plt.figure(figsize=(10, 9))
-    plt.subplots_adjust(top=.98, right=.98, hspace=.15, left=.15)
+    fig = plt.figure(figsize=(8.5, 5.5))
+    plt.subplots_adjust(top=.98, right=.98, wspace=.1, left=.15, bottom=.18)
     #Outer gridspec of size 2
-    outer = gridspec.GridSpec(2, 1, height_ratios=[1,1])
 
     #Each spec of outer contains ufspec and delchi
-    inner_1821 = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer[0],
-                                               hspace=0, height_ratios=[3, 1])
-    inner_1937 = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=outer[1],
-                                               hspace=0, height_ratios=[3,1])
+    inner = gridspec.GridSpec(2, 1, height_ratios=[3,1.2], hspace=0)
 
     #Make axes we can plot onto
-    ax_top1 = plt.Subplot(fig, inner_1821[1])
-    ax_top0 = plt.Subplot(fig, inner_1821[0], sharex=ax_top1)
-    ax_bot1 = plt.Subplot(fig, inner_1937[1])
-    ax_bot0 = plt.Subplot(fig, inner_1937[0], sharex=ax_bot1)
-    
-    #Fill lists of xspecdata objects
-    data_1821 = []
-    data_1937 = []
+    ax1 = plt.Subplot(fig, inner[1])
+    ax0 = plt.Subplot(fig, inner[0], sharex=ax1)
 
-    for i in range(len(txtfiles_1821)):
-        xd = multispectra.xspecdata(txtfiles_1821[i])
-        xd.set_label(labels_1821[i])
-        data_1821.append(xd)
+    #Use joint data class to parse text file
+    xd = joint_data(fname)
+    xd.set_source(source)
 
-    for i in range(len(txtfiles_1937)):
-        xd = multispectra.xspecdata(txtfiles_1937[i])
-        xd.set_label(labels_1937[i])
-        data_1937.append(xd)
+    labels = [ r'$NICER$', r'$NuSTAR$', r'$XMM\;EPIC$'+r'$-$'+r'$MOS$' ]
 
-    alldata = [data_1821, data_1937]
-    sourcenames = ['PSR B1821-24', 'PSR B1937+21']
-
-    #Plot data
     colors = ["#d5483a",
             "#70c84c",
             "#853bce",
@@ -71,85 +141,66 @@ def plot_multi_telescope(txtfiles_1821, txtfiles_1937,
             #"#c24ebe", 
             "xkcd:azure"]
 
-    #Iterate through xspecdata and axes
-    for i, ax in enumerate([ax_top0, ax_bot0]):
-        for j in range(len(alldata[i])):
-            ax.errorbar(alldata[i][j].data['energy'], 
-                        alldata[i][j].data['counts'],
-                        xerr = alldata[i][j].data['energy_err'],
-                        yerr = alldata[i][j].data['counts_err'],
-                        ls=' ', marker='o', color=colors[j],
-                        label=alldata[i][j].get_label(),
-                        zorder=i)
-            ax.plot(alldata[i][j].data['energy'],
-                    alldata[i][j].data['model'],
-                    ls='-', lw=3, color=colors[j],
-                    zorder=len(alldata[i])+i, 
-                    label='_nolegend_')
-        ax = plotparams(ax)
-        ax.set_xscale('log')
-        ax.set_yscale('log')
+    #Iterate through each data and residual pair
+    for i in range(len(xd.data)):
+        ax0.errorbar(xd.data[i]['energy'],
+                     xd.data[i]['counts'],
+                     xerr=xd.data[i]['energy_err'],
+                     yerr=xd.data[i]['counts_err'],
+                     ls=' ', marker='o', 
+                     color=colors[i],
+                     label=labels[i],
+                     zorder=i)
+        ax0.plot(xd.data[i]['energy'],
+                 xd.data[i]['model'],
+                 ls='-', lw=3, color=colors[i],
+                 zorder=len(xd.data)+i,
+                 label='_nolegend_')
 
-        ax.text(.95, .95, sourcenames[i], transform=ax.transAxes, 
-                ha='right', va='top', fontsize=20)
+        ax1.errorbar(xd.residuals[i]['energy'].astype(float),
+                     xd.residuals[i]['delchi'].astype(float),
+                     xerr=xd.residuals[i]['energy_err'].astype(float),
+                     yerr=xd.residuals[i]['delchi_err'].astype(float),
+                     ls=' ', marker='.', color=colors[i], alpha=0.8,
+                     zorder=i)
 
-        ax.legend(loc=(.05, 0.05), fontsize=16, edgecolor='black', framealpha=.9)
-        fig.add_subplot(ax)
 
-    #Plot residuals
-    for i, ax in enumerate([ax_top1, ax_bot1]):
-        for j in range(len(alldata[i])):
-            ax.errorbar(
-                    alldata[i][j].residuals['energy'].astype(float), 
-                    alldata[i][j].residuals['delchi'].astype(float),
-                    xerr=alldata[i][j].residuals['energy_err'].astype(float), 
-                    yerr=alldata[i][j].residuals['delchi_err'].astype(float),
-                    ls=' ', marker='.', color=colors[j], alpha=0.8,
-                    zorder=i)
-        ax = plotparams(ax)
-        ax.axhline(0, ls=':', lw=1.5, color='gray')
-        ax.set_xscale('log')
-        ax.set_ylabel(r'Residuals ($\sigma$)', fontsize=15)
-        fig.add_subplot(ax)
+    #Misc plot params
+    ax0 = plotparams(ax0)
+    ax1 = plotparams(ax1)
+    ax0.set_xscale('log')
+    ax0.set_yscale('log')
+    ax0.text(.95, .95, source, transform=ax0.transAxes, 
+             ha='right', va='top', fontsize=20)
+    ax0.legend(loc=(.05, 0.05), fontsize=16, edgecolor='black', framealpha=.9)
+    ax1.axhline(0, ls=':', lw=1.5, color='gray')
+    ax1.set_xscale('log')
+    ax1.set_xlabel('Energy (keV)', fontsize=20)
+
+    fig.add_subplot(ax0)
+    fig.add_subplot(ax1)
 
     #Dont want to show xtick labels for ufspec
-    plt.setp(ax_top0.get_xticklabels(), visible=False)
-    plt.setp(ax_bot0.get_xticklabels(), visible=False)
+    plt.setp(ax0.get_xticklabels(), visible=False)
 
-    ax_top0.set_ylim(ax_top0.get_ylim()[0] * .4)
+    #ax_top0.set_ylim(ax_top0.get_ylim()[0] * .4)
+
     #Add axes labels
-    fig.text(.03, .55, "Normalized Cts/S", ha='center', va='center', 
-             rotation='vertical', fontsize=30)
-    ax_bot1.set_xlabel("Energy (keV)", fontsize=30)
+    ax0.set_ylabel("Counts/sec", ha='center', va='center', fontsize=30)
+    ax1.set_ylabel(r'Residuals ($\chi$)', fontsize=15)
+    ax0.yaxis.set_label_coords(-0.115, ax0.yaxis.get_label().get_position()[1])
+
+    #Save figure
     fig.savefig(output, dpi=2000)
 
-def main():
-    txtfiles_1821 = [ 'PSR_B1821-24/OtherSpectra/' + s 
-                       for s in [ 'data_onpeak_1.txt', 
-                                  'nustar_data.txt', 
-                                  'xte_data.txt' ] ]
-
-    txtfiles_1937 = [ 'PSR_B1937+21/OtherSpectra/' + s
-                      for s in [ 'data_onpeak_1.txt', 
-                                 'nustar_data.txt',
-                                 'xmm_data.txt' ] ]
-
-    labels_1821 = [ r'$\it{NICER}$', r'$\it{NuSTAR}$', r'$\it{RXTE}$' ]
-    labels_1937 = [ r'$\it{NICER}$', r'$\it{NuSTAR}$', r'$\it{XMM}$' ] 
-
-    photInd_1937 = [ (1.03, .06 ), (1.2, .1), (1.1, .1) ]
-    photInd_1821 = [ (1.16, .07 ), (1.42, .07), (1.2, .2) ]
-
-    for i in range(len(labels_1821)):
-        labels_1821[i] += r': $\Gamma=$'+str(photInd_1821[i][0])+r'$\pm$'+str(photInd_1821[i][1])
-
-    for i in range(len(labels_1937)):
-        labels_1937[i] += r': $\Gamma=$'+str(photInd_1937[i][0])+r'$\pm$'+str(photInd_1937[i][1])
-
-    plot_multi_telescope(txtfiles_1821, txtfiles_1937, 
-                         labels_1821, labels_1937, 
-                         "TelescopeCompare.jpeg")
-
-
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument("fname", help='Xspec output file', type=str)
+    parser.add_argument("-s", help="PSR source name", dest='source',
+                        type=str, required=False, default=None)
+    parser.add_argument("-o", help="Output file", dest='output',
+                        type=str, required=False, default='output.pdf')
+
+    args = parser.parse_args()
+    
+    plot_joint_telescope(args.fname, args.source, args.output)
