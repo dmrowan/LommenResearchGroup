@@ -2,6 +2,7 @@
 from __future__ import print_function, division
 from astropy.table import Table
 from astropy import log
+import datetime
 import os
 import argparse
 import multiprocessing as mp
@@ -227,20 +228,24 @@ def merge_spectra(sourcename):
 
 #Need to change this to work with decrypt key
 def cronjob(heasarc_user, heasarc_pwd, decryptkey, emin, emax, mask,
-			cormin, cut, filterbinsize, filtpolar, shrinkelvcut):
+			cormin, cut, filterbinsize, filtpolar, shrinkelvcut, no_trumpet):
 	### Running on PSR_B1821-24 ###
 	os.chdir("/students/pipeline/PSR_B1821-24")
 	par_1821 = "/students/pipeline/parfiles/PSR_B1821-24.par"
 	update("PSR_B1821-24", heasarc_user, heasarc_pwd, './', decryptkey, 
 		   emin, emax, mask, par_1821, cormin, cut, 
-		   filterbinsize, filtpolar, shrinkelvcut)
+		   filterbinsize, filtpolar, shrinkelvcut, no_trumpet)
 
 	### Running on PSR_B1937+21 ###
 	os.chdir("/students/pipeline/PSR_B1937+21")
 	par_1937 = "/students/pipeline/parfiles/PSR_B1937+21.par"
 	update("PSR_B1937+21", heasarc_user, heasarc_pwd, './', decryptkey,
 		   emin, emax, mask, par_1937, cormin, cut, 
-		   filterbinsize, filtpolar, shrinkelvcut)
+		   filterbinsize, filtpolar, shrinkelvcut, no_trumpet)
+
+	fname = "~/logs/"+datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+	with open(fname, 'w') as f:
+		f.write("Completed at " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 	
 
 if __name__ == '__main__':
@@ -263,6 +268,8 @@ if __name__ == '__main__':
 	parser.add_argument("-k", help="decryption key", dest='key',
 						action=PasswordPromptAction, 
 						type=str, required=False)
+	parser.add_argument("--k_file", help="decryption key from file",
+						type=str, default=None)
 	parser.add_argument("--mp", default=False, action='store_true',
 						help="Run all procedures with multiprocessing")
 	parser.add_argument("--emin", help="Minimum energy to include",
@@ -297,6 +304,9 @@ if __name__ == '__main__':
 						default=False, action='store_true')
 	args = parser.parse_args()
 
+	if args.k_file is not None:
+		with open(args.k_file, 'r') as f:
+			args.key = f.readlines()[0].strip("\n")
 
 	if args.download:
 		assert(all([arg is not None for arg in [
@@ -322,4 +332,4 @@ if __name__ == '__main__':
 		cronjob(args.user, args.passwd, args.key, 
 				args.emin, args.emax, args.mask,
 				args.cormin, args.cut, args.filterbinsize, 
-				args.filtpolar, args.shrinkelvcut)
+				args.filtpolar, args.shrinkelvcut, args.no_trumpet)
