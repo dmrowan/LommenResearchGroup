@@ -1,5 +1,0 @@
-model powerlaw*tbabs
-/*
-renorm
-fit 10000
-
