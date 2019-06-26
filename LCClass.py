@@ -69,7 +69,6 @@ class LightCurve:
         #Creating a temp array to make a mask
         t_mask = []
         erase = []
-        print(len(self.tab['PI']))
 
         # loop goes through the rows one by one
         for py in range(len(self.piratio)):
@@ -87,20 +86,30 @@ class LightCurve:
         self.piratio = self.piratio[t_mask]
         self.pi = self.pi[t_mask]
         
-        print("here 4")
-        #for num in range(len(self.pi)):
-            #print(num)
-           #if(t_mask[num] == False):
-        print("here 5")
-        self.tab.remove_rows(erase)
+	#removing the rows that ly outside the trumpet cut        
+	self.tab.remove_rows(erase)
         print(len(self.tab['PI']))
                   # num = num-1
 
-        self.tab.write('../TrumpetCutfile.fits', format = 'fits', overwrite = True)
-
+        self.newFile = self.tab.write(self.newFile, format = 'fits', overwrite = True)
+        return self.newFile
+        # run loop to create differnet cuts then return a list of evt files
+        #call them in newCreateSpecs.py
         plt.scatter(oldEnergy,oldData, s=1)
-        plt.scatter(self.pi,self.piratio, s= 1)
-        plt.show() 
+
+        #colormag = np.vstack([self.pi,self.piratio])
+        #z = gaussian_kde(colormag)(colormag)
+        plt.ylim(bottom = 0)
+        plt.scatter(self.pi,self.piratio, s= 1, label = 'newTrumpetCute')
+        plt.show()  
+	
+    #unfinished
+    def multiTrumpetCut(self):
+        fastConst = [1.5,1.75]
+        evtFiles = []
+        for i in range(len(fastConst)):
+           evtFiles.append(TrumpMask(fastConst))
+
     # Give a name to include in plots
     def set_name(self, name):
         self.name = name
