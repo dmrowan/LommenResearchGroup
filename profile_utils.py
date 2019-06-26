@@ -174,7 +174,7 @@ def multiple_profiles(evt, energy_ranges, fit_one=False,
                            va='top', transform=ax.reshape(-1)[0].transAxes,
                            fontsize=20)
     ax.reshape(-1)[len(energy_ranges)-1].set_xlabel("Phase", fontsize=20)
-    fig.text(.03, .5, "Photon Counts", ha='center', va='center', 
+    fig.text(.02, .5, "Photon Counts", ha='center', va='center', 
              rotation='vertical', fontsize=30)
     plt.subplots_adjust(hspace=0, bottom=.08, top=.94, right=.98)
     if output is None:
