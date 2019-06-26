@@ -1,23 +1,18 @@
 #!/usr/bin/env python
 from __future__ import print_function, division, absolute_import
-import argparse
 import collections
 from math import log10, floor
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
 import numpy as np
 import os
-import pexpect
-import sys
-import subprocess
 from astropy.table import Table
-from astropy.io import ascii
 from fuzzywuzzy import process
 from scipy.optimize import curve_fit
 from scipy.stats import chisquare
 from scipy import exp
 import spectraplots
+
 #Dom Rowan and Lauren Lugo 2019
 
 def gaus(x, a, x0, sigma, b):
@@ -172,7 +167,6 @@ class LightCurve:
             #ax.axhline(cutofftup.median, ls='--', color='gray')
             ax.axhline(cutofftup.nsigma, ls=':', color='darkblue', 
                        label=str(cutofftup.n)+r'$\sigma$')
-            default_line = dict(ls='--', color='black')
             default_span = dict(alpha=.2, color='gray')
             if cutofftup.min_phase_ip is not None:
                 for i in range(n_phase):
@@ -395,10 +389,6 @@ class LightCurve:
         if any(np.sqrt(np.diag(pcov)) == np.inf):
             ratio=-1.0
 
-        if ratio > 1:
-            color = 'xkcd:green'
-        else:
-            color = 'xkcd:red'
         ax.text(.95, .95, f"{self.name}", ha='right', va='top', 
                 fontsize=20, transform=ax.transAxes)
         ax.text(.95, .85, f"Center: {round(popt[1], 3)}",
@@ -454,6 +444,7 @@ class LightCurve:
 
             p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
 
+        #Initial values and bounds for 1937
         elif self.name == 'PSR B1937+21':
             p0_b = min(counts_fitting)
             p0_a_0 = max(counts_fitting) - p0_b
@@ -468,18 +459,33 @@ class LightCurve:
 
             p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
 
+        #Initial values and bounds for J0218
         else:
-            print("Still need to make params for J0218")
-            return -1
+            p0_b = min(counts_fitting)
+            p0_a_0 = max(counts_fitting) - p0_b
+            p0_a_1 = p0_a_0 *0.5
+            p0_sigma_0 = .3
+            p0_sigma_1 = .3
+            p0_x0_0 = self.peak_center()[0]+1.0
+            p0_x0_1 = self.interpulse_center()[0]+1.0
 
-        #for i in range(len(p0)):
-        #    print(bounds[0][i], p0[i], bounds[1][i])
+            bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
+                     [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
 
-        popt, pcov = curve_fit(two_gaus, phasebins_fitting, 
-                               counts_fitting, 
-                               p0=[p0_a_0, p0_x0_0, p0_sigma_0,
-                                   p0_a_1, p0_x0_1, p0_sigma_1, p0_b],
-                               bounds=bounds)
+            p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+
+
+        try:
+            popt, pcov = curve_fit(two_gaus, phasebins_fitting, 
+                                   counts_fitting, 
+                                   p0=p0,
+                                   bounds=bounds)
+        except:
+            print("Fit failed due to invalid bounds")
+            for i in range(len(p0)):
+                print(bounds[0][i], p0[i], bounds[1][i])
+            raise ValueError
+
 
         fit_counts = two_gaus(phasebins_fitting, *popt)
 
@@ -490,6 +496,7 @@ class LightCurve:
         phasebins_fitting_extended = np.array([round(b,4) - 1.0 
             for b in np.arange(phase_min, phase_max+n_phase-1, self.bs) ])
         ax.set_xlim(0,2)
+
         plt.setp(ax.get_xticklabels()[0], visible=False)
         plt.setp(ax.get_xticklabels()[-1], visible=False)
 
@@ -504,9 +511,19 @@ class LightCurve:
                     fontsize=20, transform=ax.transAxes, 
                     ha='right', va='top')
 
+        PoptTup = collections.namedtuple('PoptTup',
+                ['primary_amplitude', 'primary_position', 
+                 'primary_sigma', 'interpulse_amplitude', 
+                 'interpulse_position', 'interpulse_sigma',
+                 'vertical_shift'])
+
+        popt_tup = PoptTup(*popt)
+                   
+
+
         if created_fig:
             plt.show()
-            return popt
+            return popt_tup
         else:
-            return ax, popt
+            return ax, popt_tup
 
