@@ -86,8 +86,8 @@ class LightCurve:
         self.piratio = self.piratio[t_mask]
         self.pi = self.pi[t_mask]
         
-	#removing the rows that ly outside the trumpet cut        
-	self.tab.remove_rows(erase)
+	    #removing the rows that ly outside the trumpet cut        
+	    self.tab.remove_rows(erase)
         print(len(self.tab['PI']))
                   # num = num-1
 
