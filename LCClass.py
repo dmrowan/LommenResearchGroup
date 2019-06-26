@@ -1,35 +1,32 @@
 #!/usr/bin/env python
 from __future__ import print_function, division, absolute_import
 import collections
-<<<<<<< Updated upstream
 from math import log10, floor
-=======
-import matplotlib as mpl
->>>>>>> Stashed changes
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
 import numpy as np
 import os
-<<<<<<< Updated upstream
 from astropy.table import Table
 from fuzzywuzzy import process
 from scipy.optimize import curve_fit
 from scipy.stats import chisquare
 from scipy import exp
-=======
-import pexpect
-import sys
-import subprocess
-from scipy.stats import gaussian_kde
-from astropy.table import Table
-from astropy.io import ascii
->>>>>>> Stashed changes
 import spectraplots
 
 #Dom Rowan and Lauren Lugo 2019
 
 def gaus(x, a, x0, sigma, b):
     return a*exp(-(x-x0)**2/(2*sigma**2)) + b
+
+def round_1sigfig(x):
+    return round(x, -int(floor(log10(abs(x)))))
+
+def two_gaus(x, 
+             a_0, x0_0, sigma_0, 
+             a_1, x0_1, sigma_1, b,
+             ):
+               
+    return a_0*exp(-(x-x0_0)**2/(2*sigma_0**2)) + a_1*exp(-(x-x0_1)**2/(2*sigma_1**2)) + b
 
 #LC Class for pulsar profile
 class LightCurve:
@@ -42,15 +39,11 @@ class LightCurve:
         self.ph = self.tab['PULSE_PHASE']
         self.piratio = self.tab['PI_RATIO']
         self.counts = None # Initialize counts to none
-<<<<<<< Updated upstream
         self.name = process.extract(evtfile, 
                                     ['PSR B1821-24', 'PSR B1937+21', 
                                      'PSR J0218+4232'],
                                     limit=1)[0][0]
                                                
-=======
-        self.name = None
->>>>>>> Stashed changes
 
     # Apply energy mask
     def mask(self, lower_pi=0, upper_pi=10, lower_ph=0, upper_ph=1):
@@ -93,28 +86,22 @@ class LightCurve:
         #Applying the mask
         self.piratio = self.piratio[t_mask]
         self.pi = self.pi[t_mask]
-       
-        #removing the rows that ly outside the trumpet cut
+        
+        print("here 4")
+        #for num in range(len(self.pi)):
+            #print(num)
+           #if(t_mask[num] == False):
+        print("here 5")
         self.tab.remove_rows(erase)
         print(len(self.tab['PI']))
+                  # num = num-1
 
-        self.newFile = self.tab.write(self.newFile, format = 'fits', overwrite = True)
-        return self.newFile
-        # run loop to create differnet cuts then return a list of evt files
-        #call them in newCreateSpecs.py
+        self.tab.write('../TrumpetCutfile.fits', format = 'fits', overwrite = True)
+
         plt.scatter(oldEnergy,oldData, s=1)
-
-        #colormag = np.vstack([self.pi,self.piratio])
-        #z = gaussian_kde(colormag)(colormag)
-        plt.ylim(bottom = 0)
-        plt.scatter(self.pi,self.piratio, s= 1, label = 'newTrumpetCute')
+        plt.scatter(self.pi,self.piratio, s= 1)
         plt.show() 
     # Give a name to include in plots
-    def multiTrumpetCut(self):
-        fastConst = [1.5,1.75]
-        evtFiles = []
-        for i in range(len(fastConst)):
-           evtFiles.append(TrumpMask(fastConst))
     def set_name(self, name):
         self.name = name
 
@@ -200,9 +187,7 @@ class LightCurve:
         #ax.legend(loc=(.85, .85), fontsize=20, edgecolor='black')
         if self.name is not None and label:
             ax.text(.95, .95, self.name, ha='right', va='top', 
-                    transform=ax.transAxes, fontsize=20,
-                    bbox=dict(facecolor='white', edgecolor='black',
-                              alpha=.5))
+                    transform=ax.transAxes, fontsize=20)
         #Save/display/return plot
         if output is not None:
             fig.savefig(f"{output}.{extension}", dpi=500)
@@ -317,7 +302,6 @@ class LightCurve:
 
         return tup
 
-<<<<<<< Updated upstream
     def peak_center(self):
         if self.counts is None:
             self.generate()
@@ -419,13 +403,47 @@ class LightCurve:
 
         
     def fit_two_gauss(self, include_phases=None, ax=None, annotate=True):
-=======
-    def fit_gauss(self):
->>>>>>> Stashed changes
         if self.counts is None:
             self.generate()
+        
+    
+        if include_phases is None:
+            phase_min = .75
+            phase_max = 1.75
+        else:
+            phase_min = include_phases[0]
+            phase_max = include_phases[1]
 
-<<<<<<< Updated upstream
+        phasebins_fitting = np.array([ p for p in self.phasebins_extended 
+                                       if phase_min <= p < phase_max ])
+        counts_fitting = np.array([ self.counts_extended[i] 
+                                    for i in range(len(self.counts_extended)) 
+                                    if phase_min <= self.phasebins_extended[i] < phase_max ])
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+            created_fig = True
+
+        else:
+            created_fig = False
+
+        ax.set_xlim(left=phase_min-.025, right=phase_max+.025)
+        ax = spectraplots.plotparams(ax)
+
+        if self.name == 'PSR B1821-24':
+            p0_b = min(counts_fitting)
+            p0_a_0 = max(counts_fitting) - p0_b
+            p0_a_1 = p0_a_0 *0.5
+            p0_sigma_0 = .01
+            p0_sigma_1 = .01
+            p0_x0_0 = 1.0
+            p0_x0_1 = 1.55
+
+            bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
+                     [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
+
+            p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+
         #Initial values and bounds for 1937
         elif self.name == 'PSR B1937+21':
             p0_b = min(counts_fitting)
@@ -508,14 +526,4 @@ class LightCurve:
             return popt_tup
         else:
             return ax, popt_tup
-=======
-        n = len(self.phasebins)
-        mean = sum(self.phasebins*self.counts) / n
-        sigma = sum(self.counts*(self.phasebins-mean)**2) / n
-        b = np.min(self.counts)
-        popt, pcov = curve_fit(gaus, self.phasebins, 
-                               self.normalizedflux, 
-                               p0=[100, mean, sigma, b])
-
->>>>>>> Stashed changes
 

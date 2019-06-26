@@ -53,9 +53,9 @@ def plotufspec(sourcename, primarytxt, interpulsetxt):
         df_list.append(df)
 
     #Match sourcename
-    sourcename = process.extract(sourcename, 
-                                 ['PSR B1821-24', 'PSR B1937+21', 'PSR J0218+4232'],
+    sourcename = process.extract(sourcename, ['PSR_B1821-24', 'PSR_B1937+21'],
                                 limit=1)[0][0]
+    assert(sourcename in ['PSR_B1821-24', 'PSR_B1937+21'])
 
 
     errorbarparams = dict(ls=' ', color='#28145b')
