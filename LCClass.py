@@ -402,7 +402,8 @@ class LightCurve:
 
 
         
-    def fit_two_gauss(self, include_phases=None, ax=None, annotate=True):
+    def fit_two_gauss(self, include_phases=None, ax=None, annotate=True,
+                      output_fit=False):
         if self.counts is None:
             self.generate()
         
@@ -520,8 +521,9 @@ class LightCurve:
         popt_tup = PoptTup(*popt)
                    
 
-
-        if created_fig:
+        if output_fit:
+            return phasebins_fitting_extended, fit_counts_extended
+        elif created_fig:
             plt.show()
             return popt_tup
         else:
