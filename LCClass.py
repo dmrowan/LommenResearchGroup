@@ -208,15 +208,40 @@ class LightCurve:
 
     #Use offpeak region to determine pulse phase limits
     def peak_cutoff(self, l1, l2, nsigma=3, interpulse_lower=0.3):
-        assert(all([ 0 <= l <= 1 for l in [l1, l2]]))
-        assert(l1 < l2)
+
         if self.counts is None:
             self.generate()
 
-        #Collect all counts in selected off peak region
-        off_pc = [ self.counts[i] for i in 
-                   range(len(self.phasebins)) 
-                   if l1 <= self.phasebins[i] <= l2 ]
+        #If using one bkgd range
+        if all([ type(l) in [int, float] for l in [l1, l2] ]):
+            if not all([ 0 <= l <= 1 for l in [l1, l2] ]):
+                raise ValueError("Invalid phase val")
+
+            if l1 >= l2:
+                raise ValueError("Invalid phase range")
+
+            #Collect all counts in selected off peak region
+            off_pc = [ self.counts[i] for i in 
+                       range(len(self.phasebins)) 
+                       if l1 <= self.phasebins[i] <= l2 ]
+
+        #If using two background ranges
+        else:
+            if not all([ type(l) in [list, tuple, np.ndarray] for l in [l1, l2] ]):
+                raise TypeError("Phase limits must be int/float or list, tuple array")
+
+            if not all( [ all([ 0 <= ll <= 1 for ll in l]) for l in [l1, l2]  ]):
+                raise ValueError("Invalid phase val")
+
+            if any( [l[0] >= l[1] for l in [l1, l2] ]):
+                raise ValueError("invalid phase range")
+
+            #Collect all counts in selected off peak region
+            off_pc = [ self.counts[i] for i in range(len(self.phasebins)) 
+                       if ( (l1[0] <= self.phasebins[i] <= l1[1]) 
+                          or (l2[0] <= self.phasebins[i] <= l2[1]) ) ]
+
+                        
 
         #collect phases where counts are greater than nsigma away
         on_peak_phases = self.phasebins[np.where(
@@ -280,7 +305,6 @@ class LightCurve:
                         np.median(off_pc), 
                         np.median(off_pc)+nsigma*np.std(off_pc),
                         nsigma)
-
 
         return tup
 
