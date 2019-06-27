@@ -186,13 +186,15 @@ def gen_multispectra(evt, first_ranges, second_ranges, offpeak_range,
         xspec.sendline("@runsetup.xcm")
         xspec.expect("XSPEC12>")
 
+        xspec.sendline("ig bad")
+        xspec.expect("XSPEC12>")
         xspec.sendline(f"ig **-{lower_energies_first[i]}, 10.-**")
         xspec.expect("XSPEC12>")
 
         xspec.sendline("@autofitting.xcm")
         xspec.expect("XSPEC12>")
 
-        xspec.sendline("error 1")
+        xspec.sendline("error 1 3")
         xspec.expect("XSPEC12>")
 
 
@@ -480,7 +482,7 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
         ax.set_xscale('log')
         ax.set_xlim(right=10)
         if vertical:
-            ax.set_ylabel(r'Residuals ($\sigma$)', fontsize=15)
+            ax.set_ylabel(r'Residuals ($\chi$)', fontsize=15)
         else:
             ax.set_xlabel("Energy (keV)", fontsize=30)
         fig.add_subplot(ax)
@@ -504,7 +506,7 @@ def wrapper(evt, lower_back, upper_back,
             first_label, second_label,
             output,
             mincounts_scalefactor=1.0,
-            vertical=True):
+            vertical=True, generate_new=True):
 
         source = process.extract(evt, ['PSR B1821-24', 'PSR B1937+21'],
                                  limit=1)[0][0]
@@ -558,13 +560,12 @@ def wrapper(evt, lower_back, upper_back,
         log.info(f"Using variable mincounts with initial {first_mincounts} "\
                  f"and {second_mincounts}")
 
-        log.info("Generating Spectra")
+        if generate_new:
+            log.info("Generating Spectra")
 
-        """
-        gen_multispectra(evt, first_ranges, second_ranges, (lower_back, upper_back),
-                         first_mincounts, second_mincounts,
-                         lower_energies_first, lower_energies_second)
-        """
+            gen_multispectra(evt, first_ranges, second_ranges, (lower_back, upper_back),
+                             first_mincounts, second_mincounts,
+                             lower_energies_first, lower_energies_second)
 
         firsttxts = [f"data_first_{i}.txt" for i in range(len(first_ranges))]
         secondtxts = [f"data_second_{i}.txt" for i in range(len(second_ranges))]
@@ -585,18 +586,15 @@ if __name__ == '__main__':
                         default="plot_spectra.pdf")
     parser.add_argument("--h", help="Make plot horizontal instead of vertical",
                         action='store_true', default=False)
+    parser.add_argument("--p", help="Plot with existing files in dir",
+                        action='store_true', default=False)
     args= parser.parse_args()
 
-    source = process.extract(args.evt, ['PSR B1821-24', 'PSR B1937+21'],
-                             limit=1)[0][0]
 
-    if source == 'PSR B1821-24':
-        wrapper(args.evt, .2, .4, "Primary & Interpulse", "Leading & Trailing", args.output,
-                vertical=(not args.h))
+    wrapper(args.evt, (.2, .4), (.7, .9), "Primary & Interpulse", "Leading & Trailing", 
+            args.output,
+            vertical=(not args.h), generate_new=(not args.p))
 
-    elif source == 'PSR B1937+21':
-        wrapper(args.evt, .2, .4, "Primary & Interpulse", "Leading & Trailing", args.output, 
-                vertical=(not args.h))
 
 
 
