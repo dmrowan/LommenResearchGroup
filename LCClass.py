@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function, division, absolute_import
+from astropy import log
 import collections
 from math import log10, floor
 import matplotlib.pyplot as plt
@@ -46,24 +47,81 @@ class LightCurve:
                                                
 
     # Apply energy mask
-    def mask(self, lower_pi=0, upper_pi=10, lower_ph=0, upper_ph=1):
+    def mask(self, lower_pi=0, upper_pi=1200, lower_ph=0, upper_ph=1):
+        if (lower_pi != 0) and (upper_pi !=1200):
+            log.info("Applying energy cut")
+
+        if (lower_ph != 0) and (upper_ph != 1):
+            log.info("Applying phase cut")
+
         en_mask = (self.pi > lower_pi) & (self.pi < upper_pi)
         ph_mask = (self.ph > lower_ph) & (self.ph < upper_ph)
         full_mask = en_mask & ph_mask
         self.pi = self.pi[full_mask]
         self.ph = self.ph[full_mask]
+
+    def test_trumpet_cut(self, fconst, fastsig=1200, fastquart=0, 
+                         n=1, ax=None, plot=False):
+        
+        #Define trumpet function
+        def trumpet_cut(pi, c, s, q, n=1):
+            return c + (s/10)/pi**n + q*pi**3
+
+        #Create mask
+        mask = [ (self.piratio[i] < trumpet_cut(self.pi[i], 
+                                                fconst, 
+                                                fastsig, 
+                                                fastquart, 
+                                                n=n))
+                 for i in range(len(self.piratio)) ]
+
+        mask_flip = [ not l for l in mask ]
+
+        #Store the number of photons cut
+        self.n_cut = len(mask) - sum(mask)
+        
+        if self.n_cut != 0:
+            log.info("Appling trumpet cut")
+
+        #Apply the mask
+        self.pi = self.pi[mask]
+        self.ph = self.ph[mask]
+        self.piratio = self.piratio[mask]
+
+        if plot:
+            if ax is None:
+                fig, ax = plt.subplots(1, 1, figsize=(16, 8))
+                created_fig=True
+            else:
+                created_fig=False
+            ax.scatter(self.pi, self.piratio, color='xkcd:blue', marker='.',
+                        alpha=.5)
+
+            ax = spectraplots.plotparams(ax)
+            if created_fig:
+                plt.show()
+            else:
+                return ax
+
+        else:
+            return ax
+
     
     # Apply Trumpet Cut using this mask and changing the threshold	
     def TrumpMask(self,fastconst = 1.1):
-        #fastconst = 1.1 is the overall ratio threshold (normal ratio is 1.0 with a tolerance of 0.1=10%)
-        # I recommend changing the threshold number by small amounts to see the difference in info
+        """
+        fastconst = 1.1 is the overall ratio threshold 
+        (normal ratio is 1.0 with a tolerance of 0.1=10%)
+        I recommend changing the threshold number by small 
+        amounts to see the difference in info
+        """
         
         t = np.arange(0,1201,1)
         newLine = []
         for pi in t:
             newLine.append(fastconst +((1200/10)/pi))
-        # Creating temporary storage for data that will be lost once the mask is        # applied
 
+        # Creating temporary storage for data that will be lost once the mask is applied
         oldData =[]
         oldEnergy =[]
         #Creating a temp array to make a mask
@@ -197,6 +255,13 @@ class LightCurve:
         if self.name is not None and label:
             ax.text(.95, .95, self.name, ha='right', va='top', 
                     transform=ax.transAxes, fontsize=20)
+
+        try:
+            ax.text(.95, .82, f"#Cut: {self.n_cut}", ha='right',
+                    va='top', transform=ax.transAxes, fontsize=20)
+        except:
+            pass
+
         #Save/display/return plot
         if output is not None:
             fig.savefig(f"{output}.{extension}", dpi=500)
