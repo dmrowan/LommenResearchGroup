@@ -25,6 +25,22 @@ desc="""
 Generate multiple spectra with different phase selections and plot
 """
 
+def round_sigfigs(val, err):
+    idx = len(str(err))
+    skip1=True
+    for i in range(len(str(err))):
+        if str(err)[i] in ['-', '0', '.']:
+            continue
+        elif str(err)[i] == '1' and skip1:
+            skip1=False
+            continue
+        else:
+            idx=i
+            break
+    err_rounded = round(err, idx-1)
+    val_rounded = round(val, idx-1)
+    return val_rounded, err_rounded
+
 #Fix phasetups that overlap zero
 def phase_correction(phasetup):
     if type(phasetup) != tuple:
@@ -43,25 +59,139 @@ def parse_model(xcm):
     return phot_index
 
 #Parse through pexpect xspec line to find the phot index
-def parse_log(txt):
-    assert(os.path.isfile(txt))
+def parse_log_old(txt):
+    """
+    Information needed from log:
+    Photon index
+    Photon index error
+    Absorbing column
+    absorbing column error
+    Chi2 
+    DOF
+    """
     with open(txt, 'r') as f:
         lines = np.array(f.readlines())
 
-    idx_conf = np.where(np.array(lines) == 'XSPEC12>error 1\n')[0][0]
-    try:
-        conf_tuple = ast.literal_eval(lines[idx_conf+2].split()[3])
-        error = np.mean([ abs(val) for val in conf_tuple])
-    except:
-        error = float('NaN')
+    print(txt)
+    idx_params = np.where( (np.array(lines) == ' par  comp\n') | 
+                           (np.array(lines) == '# par  comp\n') )[0][-1]
+    phot_index = float(lines[idx_params+1].split()[4])
+    nH = float(lines[idx_params+1].split()[4])
 
-    idx_model = np.where(np.array(lines) == ' par  comp\n')[0][1]
-    assert(lines[idx_model+1].split()[3]=='PhoIndex')
-    phot_index = float(lines[idx_model+1].split()[4])
-    err = float(lines[idx_model+1].split()[6])
+    idx_conf = np.where( (np.array(lines) == 'XSPEC12>error 1 3\n') | 
+                         (np.array(lines) == '!XSPEC12> error 1 3\n') )[0][-1]
+    if "Cannot do error calc" in lines[idx_conf+1]:
+        phot_err = float('NaN')
+        nH_err = float('NaN')
+    else:
+        phot_tuple = ast.literal_eval(lines[idx_conf+2].split()[3])
+        nH_tuple = ast.literal_eval(lines[idx_conf+3].split()[3])
+        phot_err = np.mean( [abs(val) for val in phot_tuple] )
+        nH_err = np.mean( [abs(val) for val in nH_tuple] )
 
-    return phot_index, err
+    for i in np.arange(idx_params, idx_conf):
+        if "Reduced" in lines[i]:
+            chi2 = float(lines[i].split()[3])
+            dof = int(lines[i].split()[5])
+
+    phot_index, phot_err = round_sigfigs(phot_index, phot_err)
+    nH, nH_err = round_sigfigs(nH, nH_err)
+    log_tuple = collections.namedtuple(
+            'log_tuple', ['phot', 'phot_err',
+                          'nH', 'nH_err', 'chi2', 'dof'])
+
+    out = log_tuple(phot_index, phot_err, nH, nH_err, chi2, dof)
+    return out
+
+def parse_log(txt):
+    """
+    Information needed from log:
+    Photon index
+    Photon index error
+    Absorbing column
+    absorbing column error
+    Chi2 
+    DOF
+    """
+    print(txt)
+    with open(txt, 'r') as f:
+        lines = np.array(f.readlines())
+
+    idx_params = np.where( (np.array(lines) == ' par  comp\n') | 
+                           (np.array(lines) == '# par  comp\n') )[0][-1]
+
+    phot_index = float(lines[idx_params+1].split()[5])
+    nH = float(lines[idx_params+1].split()[5])
+
+    for i in range(len(lines)):
+        if 'error 1 3' in lines[i]:
+            idx_conf = i
+    idx_conf = np.where( (np.array(lines) == 'XSPEC12>error 1 3\n') | 
+                         (np.array(lines) == '!XSPEC12> error 1 3\n') |
+                         (np.array(lines) == '!XSPEC12> error 1 3 \n') )[0][-1]
+    if "Cannot do error calc" in lines[idx_conf+1]:
+        phot_err = float('NaN')
+        nH_err = float('NaN')
+    else:
+        phot_tuple = ast.literal_eval(lines[idx_conf+2].split()[4])
+        if "Warning" not in lines[idx_conf+3]:
+            nH_tuple = ast.literal_eval(lines[idx_conf+3].split()[4])
+        else:
+            nH_tuple = ast.literal_eval(lines[idx_conf+4].split()[4])
+        phot_err = np.mean( [abs(val) for val in phot_tuple] )
+        nH_err = np.mean( [abs(val) for val in nH_tuple] )
+
+    for i in np.arange(idx_params, idx_conf):
+        if "Reduced" in lines[i]:
+            chi2 = float(lines[i].split()[4])
+            dof = int(lines[i].split()[6])
+
+    phot_index, phot_err = round_sigfigs(phot_index, phot_err)
+    nH, nH_err = round_sigfigs(nH, nH_err)
+
+    log_tuple = collections.namedtuple(
+            'log_tuple', ['phot', 'phot_err',
+                          'nH', 'nH_err', 'chi2', 'dof'])
+
+    out = log_tuple(phot_index, phot_err, nH, nH_err, chi2, dof)
+    return out
+                                        
+def make_table(output, first_ranges, second_ranges, firstlogs, secondlogs):
+    phase_ranges = first_ranges + second_ranges
+    logs = firstlogs + secondlogs
+
+    phot_index = []
+    nH = []
+    chi2 = np.zeros(len(logs))
+    dof = np.zeros(len(logs))
+
+    for i in range(len(logs)):
+        tup = parse_log(logs[i])
+        phot_index.append(f"{tup.phot}" + r'$\pm$' + f"{tup.phot_err}")
+        nH.append(f"{tup.nH}" + r'$\pm$' + f"{tup.nH_err}")
+        chi2[i] = tup.chi2
+        dof[i] = tup.dof
+
+    phase_ranges = [ f"{tup[0]} -- {tup[1]}" for tup in phase_ranges ]
+
+    df = pd.DataFrame({"Phase Range": phase_ranges,
+                       r'$\Gamma$':phot_index, 
+                       r'$N_{\rm{H}}$':nH,
+                       r'$\chi^2$':chi2,
+                       "Degrees of":dof})
+
+    df.to_csv(f"{output}.csv", index=False)
+    df.to_latex(f"{output}.tex", index=False, escape=False, column_format='lcccr')
     
+    with open(f"{output}.tex", 'r') as f:
+        table_lines = f.readlines()
+        f.close()
+
+    table_lines.insert(3, "& &" + r'($10^{22}$ cm$^2$)' + " & & Freedom \\\ \n")
+    with open(f"{output}.tex", 'w') as f:
+        contents = "".join(table_lines)
+        f.write(contents)
+        f.close()
 
 #Varation of V1. Starts with nsigma and increments smaller
 def find_phase_ranges_v2(evt, lower, upper, nranges, sigma0=2):
@@ -247,7 +377,7 @@ def gen_multispectra(evt, first_ranges, second_ranges, offpeak_range,
         xspec.sendline("@autofitting.xcm")
         xspec.expect("XSPEC12>")
 
-        xspec.sendline("error 1")
+        xspec.sendline("error 1 3")
         xspec.expect("XSPEC12>")
 
         #Set the xaxis to be keV for our plots (and txt files)
@@ -318,15 +448,14 @@ class xspecdata:
         self.mincounts = n
 
 
-    def phot_index_from_file(self, fname):
+    def phot_index_from_log(self, fname):
         assert(os.path.isfile(fname))
-        if fname.endswith('.xcm'):
-            self.phot_index = parse_model(fname)
-            self.phot_index_err = None
-        elif fname.endswith('.txt'):
-            self.phot_index, self.phot_index_err = parse_log(fname)
+        tup = parse_log(fname)
+        self.phot_index = tup.phot
+        self.phot_index_err = tup.phot_err
 
-    def get_label(self, ask_for_error=False):
+
+    def get_label(self):
         if self.lower is None or self.upper is None:
             print("No phase region specified")
             return -1
@@ -338,13 +467,9 @@ class xspecdata:
             label = label + f", Mincounts: {self.mincounts}"
 
         if self.phot_index is not None:
-            label = label + f", PhotIndex: {round(self.phot_index, 2)}" 
+            label = label + r' $\Gamma=$'+f"{self.phot_index}" 
             if self.phot_index_err is not None:
-                label += r'$\pm$' + str(round(self.phot_index_err, 2))
-            elif ask_for_error:
-                error = input(f"Enter error for {self.filename}:")
-                error = float(error)
-                label += r'$\pm$' + str(error)
+                label += r'$\pm$' + str(self.phot_index_err)
 
         return label
 
@@ -391,7 +516,7 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
         if use_counts_label:
             xd.set_counts(first_mincounts[i])
         if len(first_logs) != 0:
-            xd.phot_index_from_file(first_logs[i])
+            xd.phot_index_from_log(first_logs[i])
         first_data.append(xd)
     for i in range(len(secondtxts)):
         xd = xspecdata(secondtxts[i])
@@ -399,7 +524,7 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
         if use_counts_label:
             xd.set_counts(second_mincounts[i])
         if len(second_logs) != 0:
-            xd.phot_index_from_file(second_logs[i])
+            xd.phot_index_from_log(second_logs[i])
         second_data.append(xd)
 
     #Make one list with both to easily iterate through
@@ -466,6 +591,7 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
 
     if sourcename == 'PSR B1937+21':
         axs0.set_ylim(top=axs0.get_ylim()[1]*2)
+        axf0.set_ylim(top=axf0.get_ylim()[1]*2)
 
     #Plot residuals
     for i, ax in enumerate([axf1, axs1]):
@@ -498,7 +624,7 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
                  rotation='vertical', fontsize=30)
     else:
         axf0.set_ylabel("Counts/sec", fontsize=30)
-        axf1.set_ylabel(r'Residuals ($\sigma$)', fontsize=15)
+        axf1.set_ylabel(r'Residuals ($\sigma$)', fontsize=18)
     fig.savefig(output, dpi=2000)
 
 
@@ -524,8 +650,8 @@ def wrapper(evt, lower_back, upper_back,
             lower_energy_interpulse = 1.0
             lower_energy_leading = 0.7
             lower_energy_trailing = 0.8
-            mincounts_primary_init = 2000
-            mincounts_interpulse_init = 1000
+            mincounts_primary_init = 1500
+            mincounts_interpulse_init = 800
             mincounts_leading_init = 200
             mincounts_trailing_init = 800
 
@@ -578,6 +704,11 @@ def wrapper(evt, lower_back, upper_back,
                           first_ranges, second_ranges, first_mincounts, second_mincounts,
                           firstlogs, secondlogs, first_label, second_label, output, 
                           vertical=vertical)
+
+
+        make_table(f"Model{source.replace('PSR ', '')[:-3]}", 
+                   first_ranges, second_ranges, 
+                   firstlogs, secondlogs)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=desc)
