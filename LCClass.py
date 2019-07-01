@@ -56,7 +56,7 @@ class LightCurve:
     # Apply Trumpet Cut using this mask and changing the threshold	
     def TrumpMask(self,fastconst = 1.1):
         #fastconst = 1.1 is the overall ratio threshold (normal ratio is 1.0 with a tolerance of 0.1=10%)
-        # I recommend changing the threshold number by small amounts to see the difference in info
+        # I recommend changing the threshold number blc.ploty small amounts to see the difference in info
         
         t = np.arange(0,1201,1)
         newLine = []
@@ -74,9 +74,12 @@ class LightCurve:
         for py in range(len(self.piratio)):
 
             #Creating a mask by deciding on boolean
-            t_mask.append(self.piratio[py] < newLine[self.pi[py]]) 
+            #newLine holds a value for a given energy
+            #The orginal boolean is piratio less than newLine
+            t_mask.append(self.piratio[py] > newLine[self.pi[py]]) 
             #Saving all "false" information so it can be plotted before
-            if (self.piratio[py] > newLine[self.pi[py]]):
+            #The original boolean is piratio greater than newLine
+            if (self.piratio[py] < newLine[self.pi[py]]):
                 #print (self.pi[py])
                 erase.append(py)
                 oldData.append(self.piratio[py])
@@ -85,14 +88,15 @@ class LightCurve:
         #Applying the mask
         self.piratio = self.piratio[t_mask]
         self.pi = self.pi[t_mask]
+        self.ph = self.ph[t_mask]
         
         #removing the rows that ly outside the trumpet cut        
         self.tab.remove_rows(erase)
         print(len(self.tab['PI']))
                   # num = num-1
 
-        self.newFile = self.tab.write(self.newFile, format = 'fits', overwrite = True)
-        return self.newFile
+        self.newFile = self.tab.write('newFile.fits', format = 'fits', overwrite = True)
+        #return self.newFile
         # run loop to create differnet cuts then return a list of evt files
         #call them in newCreateSpecs.py
         plt.scatter(oldEnergy,oldData, s=1)
