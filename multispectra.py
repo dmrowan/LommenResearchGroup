@@ -2,6 +2,7 @@
 import argparse
 import ast
 from astropy import log
+from astropy.table import Table
 import collections
 from fuzzywuzzy import process
 import matplotlib.gridspec as gridspec
@@ -18,6 +19,7 @@ from spectraplots import plotparams
 import isolate_errorbars
 import profile_utils
 import genspectra
+import _pickle as pickle
 
 #Dom Rowan 2019
 
@@ -25,6 +27,7 @@ desc="""
 Generate multiple spectra with different phase selections and plot
 """
 
+#Function to return correct number of significant figures given an error
 def round_sigfigs(val, err):
     idx = len(str(err))
     skip1=True
@@ -72,7 +75,6 @@ def parse_log_old(txt):
     with open(txt, 'r') as f:
         lines = np.array(f.readlines())
 
-    print(txt)
     idx_params = np.where( (np.array(lines) == ' par  comp\n') | 
                            (np.array(lines) == '# par  comp\n') )[0][-1]
     phot_index = float(lines[idx_params+1].split()[4])
@@ -103,6 +105,8 @@ def parse_log_old(txt):
     out = log_tuple(phot_index, phot_err, nH, nH_err, chi2, dof)
     return out
 
+#A new version of this function to work with 
+# different log formats
 def parse_log(txt):
     """
     Information needed from log:
@@ -113,42 +117,55 @@ def parse_log(txt):
     Chi2 
     DOF
     """
-    print(txt)
+    #Read txt file
     with open(txt, 'r') as f:
         lines = np.array(f.readlines())
 
-    idx_params = np.where( (np.array(lines) == ' par  comp\n') | 
-                           (np.array(lines) == '# par  comp\n') )[0][-1]
+    #Find index of params info
+    idx_params = [ i for i in range(len(lines)) if 'par  comp' in lines[i] ][-1]
 
-    phot_index = float(lines[idx_params+1].split()[5])
-    nH = float(lines[idx_params+1].split()[5])
+    phot_index = float([ lines[idx_params+1].split()[i+1] 
+                         for i in range(len(lines[idx_params+1].split())) 
+                         if 'PhoIndex' in lines[idx_params+1].split()[i] ][0])
 
-    for i in range(len(lines)):
-        if 'error 1 3' in lines[i]:
-            idx_conf = i
-    idx_conf = np.where( (np.array(lines) == 'XSPEC12>error 1 3\n') | 
-                         (np.array(lines) == '!XSPEC12> error 1 3\n') |
-                         (np.array(lines) == '!XSPEC12> error 1 3 \n') )[0][-1]
+    nH = float([ lines[idx_params+3].split()[i+1]
+                 for i in range(len(lines[idx_params+3].split()))
+                 if '10^22' in lines[idx_params+3].split()[i] ][0])
+
+
+    #Find confidence interval calculation
+    idx_conf = [ i for i in range(len(lines)) if 'error 1' in lines[i] ][-1]
+
     if "Cannot do error calc" in lines[idx_conf+1]:
         phot_err = float('NaN')
         nH_err = float('NaN')
     else:
-        phot_tuple = ast.literal_eval(lines[idx_conf+2].split()[4])
+        #Read in tuple for each component
+        phot_tuple = ast.literal_eval(lines[idx_conf+2].split()[-1])
+
+        #Have to check for warnings
         if "Warning" not in lines[idx_conf+3]:
-            nH_tuple = ast.literal_eval(lines[idx_conf+3].split()[4])
+            nH_tuple = ast.literal_eval(lines[idx_conf+3].split()[-1])
         else:
-            nH_tuple = ast.literal_eval(lines[idx_conf+4].split()[4])
+            nH_tuple = ast.literal_eval(lines[idx_conf+4].split()[-1])
         phot_err = np.mean( [abs(val) for val in phot_tuple] )
         nH_err = np.mean( [abs(val) for val in nH_tuple] )
 
-    for i in np.arange(idx_params, idx_conf):
-        if "Reduced" in lines[i]:
-            chi2 = float(lines[i].split()[4])
-            dof = int(lines[i].split()[6])
+    #Find chi2 and dof in file
+    idx_chisq = [ i for i in np.arange(idx_params, idx_conf) if 'Reduced' in lines[i] ][0]
+    chi2 = float([ lines[idx_chisq].split()[i+1]
+                    for i in range(len(lines[idx_chisq].split()))
+                    if '=' in lines[idx_chisq].split()[i] ][0])
+    dof = float([ lines[idx_chisq].split()[i+1]
+                  for i in range(len(lines[idx_chisq].split()))
+                  if 'for' in lines[idx_chisq].split()[i] ][0])
 
+
+    #Round both phot index and nH
     phot_index, phot_err = round_sigfigs(phot_index, phot_err)
     nH, nH_err = round_sigfigs(nH, nH_err)
 
+    #Return named tuple
     log_tuple = collections.namedtuple(
             'log_tuple', ['phot', 'phot_err',
                           'nH', 'nH_err', 'chi2', 'dof'])
@@ -156,8 +173,29 @@ def parse_log(txt):
     out = log_tuple(phot_index, phot_err, nH, nH_err, chi2, dof)
     return out
                                         
-def make_table(output, first_ranges, second_ranges, firstlogs, secondlogs):
+#Make csv and latex tables
+def make_table(evt, output, first_ranges, second_ranges, firstlogs, secondlogs):
+
+    log.info("Making output table from logs")
+
+    #Calculate number of counts for each range
     phase_ranges = first_ranges + second_ranges
+    print(phase_ranges)
+    evt = Table.read(evt, hdu=1)
+    ncounts = []
+    for r in phase_ranges:
+        if not r[0] <= 1 <= r[1]:
+            n = len(np.where( ( evt['PULSE_PHASE'] >= r[0] ) &
+                                         ( evt['PULSE_PHASE'] <= r[1] ) )[0])
+
+        else:
+            n = len(np.where( (evt['PULSE_PHASE'] >= r[0] ) |
+                                         (evt['PULSE_PHASE'] <= r[1]-1) )[0])
+
+
+        ncounts.append(n)
+
+
     logs = firstlogs + secondlogs
 
     phot_index = []
@@ -172,22 +210,24 @@ def make_table(output, first_ranges, second_ranges, firstlogs, secondlogs):
         chi2[i] = tup.chi2
         dof[i] = tup.dof
 
-    phase_ranges = [ f"{tup[0]} -- {tup[1]}" for tup in phase_ranges ]
+    phase_ranges = [ f"{round(tup[0], 2)} -- {round(tup[1],2)}" for tup in phase_ranges ]
 
     df = pd.DataFrame({"Phase Range": phase_ranges,
                        r'$\Gamma$':phot_index, 
                        r'$N_{\rm{H}}$':nH,
                        r'$\chi^2$':chi2,
-                       "Degrees of":dof})
+                       "Degrees of":dof,
+                       "Number of":ncounts,
+                       })
 
     df.to_csv(f"{output}.csv", index=False)
-    df.to_latex(f"{output}.tex", index=False, escape=False, column_format='lcccr')
+    df.to_latex(f"{output}.tex", index=False, escape=False, column_format='lccccr')
     
     with open(f"{output}.tex", 'r') as f:
         table_lines = f.readlines()
         f.close()
 
-    table_lines.insert(3, "& &" + r'($10^{22}$ cm$^2$)' + " & & Freedom \\\ \n")
+    table_lines.insert(3, "& &" + r'($10^{22}$ cm$^2$)' + " & & Freedom & Photons\\\ \n")
     with open(f"{output}.tex", 'w') as f:
         contents = "".join(table_lines)
         f.write(contents)
@@ -467,9 +507,9 @@ class xspecdata:
             label = label + f", Mincounts: {self.mincounts}"
 
         if self.phot_index is not None:
-            label = label + r' $\Gamma=$'+f"{self.phot_index}" 
+            label = label + r', $\Gamma=$'+'{:.2f}'.format(self.phot_index)
             if self.phot_index_err is not None:
-                label += r'$\pm$' + str(self.phot_index_err)
+                label += r'$\pm$' + '{:.2f}'.format(self.phot_index_err)
 
         return label
 
@@ -586,7 +626,7 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
                 fontsize=15, ha='right', va='top')
 
         ax.legend(loc=(.20, 0.05), fontsize=13, edgecolor='black', framealpha=.9)
-        ax.set_xlim(right=10)
+        ax.set_xlim(right=11)
         fig.add_subplot(ax)
 
     if sourcename == 'PSR B1937+21':
@@ -657,17 +697,33 @@ def wrapper(evt, lower_back, upper_back,
 
 
 
-        log.info(f"Finding phase ranges for {evt}")
+        if os.path.isfile("ranges.pickle"):
+            log.info(f"Loading phase ranges from file")
+            allranges = pickle.load( open("ranges.pickle", 'rb') )
+            primary_ranges = allranges[0]
+            interpulse_ranges = allranges[1]
+            leading_ranges = allranges[2]
+            trailing_ranges = allranges[3]
+        else:
 
-        pi_rangetup = find_phase_ranges_v2(evt, lower_back, upper_back, nranges=2)
-        primary_ranges = pi_rangetup.primary
-        interpulse_ranges = pi_rangetup.interpulse
+            log.info(f"Finding phase ranges for {evt}")
+
+
+            pi_rangetup = find_phase_ranges_v2(evt, lower_back, upper_back, nranges=2)
+            primary_ranges = pi_rangetup.primary
+            interpulse_ranges = pi_rangetup.interpulse
+
+            leading_ranges, trailing_ranges = edge_phase_ranges(
+                    evt, lower_back, upper_back, nranges=2)
+
+            pickle.dump([primary_ranges, interpulse_ranges, 
+                        leading_ranges, trailing_ranges], 
+                        open("ranges.pickle", 'wb'))
 
         pi_mincounts_tup = variable_mincounts(primary_ranges, interpulse_ranges, 
                                               mincounts_primary_init, mincounts_interpulse_init,
                                               scalefactor=1.25)
 
-        leading_ranges, trailing_ranges = edge_phase_ranges(evt, lower_back, upper_back, nranges=2)
 
         lt_mincounts_tup = variable_mincounts(leading_ranges, trailing_ranges,
                                               mincounts_leading_init, mincounts_trailing_init,
@@ -706,7 +762,7 @@ def wrapper(evt, lower_back, upper_back,
                           vertical=vertical)
 
 
-        make_table(f"Model{source.replace('PSR ', '')[:-3]}", 
+        make_table(evt, f"Model{source.replace('PSR ', '')[:-3]}", 
                    first_ranges, second_ranges, 
                    firstlogs, secondlogs)
 
