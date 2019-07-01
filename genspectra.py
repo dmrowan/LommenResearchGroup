@@ -53,7 +53,6 @@ def fselect_two_phases(evt, output, phase_1, phase_2, clobber=False,
     else:
         cmd = [ 'fselect', evt, output ]
         if not (phase_1[0] <= 1 <= phase_1[1]):
-            print("here")
             first_phase = f"PULSE_PHASE >= {phase_1[0]} &&" \
                           f"PULSE_PHASE <= {phase_1[1]}"
         else:
