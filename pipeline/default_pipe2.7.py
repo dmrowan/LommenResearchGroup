@@ -229,6 +229,11 @@ def merge_spectra(sourcename):
 #Need to change this to work with decrypt key
 def cronjob(heasarc_user, heasarc_pwd, decryptkey, emin, emax, mask,
 			cormin, cut, filterbinsize, filtpolar, shrinkelvcut, no_trumpet):
+
+	fname = "/homes/pipeline/logs/"+datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+	with open(fname, 'w') as f:
+		f.write("Completed at " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+		
 	### Running on PSR_B1821-24 ###
 	os.chdir("/students/pipeline/PSR_B1821-24")
 	par_1821 = "/students/pipeline/parfiles/PSR_B1821-24.par"
@@ -243,10 +248,12 @@ def cronjob(heasarc_user, heasarc_pwd, decryptkey, emin, emax, mask,
 		   emin, emax, mask, par_1937, cormin, cut, 
 		   filterbinsize, filtpolar, shrinkelvcut, no_trumpet)
 
-	fname = "~/logs/"+datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-	with open(fname, 'w') as f:
-		f.write("Completed at " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
-	
+	### Running on PSR_J0218+4232 ###
+	os.chdir("/students/pipeline/PSR_J0218+4232")
+	par_0218 = "/students/pipeline/parfiles/PSR_J0218+4232.par"
+	update("PSR_J0218+4232", heasarc_user, heasarc_pwd, './', decryptkey,
+			emin, emax, mask, par_0218, cormin, cut, 
+			filterbinsize, filtpolar, shrinkelvcut, no_trumpet)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description=desc)
