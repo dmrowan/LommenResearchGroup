@@ -1,23 +1,19 @@
 #!/usr/bin/env python
 from __future__ import print_function, division, absolute_import
-import argparse
+from astropy import log
 import collections
 from math import log10, floor
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
 import numpy as np
 import os
-import pexpect
-import sys
-import subprocess
 from astropy.table import Table
-from astropy.io import ascii
 from fuzzywuzzy import process
 from scipy.optimize import curve_fit
 from scipy.stats import chisquare
 from scipy import exp
 import spectraplots
+
 #Dom Rowan and Lauren Lugo 2019
 
 def gaus(x, a, x0, sigma, b):
@@ -51,30 +47,86 @@ class LightCurve:
                                                
 
     # Apply energy mask
-    def mask(self, lower_pi=0, upper_pi=10, lower_ph=0, upper_ph=1):
+    def mask(self, lower_pi=0, upper_pi=1200, lower_ph=0, upper_ph=1):
+        if (lower_pi != 0) and (upper_pi !=1200):
+            log.info("Applying energy cut")
+
+        if (lower_ph != 0) and (upper_ph != 1):
+            log.info("Applying phase cut")
+
         en_mask = (self.pi > lower_pi) & (self.pi < upper_pi)
         ph_mask = (self.ph > lower_ph) & (self.ph < upper_ph)
         full_mask = en_mask & ph_mask
         self.pi = self.pi[full_mask]
         self.ph = self.ph[full_mask]
+
+    def test_trumpet_cut(self, fconst, fastsig=1200, fastquart=0, 
+                         n=1, ax=None, plot=False):
+        
+        #Define trumpet function
+        def trumpet_cut(pi, c, s, q, n=1):
+            return c + (s/10)/pi**n + q*pi**3
+
+        #Create mask
+        mask = [ (self.piratio[i] < trumpet_cut(self.pi[i], 
+                                                fconst, 
+                                                fastsig, 
+                                                fastquart, 
+                                                n=n))
+                 for i in range(len(self.piratio)) ]
+
+        mask_flip = [ not l for l in mask ]
+
+        #Store the number of photons cut
+        self.n_cut = len(mask) - sum(mask)
+        
+        if self.n_cut != 0:
+            log.info("Appling trumpet cut")
+
+        #Apply the mask
+        self.pi = self.pi[mask]
+        self.ph = self.ph[mask]
+        self.piratio = self.piratio[mask]
+
+        if plot:
+            if ax is None:
+                fig, ax = plt.subplots(1, 1, figsize=(16, 8))
+                created_fig=True
+            else:
+                created_fig=False
+            ax.scatter(self.pi, self.piratio, color='xkcd:blue', marker='.',
+                        alpha=.5)
+
+            ax = spectraplots.plotparams(ax)
+            if created_fig:
+                plt.show()
+            else:
+                return ax
+
+        else:
+            return ax
+
     
     # Apply Trumpet Cut using this mask and changing the threshold	
     def TrumpMask(self,fastconst = 1.1):
-        #fastconst = 1.1 is the overall ratio threshold (normal ratio is 1.0 with a tolerance of 0.1=10%)
-        # I recommend changing the threshold number by small amounts to see the difference in info
+        """
+        fastconst = 1.1 is the overall ratio threshold 
+        (normal ratio is 1.0 with a tolerance of 0.1=10%)
+        I recommend changing the threshold number by small 
+        amounts to see the difference in info
+        """
         
         t = np.arange(0,1201,1)
         newLine = []
         for pi in t:
             newLine.append(fastconst +((1200/10)/pi))
-        # Creating temporary storage for data that will be lost once the mask is        # applied
 
+        # Creating temporary storage for data that will be lost once the mask is applied
         oldData =[]
         oldEnergy =[]
         #Creating a temp array to make a mask
         t_mask = []
         erase = []
-        print(len(self.tab['PI']))
 
         # loop goes through the rows one by one
         for py in range(len(self.piratio)):
@@ -92,20 +144,30 @@ class LightCurve:
         self.piratio = self.piratio[t_mask]
         self.pi = self.pi[t_mask]
         
-        print("here 4")
-        #for num in range(len(self.pi)):
-            #print(num)
-           #if(t_mask[num] == False):
-        print("here 5")
+        #removing the rows that ly outside the trumpet cut        
         self.tab.remove_rows(erase)
         print(len(self.tab['PI']))
                   # num = num-1
 
-        self.tab.write('../TrumpetCutfile.fits', format = 'fits', overwrite = True)
-
+        self.newFile = self.tab.write(self.newFile, format = 'fits', overwrite = True)
+        return self.newFile
+        # run loop to create differnet cuts then return a list of evt files
+        #call them in newCreateSpecs.py
         plt.scatter(oldEnergy,oldData, s=1)
-        plt.scatter(self.pi,self.piratio, s= 1)
-        plt.show() 
+
+        #colormag = np.vstack([self.pi,self.piratio])
+        #z = gaussian_kde(colormag)(colormag)
+        plt.ylim(bottom = 0)
+        plt.scatter(self.pi,self.piratio, s= 1, label = 'newTrumpetCute')
+        plt.show()  
+	
+    #unfinished
+    def multiTrumpetCut(self):
+        fastConst = [1.5,1.75]
+        evtFiles = []
+        for i in range(len(fastConst)):
+           evtFiles.append(TrumpMask(fastConst))
+
     # Give a name to include in plots
     def set_name(self, name):
         self.name = name
@@ -172,7 +234,6 @@ class LightCurve:
             #ax.axhline(cutofftup.median, ls='--', color='gray')
             ax.axhline(cutofftup.nsigma, ls=':', color='darkblue', 
                        label=str(cutofftup.n)+r'$\sigma$')
-            default_line = dict(ls='--', color='black')
             default_span = dict(alpha=.2, color='gray')
             if cutofftup.min_phase_ip is not None:
                 for i in range(n_phase):
@@ -194,6 +255,13 @@ class LightCurve:
         if self.name is not None and label:
             ax.text(.95, .95, self.name, ha='right', va='top', 
                     transform=ax.transAxes, fontsize=20)
+
+        try:
+            ax.text(.95, .82, f"#Cut: {self.n_cut}", ha='right',
+                    va='top', transform=ax.transAxes, fontsize=20)
+        except:
+            pass
+
         #Save/display/return plot
         if output is not None:
             fig.savefig(f"{output}.{extension}", dpi=500)
@@ -208,15 +276,40 @@ class LightCurve:
 
     #Use offpeak region to determine pulse phase limits
     def peak_cutoff(self, l1, l2, nsigma=3, interpulse_lower=0.3):
-        assert(all([ 0 <= l <= 1 for l in [l1, l2]]))
-        assert(l1 < l2)
+
         if self.counts is None:
             self.generate()
 
-        #Collect all counts in selected off peak region
-        off_pc = [ self.counts[i] for i in 
-                   range(len(self.phasebins)) 
-                   if l1 <= self.phasebins[i] <= l2 ]
+        #If using one bkgd range
+        if all([ type(l) in [int, float] for l in [l1, l2] ]):
+            if not all([ 0 <= l <= 1 for l in [l1, l2] ]):
+                raise ValueError("Invalid phase val")
+
+            if l1 >= l2:
+                raise ValueError("Invalid phase range")
+
+            #Collect all counts in selected off peak region
+            off_pc = [ self.counts[i] for i in 
+                       range(len(self.phasebins)) 
+                       if l1 <= self.phasebins[i] <= l2 ]
+
+        #If using two background ranges
+        else:
+            if not all([ type(l) in [list, tuple, np.ndarray] for l in [l1, l2] ]):
+                raise TypeError("Phase limits must be int/float or list, tuple array")
+
+            if not all( [ all([ 0 <= ll <= 1 for ll in l]) for l in [l1, l2]  ]):
+                raise ValueError("Invalid phase val")
+
+            if any( [l[0] >= l[1] for l in [l1, l2] ]):
+                raise ValueError("invalid phase range")
+
+            #Collect all counts in selected off peak region
+            off_pc = [ self.counts[i] for i in range(len(self.phasebins)) 
+                       if ( (l1[0] <= self.phasebins[i] <= l1[1]) 
+                          or (l2[0] <= self.phasebins[i] <= l2[1]) ) ]
+
+                        
 
         #collect phases where counts are greater than nsigma away
         on_peak_phases = self.phasebins[np.where(
@@ -280,7 +373,6 @@ class LightCurve:
                         np.median(off_pc), 
                         np.median(off_pc)+nsigma*np.std(off_pc),
                         nsigma)
-
 
         return tup
 
@@ -371,10 +463,6 @@ class LightCurve:
         if any(np.sqrt(np.diag(pcov)) == np.inf):
             ratio=-1.0
 
-        if ratio > 1:
-            color = 'xkcd:green'
-        else:
-            color = 'xkcd:red'
         ax.text(.95, .95, f"{self.name}", ha='right', va='top', 
                 fontsize=20, transform=ax.transAxes)
         ax.text(.95, .85, f"Center: {round(popt[1], 3)}",
@@ -388,7 +476,8 @@ class LightCurve:
 
 
         
-    def fit_two_gauss(self, include_phases=None, ax=None, annotate=True):
+    def fit_two_gauss(self, include_phases=None, ax=None, annotate=True,
+                      output_fit=False):
         if self.counts is None:
             self.generate()
         
@@ -430,6 +519,7 @@ class LightCurve:
 
             p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
 
+        #Initial values and bounds for 1937
         elif self.name == 'PSR B1937+21':
             p0_b = min(counts_fitting)
             p0_a_0 = max(counts_fitting) - p0_b
@@ -444,18 +534,33 @@ class LightCurve:
 
             p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
 
+        #Initial values and bounds for J0218
         else:
-            print("Still need to make params for J0218")
-            return -1
+            p0_b = min(counts_fitting)
+            p0_a_0 = max(counts_fitting) - p0_b
+            p0_a_1 = p0_a_0 *0.5
+            p0_sigma_0 = .3
+            p0_sigma_1 = .3
+            p0_x0_0 = self.peak_center()[0]+1.0
+            p0_x0_1 = self.interpulse_center()[0]+1.0
 
-        #for i in range(len(p0)):
-        #    print(bounds[0][i], p0[i], bounds[1][i])
+            bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
+                     [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
 
-        popt, pcov = curve_fit(two_gaus, phasebins_fitting, 
-                               counts_fitting, 
-                               p0=[p0_a_0, p0_x0_0, p0_sigma_0,
-                                   p0_a_1, p0_x0_1, p0_sigma_1, p0_b],
-                               bounds=bounds)
+            p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+
+
+        try:
+            popt, pcov = curve_fit(two_gaus, phasebins_fitting, 
+                                   counts_fitting, 
+                                   p0=p0,
+                                   bounds=bounds)
+        except:
+            print("Fit failed due to invalid bounds")
+            for i in range(len(p0)):
+                print(bounds[0][i], p0[i], bounds[1][i])
+            raise ValueError
+
 
         fit_counts = two_gaus(phasebins_fitting, *popt)
 
@@ -466,6 +571,7 @@ class LightCurve:
         phasebins_fitting_extended = np.array([round(b,4) - 1.0 
             for b in np.arange(phase_min, phase_max+n_phase-1, self.bs) ])
         ax.set_xlim(0,2)
+
         plt.setp(ax.get_xticklabels()[0], visible=False)
         plt.setp(ax.get_xticklabels()[-1], visible=False)
 
@@ -480,9 +586,20 @@ class LightCurve:
                     fontsize=20, transform=ax.transAxes, 
                     ha='right', va='top')
 
-        if created_fig:
+        PoptTup = collections.namedtuple('PoptTup',
+                ['primary_amplitude', 'primary_position', 
+                 'primary_sigma', 'interpulse_amplitude', 
+                 'interpulse_position', 'interpulse_sigma',
+                 'vertical_shift'])
+
+        popt_tup = PoptTup(*popt)
+                   
+
+        if output_fit:
+            return phasebins_fitting_extended, fit_counts_extended, popt_tup
+        elif created_fig:
             plt.show()
-            return popt
+            return popt_tup
         else:
-            return ax, popt
+            return ax, popt_tup
 
