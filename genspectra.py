@@ -13,6 +13,7 @@ import subprocess
 import time
 from astropy.table import Table
 import spectraplots
+
 #Dom Rowan 2019
 
 desc = """
