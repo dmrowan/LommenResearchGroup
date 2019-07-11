@@ -464,10 +464,11 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
     #Add axes labels
     if vertical:
         axs1.set_xlabel("Energy (keV)", fontsize=30)
-        fig.text(.03, .55, "Counts/Sec", ha='center', va='center', 
+        fig.text(.03, .55, r'Photons cm$^{-2}$ s$^{-1}$ keV$^{-1}$', 
+                 ha='center', va='center', 
                  rotation='vertical', fontsize=30)
     else:
-        axf0.set_ylabel("Counts/sec", fontsize=30)
+        axf0.set_ylabel('Photons cm$^{-2}$ s$^{-1}$ keV$^{-1}$',fontsize=30)
         axf1.set_ylabel(r'Residuals ($\sigma$)', fontsize=18)
     fig.savefig(output, dpi=2000)
 
