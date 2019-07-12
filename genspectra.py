@@ -2,6 +2,7 @@
 from __future__ import print_function, division, absolute_import
 import argparse
 from astropy import log
+from astropy.io import fits
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
@@ -70,13 +71,25 @@ def fselect_two_phases(evt, output, phase_1, phase_2, clobber=False,
             print(cmd)
         subprocess.run(cmd)
 
-#Update exposure keyword to reflect phase selection
-def update_exp(fits, output, new_exp, hdu=1, verbose=True):
+#Update exposure keyword with fmodhead
+def fmodhead(input_name, output, new_exp, verbose=True):
     if verbose:
-        log.info("Updating exposure")
-    t = Table.read(fits, hdu=hdu)
-    t.meta['EXPOSURE'] = new_exp
-    t.write(output, overwrite=True)
+        log.info("Updating exposure with fmodhead")
+
+    with open('htemp.dat', 'w') as f:
+        f.write(f"EXPOSURE {float(new_exp)} / Value of Exposure Changed")
+
+    #update keyword in each header
+    cmds = [['fmodhead', f"{input_name}[0]", 'htemp.dat'], 
+            ['fmodhead', f"{input_name}[1]", 'htemp.dat'],
+            ['fmodhead', f"{input_name}[2]", 'htemp.dat']]
+    for cmd in cmds:
+        subprocess.run(cmd)
+
+    hdul = fits.open(input_name)
+
+    if input_name != output:
+        subprocess.run(['cp', input_name, output])
         
 #Find exposure of fits/evt/pha file
 def get_exposure(f):
@@ -84,8 +97,8 @@ def get_exposure(f):
     return t.meta['EXPOSURE']
 
 #Double check fselect phase with plot and min/max
-def test_fselect(fits, plot=False):
-    t = Table.read(fits, hdu=1)
+def test_fselect(f, plot=False):
+    t = Table.read(f, hdu=1)
     print(t['PULSE_PHASE'].min(), t['PULSE_PHASE'].max())
     if plot:
         fig, ax = plt.subplots(1, 1, figsize=(8, 4))
@@ -239,10 +252,9 @@ def gen_spectra(evt, phase_lower, phase_upper,
     xselect(datadir='./', eventfile="autofits.fits", 
             session='autoxselect', verbose=verbose)
 
-    update_exp("autoxselect_spec.pha", "autoxselect_spec_2.fits", 
-               new_exp, verbose=verbose)
-    subprocess.run(['mv', 'autoxselect_spec_2.fits',
-                    'autoxselect_spec_2.pha'])
+
+    fmodhead("autoxselect_spec.pha", "autoxselect_spec_2.pha",
+             new_exp, verbose=verbose)
 
     grppha_wrapper("autoxselect_spec_2.pha", "autoxselect_spec_grppha.pha", 
                    nchan, verbose=verbose)
@@ -295,15 +307,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    if len(args.lp) == 1:
-        gen_spectra(args.evt, args.lp, args.up, args.le, args.ue, 
-                    args.nchan, save_pha=args.save_pha, 
-                    save_plot=args.save_plot, display=args.display)
-    else:
-        gen_spectra(args.evt, args.lp, args.up, 
-                    args.le, args.ue, 
-                    args.nchan, save_pha=args.save_pha, 
-                    save_plot=args.save_plot, display=args.display)
+    gen_spectra(args.evt, args.lp, args.up, 
+                args.le, args.ue, 
+                args.nchan, save_pha=args.save_pha, 
+                save_plot=args.save_plot, display=args.display)
 
 
 
