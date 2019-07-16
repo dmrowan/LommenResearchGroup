@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 from __future__ import print_function, division, absolute_import
 import collections
+import math
 from math import log10, floor
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
 import numpy as np
+import pickle
 import os
 from astropy.table import Table
 from fuzzywuzzy import process
@@ -12,7 +14,7 @@ from scipy.optimize import curve_fit
 from scipy.stats import chisquare
 from scipy import exp
 import spectraplots
-
+import subprocess
 #Dom Rowan and Lauren Lugo 2019
 
 def gaus(x, a, x0, sigma, b):
@@ -54,15 +56,23 @@ class LightCurve:
         self.ph = self.ph[full_mask]
     
     # Apply Trumpet Cut using this mask and changing the threshold	
-    def TrumpMask(self,fastconst = 1.1):
+    def TrumpetMask(self,fastconst = 1.1, fileName = 'newFile.fits'):
+        oldList = []
         #fastconst = 1.1 is the overall ratio threshold (normal ratio is 1.0 with a tolerance of 0.1=10%)
         # I recommend changing the threshold number blc.ploty small amounts to see the difference in info
-        
-        t = np.arange(0,1201,1)
-        newLine = []
-        for pi in t:
-            newLine.append(fastconst +((1200/10)/pi))
-        # Creating temporary storage for data that will be lost once the mask is        # applied
+        if fastconst == 1.18:
+            print('hello1')
+            t = np.arange(0,1201,1)
+            newLine = []
+            for pi in t:
+                newLine.append(fastconst +((1200/10)/(pi**1.5))+ (5e-12)*pi**3)
+        else:
+            t = np.arange(0,1201,1)
+            newLine = []
+            for pi in t:
+                newLine.append(fastconst +((1200/10)/(pi)))
+		
+	# Creating temporary storage for data that will be lost once the mask is        # applied
 
         oldData =[]
         oldEnergy =[]
@@ -76,14 +86,17 @@ class LightCurve:
             #Creating a mask by deciding on boolean
             #newLine holds a value for a given energy
             #The orginal boolean is piratio less than newLine
-            t_mask.append(self.piratio[py] > newLine[self.pi[py]]) 
+            t_mask.append(self.piratio[py] < newLine[self.pi[py]]) 
             #Saving all "false" information so it can be plotted before
             #The original boolean is piratio greater than newLine
-            if (self.piratio[py] < newLine[self.pi[py]]):
+            if (self.piratio[py] > newLine[self.pi[py]]):
                 #print (self.pi[py])
                 erase.append(py)
                 oldData.append(self.piratio[py])
                 oldEnergy.append(self.pi[py])
+         
+        oldList.append(oldEnergy)
+        oldList.append(oldData)
 
         #Applying the mask
         self.piratio = self.piratio[t_mask]
@@ -92,27 +105,55 @@ class LightCurve:
         
         #removing the rows that ly outside the trumpet cut        
         self.tab.remove_rows(erase)
-        print(len(self.tab['PI']))
+        #print(len(self.tab['PI']))
                   # num = num-1
 
-        self.newFile = self.tab.write('newFile.fits', format = 'fits', overwrite = True)
-        #return self.newFile
-        # run loop to create differnet cuts then return a list of evt files
+        self.newFile = self.tab.write(fileName, format = 'fits', overwrite = True) 
+        if fastconst == 1.18:
+            oldList.append(self.pi)
+            oldList.append(self.piratio)
+            return oldList
+        else:
+            return oldList
+        #return  self.newFile
+        #run loop to create differnet cuts then return a list of evt files
         #call them in newCreateSpecs.py
         plt.scatter(oldEnergy,oldData, s=1)
-
         #colormag = np.vstack([self.pi,self.piratio])
         #z = gaussian_kde(colormag)(colormag)
         plt.ylim(bottom = 0)
-        plt.scatter(self.pi,self.piratio, s= 1, label = 'newTrumpetCute')
+        plt.scatter(self.pi,self.piratio, s= 1, label = 'newTrumpetCut')
         plt.show()  
 	
     #unfinished
     def multiTrumpetCut(self):
-        fastConst = [1.5,1.75]
-        evtFiles = []
+	#The first cuts that were made were 1.075,1.05,1.025,1.015
+        fastConst = [1.075, 1.05, 1.025, 1.015, 1.18]
+        oldStuff = []
+        #This for loop takes the length of the list of fast constants and makes a cut for each of the trumpet cut changes
+        #the original trupet cut has a fast constant of 1.1
         for i in range(len(fastConst)):
-           evtFiles.append(TrumpMask(fastConst))
+            #We append a list of lists that contain the data of the trumpet cut once it has been preformed.
+            
+           oldStuff.append(self.TrumpetMask(fastConst[i],f'newfile_{i}.fits'))
+           subprocess.call(['mv', f'newfile_{i}.fits', f'newfilecray1821_{i}.evt'])
+           print(f'newfilecray1821_{i}.evt')
+           subprocess.call(['mv',f'newfilecray1821_{i}.evt', 'evtFiles'])
+        fig, ax= plt.subplots(1,1, figsize = (8,6))
+        for j in range(len(oldStuff)):
+            print(j)
+            if j == 4:
+                ax.scatter(oldStuff[j][0],oldStuff[j][1], s =1, label = fastConst[j])
+                ax.scatter(oldStuff[j][2],oldStuff[j][3], s= 1, label = 'remainder', color = 'navy')
+            else:
+                ax.scatter(oldStuff[j][0],oldStuff[j][1],s =1,label = fastConst[j])
+        ax.set_ylim(0.5,2.5)
+        ax.set_title('1821 Trumpet Cuts')
+        ax.set_xlabel('PI')
+        ax.set_ylabel('PI_RATIO')
+        plt.legend()
+        fig.savefig('1821AllTrumpet.pdf')
+
 
     # Give a name to include in plots
     def set_name(self, name):

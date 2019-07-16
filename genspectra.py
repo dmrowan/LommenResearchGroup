@@ -42,6 +42,34 @@ def fselect_phase(evt, output, phase_lower, phase_upper,
         cmd.append('clobber=yes')
         subprocess.run(cmd)
 
+def fselect_two_phases(evt, output, phase_1, phase_2, clobber=False,
+                       verbose=True):
+
+    if verbose:
+        log.info("Selecting two phase regions with fselect")
+    if os.path.isfile(output) and (not clobber):
+        print("File already exists")
+        return
+    else:
+        cmd = [ 'fselect', evt, output ]
+        if not (phase_1[0] <= 1 <= phase_1[1]):
+            print("here")
+            first_phase = f"PULSE_PHASE >= {phase_1[0]} &&" \
+                          f"PULSE_PHASE <= {phase_1[1]}"
+        else:
+            first_phase = f"PULSE_PHASE >= {phase_1[0]} ||" \
+                          f"PULSE_PHASE <= {phase_1[1]-1}"
+
+        second_phase = f"PULSE_PHASE >= {phase_2[0]} &&"\
+                       f"PULSE_PHASE <= {phase_2[1]}"
+
+        both_phases = f"({second_phase}) || ({first_phase})"
+        cmd.append(both_phases) 
+        cmd.append('clobber=yes')
+        if verbose:
+            print(cmd)
+        subprocess.run(cmd)
+
 #Update exposure keyword to reflect phase selection
 def update_exp(fits, output, new_exp, hdu=1, verbose=True):
     if verbose:
@@ -70,7 +98,7 @@ def xselect(lower_e=0, upper_e=1200, lower_phase=0, upper_phase=1,
             session="autopython", verbose=True):
 
     if verbose:
-        log.info("Producing phase in xselect")
+        log.info("Producing pha in xselect")
     assert(all([type(val) in [int, float] for val in [
                 lower_phase, upper_phase, 
                 epoch, period]]))
@@ -180,15 +208,33 @@ def gen_spectra(evt, phase_lower, phase_upper,
                 save_pha=None, save_plot=None, display=False,
                 run_xspec=True, verbose=True):
 
+    if all( [type(p) not in [list, tuple, np.ndarray] for p in [phase_lower, phase_upper]]):
+        using_two_regions = False
+    elif len(phase_lower) != 1 and len(phase_upper) != 1:
+        using_two_regions = True
+    else:
+        phase_lower = phase_lower[0]
+        phase_upper = phase_upper[0]
+        using_two_regions = False
+
     t = Table.read(evt, hdu=1)
     original_exp = t.meta['EXPOSURE']
-    new_exp = original_exp * (phase_upper-phase_lower)
+    if using_two_regions:
+        new_exp = original_exp * ( (phase_upper[1]-phase_upper[0]) 
+                                  +(phase_lower[1]-phase_lower[0]) )
+    else:
+        new_exp = original_exp * (phase_upper-phase_lower)
 
-    fselect_phase(evt, "autofits.fits", 
-                  phase_lower, phase_upper, clobber=True, 
-                  verbose=verbose)
+    if using_two_regions:
+        fselect_two_phases(evt, "autofits.fits", 
+                           phase_lower, phase_upper, 
+                           clobber=True, verbose=verbose)
+    else:
+        fselect_phase(evt, "autofits.fits", 
+                      phase_lower, phase_upper, clobber=True, 
+                      verbose=verbose)
 
-    #test_fselect("autofits.fits")
+    #test_fselect("autofits.fits", plot=False)
 
     xselect(datadir='./', eventfile="autofits.fits", 
             session='autoxselect', verbose=verbose)
@@ -227,9 +273,11 @@ if __name__ == '__main__':
                         type=int, default=1200)
     parser.add_argument("--lp", 
                         help="Lower phase for xselect filtering", 
+                        nargs='+',
                         type=float, default=0)
     parser.add_argument("--up", 
                         help="Upper phase for xselect filtering", 
+                        nargs='+',
                         type=float, default=1)
     parser.add_argument("--nchan", 
                         help="Number of channels for grppha",
@@ -246,8 +294,17 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    gen_spectra(args.evt, args.lp, args.up, args.le, args.ue, 
-                args.nchan, save_pha=args.save_pha, 
-                save_plot=args.save_plot, display=args.display)
+
+    if len(args.lp) == 1:
+        gen_spectra(args.evt, args.lp, args.up, args.le, args.ue, 
+                    args.nchan, save_pha=args.save_pha, 
+                    save_plot=args.save_plot, display=args.display)
+    else:
+        gen_spectra(args.evt, args.lp, args.up, 
+                    args.le, args.ue, 
+                    args.nchan, save_pha=args.save_pha, 
+                    save_plot=args.save_plot, display=args.display)
+
+
 
 

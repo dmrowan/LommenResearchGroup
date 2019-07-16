@@ -91,8 +91,11 @@ def find_phase_ranges(lc_input, off1, off2, nsigma, verbose=True):
 
     lc = parse_lc_input(lc_input)
 
-    if any( [type(v) not in [float, int] for v in [off1, off2, nsigma] ]):
-        raise ValueError("value must be int or float")
+    if type(nsigma) not in [float, int]:
+        raise TypeError("nsigma must be int or float")
+
+    if any( [type(v) not in [float, int, tuple, list] for v in [off1, off2]]):
+        raise TypeError
 
     cutofftup = lc.peak_cutoff(off1, off2, nsigma=nsigma)
     if verbose:
@@ -107,8 +110,11 @@ def find_edge(lc_input, off1, off2, nsigma):
 
     lc = parse_lc_input(lc_input)
 
-    if any( [type(v) not in [float, int] for v in [off1, off2, nsigma] ]):
-        raise ValueError("value must be int or float")
+    if type(nsigma) not in [float, int]:
+        raise TypeError("nsigma must be int or float")
+
+    if any( [type(v) not in [float, int, tuple, list] for v in [off1, off2]]):
+        raise TypeError
 
     cutofftup = find_phase_ranges(lc, off1, off2, nsigma, verbose=False)
     edge_tuple = collections.namedtuple('edge_tuple', ['peak', 'min', 'max'])
@@ -149,7 +155,7 @@ def multiple_profiles(evt, energy_ranges, fit_one=False,
         if fit_one or fit_two:
             lc = LightCurve(evt)
             lc.mask(lower_pi=energy_ranges[i][0]*100, upper_pi=energy_ranges[i][1]*100)
-            lc.generate(bs=.005)
+            lc.generate(bs=.01)
             name = lc.name
             if fit_one:
                 a, popt, ratio = lc.fit_gauss(component, ax=a)
@@ -174,9 +180,9 @@ def multiple_profiles(evt, energy_ranges, fit_one=False,
                            va='top', transform=ax.reshape(-1)[0].transAxes,
                            fontsize=20)
     ax.reshape(-1)[len(energy_ranges)-1].set_xlabel("Phase", fontsize=20)
-    fig.text(.02, .5, "Photon Counts", ha='center', va='center', 
+    fig.text(.0255, .5, "Photon Counts", ha='center', va='center', 
              rotation='vertical', fontsize=30)
-    plt.subplots_adjust(hspace=0, bottom=.08, top=.94, right=.98)
+    plt.subplots_adjust(hspace=0, bottom=.08, top=.94, right=.98, left=.15)
     if output is None:
         if show:
             plt.show()
