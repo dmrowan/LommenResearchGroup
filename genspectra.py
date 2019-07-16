@@ -2,21 +2,47 @@
 from __future__ import print_function, division, absolute_import
 import argparse
 from astropy import log
-import matplotlib as mpl
+from astropy.io import fits
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gs
 import numpy as np
 import os
 import pexpect
-import sys
 import subprocess
 import time
 from astropy.table import Table
-import spectraplots
+
+import niutils
+
 #Dom Rowan 2019
 
 desc = """
-Procedure to generate spectra for pulsar in phase region
+Procedure to generate phase resolve spectra
+
+Example command line calls:
+
+    $ genspectra.py --evt eventfile --lp lower_phase --up upper_phase 
+                    --save_pha outout.pha --nchan photonbins
+
+    $ genspectra.py --evt J0218.evt --lp .2 --up .4 --save_pha mypha.pha
+
+    #Can use one or two phase regions
+    $ genspectra.py --evt B1821.evt --lp .2 .4 --up .7 .9 
+                    --save_pha mypha.pha --nchan 750
+
+Example function calls:
+
+    >>> genspectra(eventfile, lowerphase, upperphase, 
+                   grphha_channels, save_pha=output.pha
+                   save_plot=output.plot)
+
+    >>> genspectra("1821data.evt", .97, 1.06, 1000,
+                   save_pha="output.pha")
+
+    #Can input one or two phase ranges
+    >>> genspectra("1821data.evt", (.2, .4), (.7, .9),
+                   700, save_pha="backgroundspec.pha"
+                  
+
 """
 
 #Make phase selections using fselect
@@ -42,6 +68,7 @@ def fselect_phase(evt, output, phase_lower, phase_upper,
         cmd.append('clobber=yes')
         subprocess.run(cmd)
 
+#version of phase selection that has two ranges
 def fselect_two_phases(evt, output, phase_1, phase_2, clobber=False,
                        verbose=True):
 
@@ -51,9 +78,9 @@ def fselect_two_phases(evt, output, phase_1, phase_2, clobber=False,
         print("File already exists")
         return
     else:
+        #Build fselect command
         cmd = [ 'fselect', evt, output ]
         if not (phase_1[0] <= 1 <= phase_1[1]):
-            print("here")
             first_phase = f"PULSE_PHASE >= {phase_1[0]} &&" \
                           f"PULSE_PHASE <= {phase_1[1]}"
         else:
@@ -63,6 +90,7 @@ def fselect_two_phases(evt, output, phase_1, phase_2, clobber=False,
         second_phase = f"PULSE_PHASE >= {phase_2[0]} &&"\
                        f"PULSE_PHASE <= {phase_2[1]}"
 
+        #Connect both phases with or statement
         both_phases = f"({second_phase}) || ({first_phase})"
         cmd.append(both_phases) 
         cmd.append('clobber=yes')
@@ -70,13 +98,24 @@ def fselect_two_phases(evt, output, phase_1, phase_2, clobber=False,
             print(cmd)
         subprocess.run(cmd)
 
-#Update exposure keyword to reflect phase selection
-def update_exp(fits, output, new_exp, hdu=1, verbose=True):
+#Update exposure keyword with fmodhead
+def fmodhead(input_name, output, new_exp, verbose=True):
     if verbose:
-        log.info("Updating exposure")
-    t = Table.read(fits, hdu=hdu)
-    t.meta['EXPOSURE'] = new_exp
-    t.write(output, overwrite=True)
+        log.info("Updating exposure with fmodhead")
+
+    with open('htemp.dat', 'w') as f:
+        f.write(f"EXPOSURE {float(new_exp)} / Value of Exposure Changed")
+
+    #update keyword in each header
+    cmds = [['fmodhead', f"{input_name}[0]", 'htemp.dat'], 
+            ['fmodhead', f"{input_name}[1]", 'htemp.dat'],
+            ['fmodhead', f"{input_name}[2]", 'htemp.dat']]
+    for cmd in cmds:
+        subprocess.run(cmd)
+
+    #Change file name if necessary
+    if input_name != output:
+        subprocess.run(['cp', input_name, output])
         
 #Find exposure of fits/evt/pha file
 def get_exposure(f):
@@ -84,12 +123,13 @@ def get_exposure(f):
     return t.meta['EXPOSURE']
 
 #Double check fselect phase with plot and min/max
-def test_fselect(fits, plot=False):
-    t = Table.read(fits, hdu=1)
+def test_fselect(f, plot=False):
+    t = Table.read(f, hdu=1)
     print(t['PULSE_PHASE'].min(), t['PULSE_PHASE'].max())
     if plot:
         fig, ax = plt.subplots(1, 1, figsize=(8, 4))
         ax.hist(t['PULSE_PHASE'], edgecolor='black', color='xkcd:violet')
+        ax = niutils.plotparams(ax)
         plt.show()
 
 #Spawn xselect child 
@@ -204,11 +244,12 @@ def convertPDF(psfile, display=False, verbose=True):
                                                                 
 #Wrap heasarc calls to generate spectra with energy/phase selections
 def gen_spectra(evt, phase_lower, phase_upper, 
-                channel_lower, channel_upper, nchan,
-                save_pha=None, save_plot=None, display=False,
+                nchan, save_pha=None, 
+                save_plot=None, display=False,
                 run_xspec=True, verbose=True):
 
-    if all( [type(p) not in [list, tuple, np.ndarray] for p in [phase_lower, phase_upper]]):
+    if all( [type(p) not in [list, tuple, np.ndarray] 
+             for p in [phase_lower, phase_upper]]):
         using_two_regions = False
     elif len(phase_lower) != 1 and len(phase_upper) != 1:
         using_two_regions = True
@@ -217,14 +258,17 @@ def gen_spectra(evt, phase_lower, phase_upper,
         phase_upper = phase_upper[0]
         using_two_regions = False
 
+    #Fiind exposure from event file
     t = Table.read(evt, hdu=1)
     original_exp = t.meta['EXPOSURE']
+    #Calculate exposure corresponding to phase selection
     if using_two_regions:
         new_exp = original_exp * ( (phase_upper[1]-phase_upper[0]) 
                                   +(phase_lower[1]-phase_lower[0]) )
     else:
         new_exp = original_exp * (phase_upper-phase_lower)
 
+    #Apply phase selection to evt file
     if using_two_regions:
         fselect_two_phases(evt, "autofits.fits", 
                            phase_lower, phase_upper, 
@@ -236,19 +280,24 @@ def gen_spectra(evt, phase_lower, phase_upper,
 
     #test_fselect("autofits.fits", plot=False)
 
+    #Run xselect to create pha file
     xselect(datadir='./', eventfile="autofits.fits", 
             session='autoxselect', verbose=verbose)
 
-    update_exp("autoxselect_spec.pha", "autoxselect_spec_2.fits", 
-               new_exp, verbose=verbose)
-    subprocess.run(['mv', 'autoxselect_spec_2.fits',
-                    'autoxselect_spec_2.pha'])
 
+    #Modify the exposure keyword to correspond to the phase selection
+    fmodhead("autoxselect_spec.pha", "autoxselect_spec_2.pha",
+             new_exp, verbose=verbose)
+
+    #Apply grppha to set the grouping keyword
     grppha_wrapper("autoxselect_spec_2.pha", "autoxselect_spec_grppha.pha", 
                    nchan, verbose=verbose)
 
+    #Save pha to output name
     if save_pha is not None:
         subprocess.run(['cp', 'autoxselect_spec_grppha.pha', save_pha])
+
+    #Run xspec
     if run_xspec:
         xspec_wrapper('autoxselect_spec_grppha.pha', 
                       channel_lower, channel_upper, save=save_plot,
@@ -265,12 +314,6 @@ if __name__ == '__main__':
     parser.add_argument("--evt", 
                         help="Event file path for lc", 
                         type=str, default=None)
-    parser.add_argument("--le", 
-                        help="Lower PHA_CUTOFF for xselect filtering",
-                        type=int, default=0)
-    parser.add_argument("--ue", 
-                        help="Upper PHA_CUTOFF for xselect filtering",
-                        type=int, default=1200)
     parser.add_argument("--lp", 
                         help="Lower phase for xselect filtering", 
                         nargs='+',
@@ -295,16 +338,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    if len(args.lp) == 1:
-        gen_spectra(args.evt, args.lp, args.up, args.le, args.ue, 
-                    args.nchan, save_pha=args.save_pha, 
-                    save_plot=args.save_plot, display=args.display)
-    else:
-        gen_spectra(args.evt, args.lp, args.up, 
-                    args.le, args.ue, 
-                    args.nchan, save_pha=args.save_pha, 
-                    save_plot=args.save_plot, display=args.display)
-
+    gen_spectra(args.evt, args.lp, args.up, 
+                args.nchan, save_pha=args.save_pha, 
+                save_plot=args.save_plot, display=args.display)
 
 
 

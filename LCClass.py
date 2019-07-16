@@ -13,24 +13,14 @@ from fuzzywuzzy import process
 from scipy.optimize import curve_fit
 from scipy.stats import chisquare
 from scipy import exp
-import spectraplots
-import subprocess
+import niutils
+
 #Dom Rowan and Lauren Lugo 2019
 
-def gaus(x, a, x0, sigma, b):
-    return a*exp(-(x-x0)**2/(2*sigma**2)) + b
+desc="""
+Class for pulsar profiles and light curves
+"""
 
-def round_1sigfig(x):
-    return round(x, -int(floor(log10(abs(x)))))
-
-def two_gaus(x, 
-             a_0, x0_0, sigma_0, 
-             a_1, x0_1, sigma_1, b,
-             ):
-               
-    return a_0*exp(-(x-x0_0)**2/(2*sigma_0**2)) + a_1*exp(-(x-x0_1)**2/(2*sigma_1**2)) + b
-
-#LC Class for pulsar profile
 class LightCurve:
     def __init__(self, evtfile):
         assert(type(evtfile) == str)
@@ -54,6 +44,53 @@ class LightCurve:
         full_mask = en_mask & ph_mask
         self.pi = self.pi[full_mask]
         self.ph = self.ph[full_mask]
+
+    def test_trumpet_cut(self, fconst, fastsig=1200, fastquart=0, 
+                         n=1, ax=None, plot=False):
+        
+        #Define trumpet function
+        def trumpet_cut(pi, c, s, q, n=1):
+            return c + (s/10)/pi**n + q*pi**3
+
+        #Create mask
+        mask = [ (self.piratio[i] < trumpet_cut(self.pi[i], 
+                                                fconst, 
+                                                fastsig, 
+                                                fastquart, 
+                                                n=n))
+                 for i in range(len(self.piratio)) ]
+
+        mask_flip = [ not l for l in mask ]
+
+        #Store the number of photons cut
+        self.n_cut = len(mask) - sum(mask)
+        
+        if self.n_cut != 0:
+            log.info("Appling trumpet cut")
+
+        #Apply the mask
+        self.pi = self.pi[mask]
+        self.ph = self.ph[mask]
+        self.piratio = self.piratio[mask]
+
+        if plot:
+            if ax is None:
+                fig, ax = plt.subplots(1, 1, figsize=(16, 8))
+                created_fig=True
+            else:
+                created_fig=False
+            ax.scatter(self.pi, self.piratio, color='xkcd:blue', marker='.',
+                        alpha=.5)
+
+            ax = niutils.plotparams(ax)
+            if created_fig:
+                plt.show()
+            else:
+                return ax
+
+        else:
+            return ax
+
     
     # Apply Trumpet Cut using this mask and changing the threshold	
     def TrumpetMask(self,fastconst = 1.1, fileName = 'newFile.fits'):
@@ -73,7 +110,8 @@ class LightCurve:
                 newLine.append(fastconst +((1200/10)/(pi)))
 		
 	# Creating temporary storage for data that will be lost once the mask is        # applied
-
+        # Creating temporary storage for data that will be 
+        # lost once the mask is applied
         oldData =[]
         oldEnergy =[]
         #Creating a temp array to make a mask
@@ -117,6 +155,8 @@ class LightCurve:
             return oldList
         #return  self.newFile
         #run loop to create differnet cuts then return a list of evt files
+        return self.newFile
+        # run loop to create differnet cuts then return a list of evt files
         #call them in newCreateSpecs.py
         plt.scatter(oldEnergy,oldData, s=1)
         #colormag = np.vstack([self.pi,self.piratio])
@@ -206,7 +246,7 @@ class LightCurve:
             created_fig=False
 
         #Default plot paramaters
-        ax = spectraplots.plotparams(ax)
+        ax = niutils.plotparams(ax)
         if label:
             ax.set_xlabel('Phase', fontsize=25)
             ax.set_ylabel('Counts', fontsize=25)
@@ -255,7 +295,8 @@ class LightCurve:
             return ax
 
     #Use offpeak region to determine pulse phase limits
-    def peak_cutoff(self, l1, l2, nsigma=3, interpulse_lower=0.3):
+    def peak_cutoff(self, l1, l2, nsigma=3, 
+                    interpulse_lower=0.3, verbose=False):
 
         if self.counts is None:
             self.generate()
@@ -275,10 +316,13 @@ class LightCurve:
 
         #If using two background ranges
         else:
-            if not all([ type(l) in [list, tuple, np.ndarray] for l in [l1, l2] ]):
-                raise TypeError("Phase limits must be int/float or list, tuple array")
+            if not all([ type(l) in [list, tuple, np.ndarray] 
+                         for l in [l1, l2] ]):
+                raise TypeError("Phase limits must be int/float or list"\
+                                "tuple array")
 
-            if not all( [ all([ 0 <= ll <= 1 for ll in l]) for l in [l1, l2]  ]):
+            if not all( [ all([ 0 <= ll <= 1 for ll in l]) 
+                          for l in [l1, l2]  ]):
                 raise ValueError("Invalid phase val")
 
             if any( [l[0] >= l[1] for l in [l1, l2] ]):
@@ -353,6 +397,12 @@ class LightCurve:
                         np.median(off_pc), 
                         np.median(off_pc)+nsigma*np.std(off_pc),
                         nsigma)
+        
+        if verbose:
+            print(f"Min phase primary: {tup.min_phase}")
+            print(f"Max phase primary: {tup.max_phase}")
+            print(f"Min phase interpulse: {tup.min_phase_ip}")
+            print(f"Max phase interpulse: {tup.max_phase_ip}")
 
         return tup
 
@@ -360,7 +410,8 @@ class LightCurve:
         if self.counts is None:
             self.generate()
 
-        idx = np.where(np.array(self.counts_extended) == max(self.counts_extended))[0]
+        idx = np.where(np.array(self.counts_extended) 
+                       == max(self.counts_extended))[0]
         return self.phasebins_extended[idx]
        
     def interpulse_center(self):
@@ -398,9 +449,9 @@ class LightCurve:
 
         phasebins_fitting = np.array([ p for p in self.phasebins_extended 
                                        if phase_min <= p <= phase_max ])
-        counts_fitting = np.array([ self.counts_extended[i] 
-                                    for i in range(len(self.counts_extended)) 
-                                    if phase_min <= self.phasebins_extended[i] <= phase_max ])
+        counts_fitting = np.array([ 
+            self.counts_extended[i] for i in range(len(self.counts_extended)) 
+            if phase_min <= self.phasebins_extended[i] <= phase_max ])
 
         
 
@@ -415,7 +466,7 @@ class LightCurve:
 
         p0_sigma = 0.1
         p0_b = min(counts_fitting)
-        popt, pcov = curve_fit(gaus, phasebins_fitting, 
+        popt, pcov = curve_fit(niutils.gaus, phasebins_fitting, 
                                counts_fitting, 
                                p0=[p0_a, p0_x0, p0_sigma, p0_b])
 
@@ -428,16 +479,17 @@ class LightCurve:
         else:
             created_fig=False
 
-        ax = spectraplots.plotparams(ax)
+        ax = niutils.plotparams(ax)
         ax.set_xlim(left=phase_min-.025, right=phase_max+.025)
 
         ax.plot(phasebins_fitting, counts_fitting,
                 marker='.', ls='-', color='xkcd:violet', zorder=2)
         ax.plot(phasebins_fitting, 
-                gaus(phasebins_fitting, *popt),
+                niutils.gaus(phasebins_fitting, *popt),
                 color='xkcd:azure', ls='-', zorder=1, alpha=.4, lw=6)
 
-        chisq, p = chisquare(counts_fitting, gaus(phasebins_fitting, *popt))
+        chisq, p = chisquare(counts_fitting, 
+                             niutils.gaus(phasebins_fitting, *popt))
         chisq = chisq / (len(counts_fitting)-len(popt))
         ratio = popt[0] / np.std(counts_fitting)
         if any(np.sqrt(np.diag(pcov)) == np.inf):
@@ -471,9 +523,9 @@ class LightCurve:
 
         phasebins_fitting = np.array([ p for p in self.phasebins_extended 
                                        if phase_min <= p < phase_max ])
-        counts_fitting = np.array([ self.counts_extended[i] 
-                                    for i in range(len(self.counts_extended)) 
-                                    if phase_min <= self.phasebins_extended[i] < phase_max ])
+        counts_fitting = np.array([ 
+            self.counts_extended[i] for i in range(len(self.counts_extended)) 
+            if phase_min <= self.phasebins_extended[i] < phase_max ])
 
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=(8, 4))
@@ -483,7 +535,7 @@ class LightCurve:
             created_fig = False
 
         ax.set_xlim(left=phase_min-.025, right=phase_max+.025)
-        ax = spectraplots.plotparams(ax)
+        ax = niutils.plotparams(ax)
 
         if self.name == 'PSR B1821-24':
             p0_b = min(counts_fitting)
@@ -497,7 +549,8 @@ class LightCurve:
             bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
                      [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
 
-            p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+            p0= [p0_a_0, p0_x0_0, p0_sigma_0, 
+                 p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
 
         #Initial values and bounds for 1937
         elif self.name == 'PSR B1937+21':
@@ -512,7 +565,8 @@ class LightCurve:
             bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
                      [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
 
-            p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+            p0= [p0_a_0, p0_x0_0, p0_sigma_0, 
+                 p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
 
         #Initial values and bounds for J0218
         else:
@@ -527,11 +581,12 @@ class LightCurve:
             bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
                      [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
 
-            p0= [p0_a_0, p0_x0_0, p0_sigma_0, p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+            p0= [p0_a_0, p0_x0_0, p0_sigma_0, 
+                 p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
 
 
         try:
-            popt, pcov = curve_fit(two_gaus, phasebins_fitting, 
+            popt, pcov = curve_fit(niutils.two_gaus, phasebins_fitting, 
                                    counts_fitting, 
                                    p0=p0,
                                    bounds=bounds)
@@ -542,7 +597,7 @@ class LightCurve:
             raise ValueError
 
 
-        fit_counts = two_gaus(phasebins_fitting, *popt)
+        fit_counts = niutils.two_gaus(phasebins_fitting, *popt)
 
         n_phase = 3
         fit_counts_extended = np.array([])

@@ -2,15 +2,37 @@
 import argparse
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib import rc
 import numpy as np
 import os
 import pandas as pd
-from spectraplots import plotparams
+from fuzzywuzzy import process
+
+from niutils import plotparams
 
 #Dom Rowan 2019
+
 desc="""
-Plot a simulatneously modeled spectra for multiple telescope txt files as output from Xspec
+Plot a simulatneously modeled spectra for multiple telescopes
+from XSPEC output
+
+Example command line calls:
+
+    $ joint_spectra.py data_all_three.txt -s "PSR B1821-24" -o OutputSpec.pdf
+
+    $ joint_spectra.py datafile.txt # Creates a spec with no sourcelabel
+                                         # And filename datafile_spec.pdf
+
+Example function calls:
+
+    >>> plot_joint_telescope("datafile.txt", "PSR B1821-24", "myspec.pdf")
+
+No function return -- output spec is saved in the current directory. 
+
 """
+
+#Setting style parameters for plots
+rc('text', usetex=True)
 
 #Class for parsing the joint data file from simultaneous fitting
 class joint_data:
@@ -54,29 +76,32 @@ class joint_data:
         df0 = pd.read_csv(self.fname, skiprows=3, delimiter=" ", header=None,
                           nrows=breakidx[0]-3)
         #reset column names
-        df0.columns = ['energy', 'energy_err', 'counts', 'counts_err', 'model']
+        df0.columns = ['energy', 'energy_err', 'counts', 
+                       'counts_err', 'model']
 
         self.df_list = [df0]
 
         #iterate through other indicies to create new data frames
         for i in range(len(breakidx)):
             if i != len(breakidx)-1:
-                df = pd.read_csv(self.fname, skiprows=breakidx[i]+1, delimiter=" ",
-                                 header=None, nrows=breakidx[i+1]-breakidx[i]-1)
+                df = pd.read_csv(self.fname, skiprows=breakidx[i]+1, 
+                                 delimiter=" ", header=None, 
+                                 nrows=breakidx[i+1]-breakidx[i]-1)
 
             else:
-                df = pd.read_csv(self.fname, skiprows=breakidx[i]+1, delimiter=" ",
-                                 header=None)
+                df = pd.read_csv(self.fname, skiprows=breakidx[i]+1, 
+                                 delimiter=" ", header=None)
 
             df.columns = ['energy', 'energy_err', 
                            'counts', 'counts_err', 'model']
             self.df_list.append(df)
 
-        #Check that we have the correct number of data frames with correct lengths
+        #Check that we have the correct number of data frames & lengths
         self.check_parse()
 
         #Attributes for data and residuals
-        self.data = [ self.df_list[i] for i in range(int(len(self.df_list)/2)) ]
+        self.data = [ self.df_list[i] 
+                      for i in range(int(len(self.df_list)/2)) ]
         self.residuals = [ self.df_list[i] 
                            for i in range(
                            int(len(self.df_list)/2), len(self.df_list)) ]
@@ -107,7 +132,8 @@ class joint_data:
 
         #Order of lengths should go data dfs then residual dfs
         for i in range(int(len(self.df_list)/2)):
-            if len(self.df_list[i]) != len(self.df_list[i+int(len(self.df_list)/2)]):
+            if (len(self.df_list[i]) != 
+                    len(self.df_list[i+int(len(self.df_list)/2)])):
                 raise ValueError("Error in file parse inconsistent lengths")
 
         return 0
@@ -117,7 +143,8 @@ def plot_joint_telescope(fname, source, output):
 
     #Init figure
     fig = plt.figure(figsize=(8.5, 5.5))
-    plt.subplots_adjust(top=.98, right=.98, wspace=.1, left=.15, bottom=.18)
+    plt.subplots_adjust(top=.98, right=.98, wspace=.1, 
+                        left=.15, bottom=.18)
     #Outer gridspec of size 2
 
     #Each spec of outer contains ufspec and delchi
@@ -131,15 +158,32 @@ def plot_joint_telescope(fname, source, output):
     xd = joint_data(fname)
     xd.set_source(source)
 
-    labels = [ r'$NICER$', r'$NuSTAR$', r'$XMM\;EPIC$'+r'$-$'+r'$MOS$' ]
+    source = process.extract(source, [r'PSR B1937$+$21', r'PSR B1821$-$24',
+                                      r'PSR J0218$+$4232'], limit=1)[0][0]
+    if source == r'PSR B1937$+$21':
+        labels = [ r'$NICER$', r'$XMM-Newton$',r'$NuSTAR$' ]
 
-    colors = ["#d5483a",
-            "#70c84c",
-            "#853bce",
-            #"#d4ae2f",
-            #"#625cce",
-            #"#c24ebe", 
-            "xkcd:azure"]
+        colors = ["#d5483a",
+                "#70c84c",
+                "#853bce",
+                #"#d4ae2f",
+                #"#625cce",
+                #"#c24ebe", 
+                "xkcd:azure"]
+    elif source == r'PSR B1821$-$24':
+        labels = [ r'$NICER$', r'$RXTE$', r'$NuSTAR$' ]
+
+        colors = ["#d5483a",
+                "#70c84c",
+                #"#853bce",
+                #"#d4ae2f",
+                "#625cce",
+                #"#c24ebe", 
+                "xkcd:azure"]
+
+    else:
+        return -1
+
 
     #Iterate through each data and residual pair
     for i in range(len(xd.data)):
@@ -147,7 +191,7 @@ def plot_joint_telescope(fname, source, output):
                      xd.data[i]['counts'],
                      xerr=xd.data[i]['energy_err'],
                      yerr=xd.data[i]['counts_err'],
-                     ls=' ', marker='o', 
+                     ls=' ', marker='.', 
                      color=colors[i],
                      label=labels[i],
                      zorder=i)
@@ -172,11 +216,13 @@ def plot_joint_telescope(fname, source, output):
     ax0.set_yscale('log')
     ax0.text(.95, .95, source, transform=ax0.transAxes, 
              ha='right', va='top', fontsize=20)
-    ax0.legend(loc=(.05, 0.05), fontsize=16, edgecolor='black', framealpha=.9)
+    ax0.legend(loc=(.05, 0.05), fontsize=16, 
+               edgecolor='black', framealpha=.9)
     ax1.axhline(0, ls=':', lw=1.5, color='gray')
     ax1.set_xscale('log')
     ax1.set_xlabel('Energy (keV)', fontsize=20)
 
+    #Add subplots to figure
     fig.add_subplot(ax0)
     fig.add_subplot(ax1)
 
@@ -186,9 +232,11 @@ def plot_joint_telescope(fname, source, output):
     #ax_top0.set_ylim(ax_top0.get_ylim()[0] * .4)
 
     #Add axes labels
-    ax0.set_ylabel("Counts/sec", ha='center', va='center', fontsize=30)
+    ax0.set_ylabel(r'Photons cm$^{-2}$ s$^{-1}$ keV$^{-1}$',
+                   ha='center', va='center', fontsize=20)
     ax1.set_ylabel(r'Residuals ($\chi$)', fontsize=15)
-    ax0.yaxis.set_label_coords(-0.115, ax0.yaxis.get_label().get_position()[1])
+    ax0.yaxis.set_label_coords(
+            -0.115, ax0.yaxis.get_label().get_position()[1])
 
     #Save figure
     fig.savefig(output, dpi=2000)
@@ -199,7 +247,12 @@ if __name__ == '__main__':
     parser.add_argument("-s", help="PSR source name", dest='source',
                         type=str, required=False, default=None)
     parser.add_argument("-o", help="Output file", dest='output',
-                        type=str, required=False, default='output.pdf')
+                        type=str, required=False, default=None)
+
+    if args.output is None:
+        base = os.path.splittext(os.path.basename(args.fname))[0]
+        args.output = base + "_spec.pdf"
+
 
     args = parser.parse_args()
     
