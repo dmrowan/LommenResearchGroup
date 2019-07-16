@@ -40,10 +40,11 @@ def light_curve(phases, weights=None, nbins=25, ec='blue', ls='solid',
     bcs = (bins[1:]+bins[:-1])/2.0
     nph = len(phases)
     cod = axes.hist(phases,bins=bins,weights=weights,density=True,histtype='step',ec=ec)[0]
-
+    dof = 6
     if weights is None:
         err = (cod*float(nbins)/len(phases))**0.5
     else:
+        dof = 9          
         err = np.empty([nbins,nmc])
         for i in range(nmc):
             rweights = weights[np.argsort(np.random.rand(nph))]
@@ -69,6 +70,17 @@ def light_curve(phases, weights=None, nbins=25, ec='blue', ls='solid',
     if template is not None:
         axes_resid = axes.twinx()
         model = (template(bcs)*(1-bg_level)+bg_level)
+        if chi_squared is 'True':
+            chi_num = (cod-model)**2
+            chi_denom= err**2
+            chi_unit = chi_num/chi_denom
+            i=0
+            chi =0
+            while i < len(chi_unit):
+                chi += chi_unit[i]
+                i+=1
+            print ('THE VALUE OF THE REDUCED CHI TEST IS ',chi/(len(cod)-dof))
+            print('THE VALUE OF THE NON-REDUCED CHI TEST IS ', chi)
         resids = cod/model-1
         axes_resid.errorbar(bcs,resids,yerr=err/model,
                 color='green',ls=' ',marker='o',alpha=0.5)
