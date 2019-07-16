@@ -42,3 +42,13 @@ def plotparams(ax):
     return ax
 
 
+def gaus(x, a, x0, sigma, b):
+    return a*exp(-(x-x0)**2/(2*sigma**2)) + b
+
+
+def two_gaus(x, a_0, x0_0, sigma_0,
+                a_1, x0_1, sigma_1, b):
+
+    return a_0*exp(-(x-x0_0)**2/(2*sigma_0**2)) + a_1*exp(-(x-x0_1)**2/(2*sigma_1**2)) + b
+
+
