@@ -194,8 +194,8 @@ class xspecdata:
     def phot_index_from_log(self, fname):
         assert(os.path.isfile(fname))
         log = logfile(fname)
-        self.phot_index, self.phot_index_err = niutils.round_sigfig(
-                log.get_params()[0], log.get_errorrs()[0])
+        self.phot_index, self.phot_index_err = niutils.round_sigfigs(
+                log.get_params()[0], log.get_errors()[0])
 
 
     def get_label(self):
