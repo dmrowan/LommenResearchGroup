@@ -7,6 +7,7 @@ import collections
 from fuzzywuzzy import process
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+from matplotlib import rc
 import numpy as np
 import os
 import pandas as pd
@@ -27,38 +28,65 @@ import xspeclog
 
 desc="""
 Generate multiple spectra with different phase selections and plot.
+
+Example command line call:
+
+    $ multispectra.py input.evt, output
+
+    $ multispectra.py 1821data.evt 1821_spec.pdf --p 
+      (Generate plot using existing data)
+
+Example function calls:
+
+    >>> wrapper(inputevt, lower_phase_back, upper_phase_back, 
+                "Label One", "Label Two", output, 
+                vertical=True, generate_new=True)
+
+    >>> wrapper(myevt.evt, (.2, .4), (.7, .9), 
+                "Primary \& Interpulse", "Leading \& Trailing", 
+                "Output.pdf")
+
+    #Back phase range can either be tuple or float
+    >>> wrapper(myevt.evt, .2, .4, 
+                "Primary \& Interpulse", "Leading \& Trailing", 
+                "Output.pdf")
+
 """
 
+rc('text', usetex=True)
+
 #Make csv and latex tables
-def make_table(evt, output, first_ranges, second_ranges, firstlogs, secondlogs):
+def make_table(evt, output, first_ranges, second_ranges, 
+               firstlogs, secondlogs, csv=True, latex=True):
 
     log.info("Making output table from logs")
 
     #Calculate number of counts for each range
     phase_ranges = first_ranges + second_ranges
-    print(phase_ranges)
     evt = Table.read(evt, hdu=1)
+
+    #Find the number of photons in each phase range
     ncounts = []
     for r in phase_ranges:
         if not r[0] <= 1 <= r[1]:
             n = len(np.where( ( evt['PULSE_PHASE'] >= r[0] ) &
-                                         ( evt['PULSE_PHASE'] <= r[1] ) )[0])
+                              ( evt['PULSE_PHASE'] <= r[1] ) )[0])
 
         else:
             n = len(np.where( (evt['PULSE_PHASE'] >= r[0] ) |
-                                         (evt['PULSE_PHASE'] <= r[1]-1) )[0])
-
+                              (evt['PULSE_PHASE'] <= r[1]-1) )[0])
 
         ncounts.append(n)
 
 
+    #Initialize variables for iteration
     logs = firstlogs + secondlogs
-
     phot_index = []
     nH = []
     chi2 = np.zeros(len(logs))
     dof = np.zeros(len(logs))
 
+    #Fill data with each log file
     for i in range(len(logs)):
         logfile = xspeclog.logfile(logs[i])
         phot_index.append(logfile.phot_string())
@@ -67,9 +95,11 @@ def make_table(evt, output, first_ranges, second_ranges, firstlogs, secondlogs):
         dof[i] = logfile.get_chi2()[1]
 
 
+    #Format the phase_ranges
     phase_ranges = [ f"{round(tup[0], 2)} -- {round(tup[1],2)}" 
                      for tup in phase_ranges ]
 
+    #Form the output dataframe
     df = pd.DataFrame({"Phase Range": phase_ranges,
                        r'$\Gamma$':phot_index, 
                        r'$N_{\rm{H}}$':nH,
@@ -78,30 +108,44 @@ def make_table(evt, output, first_ranges, second_ranges, firstlogs, secondlogs):
                        "Number of":ncounts,
                        })
 
+    #Write to csv and latex
     df.to_csv(f"{output}.csv", index=False)
     df.to_latex(f"{output}.tex", index=False, escape=False, 
                 column_format='lccccr')
     
+    #Open the tex file
     with open(f"{output}.tex", 'r') as f:
         table_lines = f.readlines()
         f.close()
 
+    #Insert second header line
     table_lines.insert(3, "& &" + r'($10^{22}$ cm$^2$)' + 
                        " & & Freedom & Photons\\\ \n")
+
+    #Re-write tex file
     with open(f"{output}.tex", 'w') as f:
         contents = "".join(table_lines)
         f.write(contents)
         f.close()
 
 #Varation of V1. Starts with nsigma and increments smaller
-def find_phase_ranges_v2(evt, lower, upper, nranges, sigma0=2):
-    assert(0 < sigma0 < 10)
+def find_phase_ranges(evt, lower, upper, nranges, sigma0=2):
+
+    #Parameter Checking
+    if type(evt) != str:
+        raise ValueError("filename must be string")
+    if not os.path.isfile(evt):
+        raise FileNotFoundError
+
+    #Create LC object and find peak cutoff regions
     lc = LightCurve(evt)
     lc.generate()
     tup = lc.peak_cutoff(lower, upper, sigma0)
     primary_ranges = [niutils.phase_correction((tup.min_phase, tup.max_phase))]
     interpulse_ranges = [niutils.phase_correction((tup.min_phase_ip, 
                                            tup.max_phase_ip))]
+
+    #Iteratively reduce primary ranges
     while (len(primary_ranges) < nranges):
         if primary_ranges[-1][1] - primary_ranges[-1][0] > 0.02:
             newtup = (primary_ranges[-1][0]+.01, primary_ranges[-1][1]-.01)
@@ -109,6 +153,7 @@ def find_phase_ranges_v2(evt, lower, upper, nranges, sigma0=2):
         else:
             break
 
+    #Iteratively reduce secondary ranges
     while (len(interpulse_ranges) < nranges):
         if interpulse_ranges[-1][1] - interpulse_ranges[-1][0] > 0.02:
             newtup = (interpulse_ranges[-1][0]+.01, 
@@ -117,6 +162,7 @@ def find_phase_ranges_v2(evt, lower, upper, nranges, sigma0=2):
         else:
             break
     
+    #Create named tuple output
     rangetup = collections.namedtuple('rangetup', 
                                       ['primary', 'interpulse', 'nfound'])
     tup = rangetup(primary_ranges, interpulse_ranges, 
@@ -125,18 +171,25 @@ def find_phase_ranges_v2(evt, lower, upper, nranges, sigma0=2):
 
 #Adjust the minimum counts depending on the width of selection
 def variable_mincounts(primary_ranges, interpulse_ranges, 
-        mincounts, mincounts_interpulse, scalefactor=1.00):
+                       mincounts, mincounts_interpulse, 
+                       scalefactor=1.00):
 
+    #Create new mincounts output
     mincounts_both = [np.zeros(len(primary_ranges), dtype=int), 
                       np.zeros(len(interpulse_ranges), dtype=int)]
     initial_values = [mincounts, mincounts_interpulse]
+
+    #Iterate through ranges
     for i, ranges in enumerate([primary_ranges, interpulse_ranges]):
+        #Find the widest phase range to set as standard
         width = np.array([ r[1] - r[0] for r in ranges ])
         max_idx = np.where(width == max(width))[0][0]
         init_width = width[max_idx]
+        #For each phase range compute width ratio
         for j in range(len(width)):
             ratio = width[j] / init_width
             if ratio != 1:
+                #Use the ratio to compute the new mincounts value
                 new_value = int(round(ratio*initial_values[i]*scalefactor))
                 if new_value > initial_values[i]:
                     new_value = initial_values[i]
@@ -144,6 +197,7 @@ def variable_mincounts(primary_ranges, interpulse_ranges,
             else:
                 mincounts_both[i][j] = int(round(initial_values[i]))
     
+    #Created named tuple output
     mincounts_tup = collections.namedtuple('mincounts_tup',
             ['primary', 'interpulse', 'scalefactor'])
     tup = mincounts_tup(mincounts_both[0], mincounts_both[1], scalefactor)
@@ -153,8 +207,11 @@ def variable_mincounts(primary_ranges, interpulse_ranges,
 
 #Find phase ranges for the edge of primary pulse
 def edge_phase_ranges(evt, off1, off2, nsigma=2, nranges=4):
+
+    #Find the pulse edges and peak values
     edge_tup = profile_utils.find_edge(evt, off1, off2, nsigma=2)
     
+    #Iterate and decrement the ranges
     leading_ranges = [ (round(edge_tup.min, 2), round(edge_tup.peak, 2)) ]
     while len(leading_ranges) < nranges:
         if leading_ranges[-1][0] + 0.01 == edge_tup.peak:
@@ -163,6 +220,7 @@ def edge_phase_ranges(evt, off1, off2, nsigma=2, nranges=4):
             leading_ranges.append( (round(leading_ranges[-1][0]+0.01,2), 
                                     round(edge_tup.peak,2)) )
 
+    #Repeat for trailing ranges
     trailing_ranges = [ (round(edge_tup.peak,2), round(edge_tup.max, 2)) ]
     while len(trailing_ranges) < nranges:
         if trailing_ranges[-1][0] - 0.01 == edge_tup.peak:
@@ -171,6 +229,7 @@ def edge_phase_ranges(evt, off1, off2, nsigma=2, nranges=4):
             trailing_ranges.append( (round(edge_tup.peak, 2), 
                                     round(trailing_ranges[-1][1]-0.01, 2)) )
 
+    #Adjust phase ranges to coincide with genspectra phase standards
     for i in range(len(trailing_ranges)):
         pair = trailing_ranges[i]
         if pair[0] >= 1.0 and pair[1] >= 1.0:
@@ -183,52 +242,63 @@ def edge_phase_ranges(evt, off1, off2, nsigma=2, nranges=4):
             pair = (pair[0] - 1.0, pair[1] - 1.0)
         leading_ranges[i] = pair
 
+    #Return tuple of leading and trailing ranges
     return (leading_ranges, trailing_ranges)
 
 
+#Generate multiple spectra, including a background spectra
+# fit the data and log output
 def gen_multispectra(evt, first_ranges, second_ranges, offpeak_range, 
                      first_mincounts, second_mincounts, 
                      lower_energies_first, 
-                     lower_energies_second):
+                     lower_energies_second, 
+                     path_to_autofitting="autofitting.xcm",
+                     path_to_runsetup="runsetup.xcm"):
 
-    assert(os.path.isfile("autofitting.xcm"))
-    assert(os.path.isfile("runsetup.xcm"))
+    #Two XSPEC xcm scripts must be in the current directory
+    assert(os.path.isfile(path_to_autofitting))
+    assert(os.path.isfile(path_to_runsetup))
 
+    #Overwrite existing files
     clobber=True
 
     log.info("Generating Off-Peak Background Spectra")
-
+    #Use genspectra to create and background spectrum
     genspectra.gen_spectra(evt, 
                            offpeak_range[0], offpeak_range[1], 
                            0, 1200, 
                            first_mincounts[0], 
                            save_pha="offpeak.pha", run_xspec=False)
 
-    log.info("Generating Top Panel Spectra")
+    log.info("Generating First Spectra Group")
 
+    #Iterate through phase ranges to generate spectra
     for i, tup in enumerate(tqdm(first_ranges)):
         genspectra.gen_spectra(evt, tup[0], tup[1], 0, 1200, 
                                first_mincounts[i],
                                save_pha=f"first_{i}.pha", run_xspec=False, 
                                verbose=False)
-
-        #This is opening xspec in python and doing basic fitting 
+        
+        #For each spectra that is generated, run through fitting procedure
         xspec = pexpect.spawn("xspec")
         xspec.expect("XSPEC12>")
         xspec.sendline(f"data 1:1 first_{i}.pha")
         xspec.expect("XSPEC12>")
-        #This is an xspec script that loads data and fits model
-        xspec.sendline("@runsetup.xcm")
+        #This is an xspec script that loads data
+        xspec.sendline(f"@{path_to_runsetup}")
         xspec.expect("XSPEC12>")
 
+        #Ignore channels based on energy
         xspec.sendline("ig bad")
         xspec.expect("XSPEC12>")
         xspec.sendline(f"ig **-{lower_energies_first[i]}, 10.-**")
         xspec.expect("XSPEC12>")
 
-        xspec.sendline("@autofitting.xcm")
+        #Fit powerlaw*tbabs model
+        xspec.sendline(f"@{path_to_autofitting}")
         xspec.expect("XSPEC12>")
 
+        #Calculate the errors
         xspec.sendline("error 1 3")
         xspec.expect("XSPEC12>")
 
@@ -241,12 +311,13 @@ def gen_multispectra(evt, first_ranges, second_ranges, offpeak_range,
         time.sleep(3)
         xspec.expect("XSPEC12>")
         xspec.sendline("ipl")
+        #Save wdata to file
         xspec.expect("XSPEC12>")
         xspec.sendline(f"wdata data_first_{i}.txt")
-
-        #Save a log file
         if os.path.isfile(f"data_first_{i}.txt") and clobber:
             xspec.sendline("yes")
+
+        #Parse xspec log using the pexpect child
         xspec.expect("XSPEC12>")
         lines = []
         xspec.timeout=2
@@ -261,27 +332,36 @@ def gen_multispectra(evt, first_ranges, second_ranges, offpeak_range,
 
         xspec.sendline("exit")
 
-    log.info("Generating second panel spectra")
+    log.info("Generating Second Spectra Group")
+
+    #Repeat the process for the second set of phase ranges
     for i, tup in enumerate(tqdm(second_ranges)):
         genspectra.gen_spectra(evt, tup[0], tup[1],
                                0, 1200, second_mincounts[i],
                                save_pha=f"second_{i}.pha", 
                                run_xspec=False, verbose=False)
 
+        #For each spectra that is generated, run through fitting procedure
         xspec = pexpect.spawn("xspec")
         xspec.expect("XSPEC12>")
         xspec.sendline(f"data 1:1 second_{i}.pha")
         xspec.expect("XSPEC12>")
 
-        xspec.sendline("@runsetup.xcm")
+        #This is an xspec script that loads data 
+        xspec.sendline(f"@{path_to_runsetup}")
         xspec.expect("XSPEC12>")
 
+        #Ignore channels based on energy
+        xspec.sendline("ig bad")
+        xspec.expect("XSPEC12>")
         xspec.sendline(f"ig **-{lower_energies_second[i]}, 9.-**")
         xspec.expect("XSPEC12>")
 
-        xspec.sendline("@autofitting.xcm")
+        #Fit powerlaw*tbabs model
+        xspec.sendline(f"@{path_to_autofitting}")
         xspec.expect("XSPEC12>")
 
+        #Calculate the errors
         xspec.sendline("error 1 3")
         xspec.expect("XSPEC12>")
 
@@ -295,10 +375,12 @@ def gen_multispectra(evt, first_ranges, second_ranges, offpeak_range,
         xspec.sendline("ipl")
         xspec.expect("XSPEC12>")
         xspec.sendline(f"wdata data_second_{i}.txt")
+        #Save wdata to file
         if os.path.isfile(f"data_second_{i}.txt") and clobber:
             xspec.sendline("yes")
         xspec.expect("XSPEC12>")
 
+        #Parse xspec log using the pexpect child
         lines = []
         xspec.timeout=2
         for j in range(300):
@@ -312,7 +394,7 @@ def gen_multispectra(evt, first_ranges, second_ranges, offpeak_range,
 
         xspec.sendline("exit")
 
-#Plotting routine 
+#Plotting routine for files generated in gen_multispectra
 def plot_multi_ufspec(sourcename, firsttxts, secondtxts, 
                       first_ranges, second_ranges, 
                       first_mincounts, second_mincounts,
@@ -323,7 +405,7 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
                       output="multispectra.pdf",
                       vertical=True):
 
-    #Init figure
+    #Init either horizontal or vertical figure
     if vertical:
         fig = plt.figure(figsize=(10,11))
         plt.subplots_adjust(top=.98, right=.98, hspace=.15, left=.15)
@@ -350,6 +432,7 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
     first_data = []
     second_data = []
 
+    #Create xspeclog.xspecdata objects
     use_counts_label=False #Setting this manually for now 
     for i in range(len(firsttxts)):
         xd = xspeclog.xspecdata(firsttxts[i])
@@ -373,9 +456,9 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
 
     #Match sourcename
     sourcename = process.extract(sourcename, 
-                                 ['PSR B1821-24', 'PSR B1937+21'],
+                                 [r'PSR B1821$-$24', r'PSR B1937$+$21',
+                                  r'PSR J0218$+$4232'],
                                  limit=1)[0][0]
-    assert(sourcename in ['PSR B1821-24', 'PSR B1937+21'])
 
     #Labels for each plot
     labels=[first_label, second_label]
@@ -433,6 +516,7 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
         ax.set_xlim(right=11)
         fig.add_subplot(ax)
 
+    #Adjust axis for 1937
     if sourcename == 'PSR B1937+21':
         axs0.set_ylim(top=axs0.get_ylim()[1]*2)
         axf0.set_ylim(top=axf0.get_ylim()[1]*2)
@@ -470,17 +554,25 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
     else:
         axf0.set_ylabel('Photons cm$^{-2}$ s$^{-1}$ keV$^{-1}$',fontsize=30)
         axf1.set_ylabel(r'Residuals ($\sigma$)', fontsize=18)
+
+    #Write figure to file
     fig.savefig(output, dpi=2000)
 
 
+#Combine generating, plotting, and making table for multiple spectra
 def wrapper(evt, lower_back, upper_back, 
             first_label, second_label,
             output,
             mincounts_scalefactor=1.0,
-            vertical=True, generate_new=True):
+            vertical=True, generate_new=True, 
+            clobber_pickle=False):
 
-        source = process.extract(evt, ['PSR B1821-24', 'PSR B1937+21'],
+        #Match evt file to input source name
+        source = process.extract(evt, ['PSR B1821-24', 'PSR B1937+21',
+                                       'PSR J0218+4232'],
                                  limit=1)[0][0]
+
+        # hardcoded parameters for 1821
         if source == 'PSR B1821-24':
             lower_energy_primary = 0.8
             lower_energy_interpulse = 0.8
@@ -490,6 +582,19 @@ def wrapper(evt, lower_back, upper_back,
             mincounts_interpulse_init = 800
             mincounts_leading_init = 200
             mincounts_trailing_init = 600
+
+        #hardcoded parameters for 1937
+        elif source == 'PSR B1937+21':
+            lower_energy_primary = 1.0
+            lower_energy_interpulse = 1.0
+            lower_energy_leading = 0.7
+            lower_energy_trailing = 0.8
+            mincounts_primary_init = 1500
+            mincounts_interpulse_init = 800
+            mincounts_leading_init = 200
+            mincounts_trailing_init = 800
+
+        #hardcoded parameters for 0218
         else:
             lower_energy_primary = 1.0
             lower_energy_interpulse = 1.0
@@ -501,8 +606,8 @@ def wrapper(evt, lower_back, upper_back,
             mincounts_trailing_init = 800
 
 
-
-        if os.path.isfile("ranges.pickle"):
+        #Use pickle for phase ranges if it exists in current dir
+        if os.path.isfile("ranges.pickle") and (not clobber_pickle):
             log.info(f"Loading phase ranges from file")
             allranges = pickle.load( open("ranges.pickle", 'rb') )
             primary_ranges = allranges[0]
@@ -514,29 +619,36 @@ def wrapper(evt, lower_back, upper_back,
             log.info(f"Finding phase ranges for {evt}")
 
 
-            pi_rangetup = find_phase_ranges_v2(evt, lower_back, upper_back, 
+            #Find phase ranges for primary and interpulse
+            pi_rangetup = find_phase_ranges(evt, lower_back, upper_back, 
                                                nranges=2)
             primary_ranges = pi_rangetup.primary
             interpulse_ranges = pi_rangetup.interpulse
 
+            #Find phase ranges for leading and trailing
             leading_ranges, trailing_ranges = edge_phase_ranges(
                     evt, lower_back, upper_back, nranges=2)
 
+            #Dump the four phase ranges into a pickle
             pickle.dump([primary_ranges, interpulse_ranges, 
                         leading_ranges, trailing_ranges], 
                         open("ranges.pickle", 'wb'))
 
+        #Find mincounts tup for primary and interpusle
         pi_mincounts_tup = variable_mincounts(
                 primary_ranges, interpulse_ranges, 
                 mincounts_primary_init, mincounts_interpulse_init,
                 scalefactor=1.25)
 
 
+        #Find mincounts tup for leading and trailing
         lt_mincounts_tup = variable_mincounts(
                 leading_ranges, trailing_ranges,
                 mincounts_leading_init, mincounts_trailing_init,
                 scalefactor=1.25)
 
+        #Merge all primary, interpulse, leading, trailing params into 
+        # lists containing info for first and second spectra panel
         first_ranges = primary_ranges + interpulse_ranges
         lower_energies_first = (
                 [lower_energy_primary]*len(primary_ranges) + 
@@ -555,6 +667,7 @@ def wrapper(evt, lower_back, upper_back,
         log.info(f"Using variable mincounts with initial {first_mincounts} "\
                  f"and {second_mincounts}")
 
+        #Generate spectra with gen_multispectra
         if generate_new:
             log.info("Generating Spectra")
 
@@ -563,13 +676,19 @@ def wrapper(evt, lower_back, upper_back,
                              first_mincounts, second_mincounts,
                              lower_energies_first, lower_energies_second)
 
-        firsttxts = [f"data_first_{i}.txt" for i in range(len(first_ranges))]
-        secondtxts = [f"data_second_{i}.txt" for i in range(len(second_ranges))]
-        firstlogs = [f"log_first_{i}.txt" for i in range(len(first_ranges))]
-        secondlogs = [f"log_second_{i}.txt" for i in range(len(second_ranges))]
+        #Names of the txt files and logs
+        firsttxts = [f"data_first_{i}.txt" 
+                     for i in range(len(first_ranges))]
+        secondtxts = [f"data_second_{i}.txt" 
+                      for i in range(len(second_ranges))]
+        firstlogs = [f"log_first_{i}.txt" 
+                     for i in range(len(first_ranges))]
+        secondlogs = [f"log_second_{i}.txt" 
+                      for i in range(len(second_ranges))]
 
         log.info("Plotting Spectra")
 
+        #Plot the spectra output from gen_multispectra
         plot_multi_ufspec(evt, firsttxts, secondtxts,
                           first_ranges, second_ranges, 
                           first_mincounts, second_mincounts,
@@ -578,6 +697,7 @@ def wrapper(evt, lower_back, upper_back,
                           vertical=vertical)
 
 
+        #Create latex and csv tables
         make_table(evt, f"Model{source.replace('PSR ', '')[:-3]}", 
                    first_ranges, second_ranges, 
                    firstlogs, secondlogs)
@@ -594,8 +714,8 @@ if __name__ == '__main__':
     args= parser.parse_args()
 
 
-    wrapper(args.evt, (.2, .4), (.7, .9), "Primary & Interpulse", "Leading & Trailing", 
-            args.output,
+    wrapper(args.evt, (.2, .4), (.7, .9), 
+            "Primary \& Interpulse", "Leading \& Trailing", args.output,
             vertical=(not args.h), generate_new=(not args.p))
 
 
