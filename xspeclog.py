@@ -4,6 +4,7 @@ import collections
 import numpy as np
 import os
 import pandas as pd
+from fuzzywuzzy import process
 
 import niutils
 
@@ -13,6 +14,20 @@ Classes for parsing log and wdata files from Xspec
 
 logfile: Handles collection of parameters, errors, and contours
 """
+
+class modelparam:
+    def __init__(self, value=None, error=None, num=None, unit=None):
+        self.value = value
+        self.error = error
+        self.num = num
+        self.unit= unit
+    
+    def set_name(self, name):
+        self.name = name
+        self.label = name
+
+    def set_label(self, label):
+        self.label = label
 
 
 #Class for parsing the log output of Xspec
@@ -26,6 +41,7 @@ class logfile:
 
         self.fname = fname
         self.lines = open(self.fname, 'r').readlines()
+        self.params = None
 
     #Returns photon index and column density values
     def get_params(self):
@@ -38,63 +54,104 @@ class logfile:
         else:
             idx_params = idx_params[-1]
 
-        #Find the photon index 
-        phot_index = float([ self.lines[idx_params+1].split()[i+1] 
-                             for i in range(len(self.lines[idx_params+1].split())) 
-                             if 'PhoIndex' in self.lines[idx_params+1].split()[i] 
-                            ][0])
+        #Find the photon index
+        phot_index_val = float([ v[0] for v in [ [ self.lines[j].split()[i+1]
+                                               for i in range(len(self.lines[j].split()))
+                                               if 'PhoIndex' in self.lines[j].split()[i] ]
+                                            for j in range(idx_params, idx_params+5) ]
+                             if len(v) != 0 ][0])
 
+
+        phot_index_number = int([ v[0] for v in [ [ self.lines[j].split()[i-3]
+                                                    for i in range(len(self.lines[j].split()))
+                                                    if 'PhoIndex' in self.lines[j].split()[i] ]
+                                                 for j in range(idx_params, idx_params+5) ]
+                                  if len(v) != 0 ][0])
+
+        self.phot_index = modelparam(value=phot_index_val, num=phot_index_number)
+        self.phot_index.set_name("phot_index")
+        self.phot_index.set_label(r'Photon Index $\mathrm{\Gamma}$')
+                                                   
+                      
         #Find the Hydrogen column density
-        nH = float([ self.lines[idx_params+3].split()[i+1]
-                     for i in range(len(self.lines[idx_params+3].split()))
-                     if '10^22' in self.lines[idx_params+3].split()[i] ][0])
+        nH_val = float([ v[0] for v in [ [self.lines[j].split()[i+1]
+                                      for i in range(len(self.lines[j].split()))
+                                      if '10^22' in self.lines[j].split()[i] ]
+                                    for j in range(idx_params, idx_params+5) ]
+                     if len(v) != 0 ][0])
 
-        return phot_index, nH
+        nH_number = int([ v[0] for v in [ [self.lines[j].split()[i-4]
+                                           for i in range(len(self.lines[j].split()))
+                                           if '10^22' in self.lines[j].split()[i] ]
+                                         for j in range(idx_params, idx_params+5) ]
+                          if len(v) != 0 ][0])
+        
+        self.nH = modelparam(value=nH_val, num=nH_number, unit='10^22')
+        self.nH.set_name("nH")
+        self.nH.set_label(r'Column Density $N_H$ $(10^{22}$ cm$^{-2}$)')
+        
+        #Find normalization 
+        norm_val = float([ v[0] for v in [ [ self.lines[j].split()[i+1]
+                                         for i in range(len(self.lines[j].split()))
+                                         if 'norm' in self.lines[j].split()[i] ]
+                                      for j in range(idx_params, idx_params+5) ]
+                       if len(v) != 0 ][0])
+
+        norm_number = int([ v[0] for v in [ [ self.lines[j].split()[i-3]
+                                              for i in range(len(self.lines[j].split()))
+                                              if 'norm' in self.lines[j].split()[i] ]
+                                           for j in range(idx_params, idx_params+5) ]
+                            if len(v) != 0 ][0])
+       
+        self.norm = modelparam(value=norm_val, num=norm_number)
+        self.norm.set_name("norm")
+        self.norm.set_label("Normalization")
+        
+        self.params = {'phot_index':self.phot_index, 
+                     'nH':self.nH,
+                     'norm':self.norm}
+
+        return [ self.params[k].value for k, p in self.params.items() ]
 
     #Returns errors on photon index and column density
     def get_errors(self):
+        if self.params is None:
+            self.get_params()
 
         #Find the confidence interval on the parameters
         idx_conf = [ i for i in range(len(self.lines))
-                     if 'error 1' in self.lines[i] ]
+                     if 'Confidence Range' in self.lines[i] ]
         if len(idx_conf) == 0:
             print("No error calculation found in logfile")
         else:
             idx_conf = idx_conf[-1]
 
-        if "Cannot do error calc" in self.lines[idx_conf+1]:
-            print("Error in XSPEC error calculation")
-            phot_err= float('NaN')
-            nH_err = float('NaN')
-        else:
-            phot_tuple = ast.literal_eval(self.lines[idx_conf+2].split()[-1])
-            
-            if "Warning" not in self.lines[idx_conf+3]:
-                nH_tuple = ast.literal_eval(self.lines[idx_conf+3].split()[-1])
-            else:
-                nH_tuple = ast.literal_eval(self.lines[idx_conf+4].split()[-1])
-
-            phot_err = np.mean( [ abs(val) for val in phot_tuple ] )
-            nH_err = np.mean( [ abs(val) for val in nH_tuple ] )
-
-        return phot_err, nH_err
-
-    def phot_string(self):
-        phot_index, _ = self.get_params()
-        phot_err, _ = self.get_errors()
     
-        val_rounded, err_rounded = niutils.round_sigfigs(phot_index, phot_err)
+        err_list = [ [int(self.lines[i].strip("#").split()[0]),
+                      np.mean( [ abs(val) 
+                                 for val in ast.literal_eval(
+                                 self.lines[i].strip("#").split()[-1]) ])] 
+                      for i in range(idx_conf+1, idx_conf+len(self.params)) 
+                      if 'Warning' not in self.lines[i] ]
+        
+        for pair in err_list:
+            for key, param in self.params.items():
+                if param.num == pair[0]:
+                    param.error = pair[1]
+
+        return [ self.params[k].error for k, p in self.params.items() ]
+        
+    def param_string(self, name):
+        self.get_params()
+        self.get_errors()
+
+        name = process.extract(name, list(self.params.keys()), 
+                               limit=1)[0][0]
+
+        val_rounded, err_rounded = niutils.round_sigfigs(self.params[name].value,
+                                                       self.params[name].error)
 
         return f"{val_rounded}" + r'$\pm$' + f"{err_rounded}"
-
-    def nH_string(self):
-        _, nH = self.get_params()
-        _, nH_err = self.get_errors()
-
-        val_rounded, err_rounded = niutils.round_sigfigs(nH, nH_err)
-
-        return f"{val_rounded}" + r'$\pm$' + f"{err_rounded}"
-
 
     #Returns fit model chi2 and degrees of freedom
     def get_chi2(self):
@@ -111,43 +168,57 @@ class logfile:
 
     #Returns contour array and parameter bins
     def get_contour(self):
+        self.get_params()
         #Isolate steppar runs
-        idx_steppar = [ i for i in range(len(self.lines)) if 'steppar' in self.lines[i] ][-1]
+        idx_steppar = [ i for i in range(len(self.lines)-1) if 'Delta' in self.lines[i]
+                        and 'Chi-Squared' in self.lines[i+1] ][-1]
+
+        params_in_contour = [ int(self.lines[idx_steppar+1].split()[-2]),
+                              int(self.lines[idx_steppar+1].split()[-1]) ]
+
+        param_x_label = [ param.label for key, param in self.params.items() 
+                          if param.num == params_in_contour[0] ][0]
+        param_y_label = [ param.label for key, param in self.params.items()
+                          if param.num == params_in_contour[1] ][0]
 
         #Empty lists for data frame
         chi2 = []
-        n_phot = []
-        phot = []
-        n_nH = []
-        nH = []
+        n_param_x = []
+        param_x = []
+        n_param_y = []
+        param_y = []
+
         #Iterate through steppar output and append each column
-        for i in range(idx_steppar+5, len(self.lines)):
-            if len(self.lines[i].split()) != 7:
+        for i in range(idx_steppar+3, len(self.lines)):
+            if len(self.lines[i].strip("#").split()) != 6:
                 break
             else:
-                chi2.append(float(self.lines[i].split()[1]))
-                n_phot.append(int(self.lines[i].split()[3]))
-                phot.append(float(self.lines[i].split()[4]))
-                n_nH.append(int(self.lines[i].split()[5]))
-                nH.append(float(self.lines[i].split()[6]))
+                chi2.append(float(self.lines[i].split()[0]))
+                n_param_x.append(int(self.lines[i].split()[2]))
+                param_x.append(float(self.lines[i].split()[3]))
+                n_param_y.append(int(self.lines[i].split()[4]))
+                param_y.append(float(self.lines[i].split()[5]))
 
-        #Range of photon indicies and column densities
-        gamma_bins = list(set(phot))
-        gamma_bins.sort()
-        nH_bins = list(set(nH))
-        nH_bins.sort()
+        #Range of parameter values
+        param_x_bins = list(set(param_x))
+        param_x_bins.sort()
+        param_y_bins = list(set(param_y))
+        param_y_bins.sort()
+
 
         #Fill np 2d array
-        contourarray = np.zeros((len(nH_bins), len(gamma_bins)))
+        contourarray = np.zeros((len(param_y_bins), len(param_x_bins)))
         for i in range(len(chi2)):
-            contourarray[n_nH[i], n_phot[i]] = chi2[i]
+            contourarray[n_param_y[i], n_param_x[i]] = chi2[i]
 
         #Output as named tuple
         contour_log_tuple = collections.namedtuple(
                 'contour_log_tuple',
-                ['array', 'gamma_bins', 'nH_bins'])
+                ['array', 'param_x_bins', 'param_y_bins',
+                 'xlabel', 'ylabel'])
 
-        tup = contour_log_tuple(contourarray, gamma_bins, nH_bins)
+        tup = contour_log_tuple(contourarray, param_x_bins, param_y_bins,
+                                param_x_label, param_y_label)
         return tup
 
 
