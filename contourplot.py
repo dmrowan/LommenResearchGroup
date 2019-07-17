@@ -5,7 +5,6 @@ from fuzzywuzzy import process
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from multispectra import parse_log
 import numpy as np
 import pandas as pd
 import scipy
@@ -37,6 +36,9 @@ Example function calls:
 
 No function return -- plot is saved in current directory. 
 
+
+Things to do:
+    Add arrows for left and right boundary errors
 """
 
 #Plot contours from xspec log
@@ -47,15 +49,16 @@ def plotcontour(fname_list, labels, output, source=None):
     contour_params = log.get_contour()
 
     #Set extent of contour plots
-    extent = [min(contour_params.gamma_bins), 
-              max(contour_params.gamma_bins),
-              min(contour_params.nH_bins), 
-              max(contour_params.nH_bins)]
+    extent = [min(contour_params.param_x_bins), 
+              max(contour_params.param_x_bins),
+              min(contour_params.param_y_bins), 
+              max(contour_params.param_y_bins)]
 
     #Color groups for contours
     contour_colors = [ ["#4c167c", "#351394", "#7B1394" ],
                       ["#0135d2", "#0C7DE8", "#0BAFDE" ], 
-                      ["#c91c00", "#E00B14", "#E0470B" ]]
+                      ["#c91c00", "#E00B14", "#E0470B" ],
+                      ['#123611', '#287825', '#3DB839' ] ]
 
     #Set labels as rich text formatting
     labels = [ r'$'+l+r'$' for l in labels ]
@@ -74,11 +77,10 @@ def plotcontour(fname_list, labels, output, source=None):
     #Isolate the min chi2 and mark it with +
     minvals = np.where(contour_params.array == np.min(contour_params.array))
     min_chisq = contour_params.array[ minvals[0][0], minvals[1][0] ]
-    ax.scatter([contour_params.gamma_bins[minvals[1][0]]], 
-               [contour_params.nH_bins[minvals[0][0]]], 
+    ax.scatter([contour_params.param_x_bins[minvals[1][0]]], 
+               [contour_params.param_y_bins[minvals[0][0]]], 
                color=contour_colors[0][0], marker='+', s=200, 
                label=labels[0],zorder=5)
-
 
     #chisq_contours = scipy.stats.chi2.isf([.1, .05], params.dof)
     #Significance levels from: https://ned.ipac.caltech.edu/level5/Wall2/Wal3_4.html
@@ -95,8 +97,8 @@ def plotcontour(fname_list, labels, output, source=None):
     ax.set_xlim(left=extent[0], right=extent[1])
     ax.set_ylim(bottom=extent[2], top=extent[3])
 
-    ax.set_xlabel(r'Photon Index $\mathrm{\Gamma}$', fontsize=20)
-    ax.set_ylabel(r'Column Density $N_H$ $(10^{22}$ cm$^{-2}$)', fontsize=20)
+    ax.set_xlabel(contour_params.xlabel, fontsize=20)
+    ax.set_ylabel(contour_params.ylabel, fontsize=20)
 
 
     #Add second axis for colorbar to make it easier to move and resize
@@ -120,18 +122,19 @@ def plotcontour(fname_list, labels, output, source=None):
         ax.contour(cp.array, chisqc, extent=extent,
                    origin='lower', colors=cc, alpha=.8)
         #If the point is below the ylim bottom, plot at lim with down arrow
-        if cp.nH_bins[mv[0][0]] < extent[2] or cp.nH_bins[mv[0][0]] == extent[2]:
-            ax.scatter([cp.gamma_bins[mv[1][0]]],
+        if cp.param_y_bins[mv[0][0]] < extent[2] or cp.param_y_bins[mv[0][0]] == extent[2]:
+            ax.scatter([cp.param_x_bins[mv[1][0]]],
                        [extent[2]+.1], marker="$\downarrow$",
                        color=cc[0], s=200, label=labels[i])
-        elif cp.nH_bins[mv[0][0]] > extent[3] or cp.nH_bins[mv[0][0]] == extent[3]:
-            ax.scatter([cp.gamma_bins[mv[1][0]]],
+        elif cp.param_y_bins[mv[0][0]] > extent[3] or cp.param_y_bins[mv[0][0]] == extent[3]:
+            ax.scatter([cp.param_x_bins[mv[1][0]]],
                        [extent[3]-.1], marker=r'$\uparrow$',
                        color=cc[0], s=200, label=labels[i])
         else:
-            ax.scatter([cp.gamma_bins[mv[1][0]]], 
-                       [cp.nH_bins[mv[0][0]]], 
+            ax.scatter([cp.param_x_bins[mv[1][0]]], 
+                       [cp.param_y_bins[mv[0][0]]], 
                        color=cc[0], marker='+', s=200, zorder=5, label=labels[i])
+            print(cp.param_x_bins[mv[1][0]], cp.param_y_bins[mv[0][0]])
 
 
     ax.legend(fontsize=15, edgecolor='black', loc=2)
