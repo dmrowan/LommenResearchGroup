@@ -5,6 +5,7 @@ import collections
 from math import log10, floor
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
+from matplotlib import rc
 import numpy as np
 import os
 from astropy.table import Table
@@ -20,10 +21,14 @@ desc="""
 Class for pulsar profiles and light curves
 """
 
+rc('text', usetex=True)
+
 class LightCurve:
     def __init__(self, evtfile):
         assert(type(evtfile) == str)
         assert(os.path.isfile(evtfile))
+        if not os.path.isfile(evtfile):
+            raise FileNotFoundError("Cmon Lauren use the right evt path \nhttps://tinyurl.com/yylzpd92")
 
         self.tab = Table.read(evtfile, hdu=1)
         self.pi = self.tab['PI']
@@ -34,7 +39,12 @@ class LightCurve:
                                     ['PSR B1821-24', 'PSR B1937+21', 
                                      'PSR J0218+4232'],
                                     limit=1)[0][0]
-                                               
+ 
+        self.filters = {
+                        'energy':[],
+                        'phase':[],
+                        'trumpet':[]
+                       }
 
     # Apply energy mask
     def mask(self, lower_pi=0, upper_pi=1200, lower_ph=0, upper_ph=1):
@@ -49,6 +59,9 @@ class LightCurve:
         full_mask = en_mask & ph_mask
         self.pi = self.pi[full_mask]
         self.ph = self.ph[full_mask]
+
+        self.filters['energy'].append([lower_pi, upper_pi])
+        self.filters['phase'].append([lower_ph, upper_ph])
 
     def test_trumpet_cut(self, fconst, fastsig=1200, fastquart=0, 
                          n=1, ax=None, plot=False):
@@ -547,7 +560,10 @@ class LightCurve:
             p0_a_1 = p0_a_0 *0.5
             p0_sigma_0 = .3
             p0_sigma_1 = .3
-            p0_x0_0 = self.peak_center()[0]+1.0
+            if self.peak_center()[0] > .5:
+                p0_x0_0 = self.peak_center()[0]
+            else:
+                p0_x0_0 = self.peak_center()[0]+1.0
             p0_x0_1 = self.interpulse_center()[0]+1.0
 
             bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
@@ -557,16 +573,21 @@ class LightCurve:
                  p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
 
 
-        try:
-            popt, pcov = curve_fit(niutils.two_gaus, phasebins_fitting, 
-                                   counts_fitting, 
-                                   p0=p0,
-                                   bounds=bounds)
-        except:
+        valid = []
+        for i in range(len(p0)):
+            valid.append( bounds[0][i] <= p0[i] <= bounds[1][i] )
+        if not all(valid):
             print("Fit failed due to invalid bounds")
             for i in range(len(p0)):
                 print(bounds[0][i], p0[i], bounds[1][i])
+            print(self.filters)
             raise ValueError
+
+        #Perform scipy curve fit 
+        popt, pcov = curve_fit(niutils.two_gaus, phasebins_fitting, 
+                               counts_fitting, 
+                               p0=p0,
+                               bounds=bounds)
 
 
         fit_counts = niutils.two_gaus(phasebins_fitting, *popt)
