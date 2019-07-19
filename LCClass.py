@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function, division, absolute_import
+import astropy.fitting
 import collections
 import math
 from math import log10, floor
@@ -617,4 +618,54 @@ class LightCurve:
     def height_ratio(self):
         popt = self.fit_two_gauss()
         return popt.primary_amplitude / popt.secondary_amplitude
+
+    def astropy_fit(self):
+        if self.counts is None:
+            self.generate()
+
+
+        if include_phases is None:
+            phase_min = .75
+            phase_max = 1.75
+        else:
+            phase_min = include_phases[0]
+            phase_max = include_phases[1]
+
+        phasebins_fitting = np.array([ p for p in self.phasebins_extended
+                                       if phase_min <= p < phase_max ])
+        counts_fitting = np.array([
+            self.counts_extended[i] for i in range(len(self.counts_extended))
+            if phase_min <= self.phasebins_extended[i] < phase_max ])
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=(8, 4))
+            created_fig = True
+
+        else:
+            created_fig = False
+
+        ax.set_xlim(left=phase_min-.025, right=phase_max+.025)
+        ax = niutils.plotparams(ax)
+        p0_b = min(counts_fitting)
+        p0_a_0 = max(counts_fitting) - p0_b
+        p0_a_1 = p0_a_0 *0.5
+        p0_sigma_0 = .3
+        p0_sigma_1 = .3
+        if self.peak_center()[0] > .5:
+            p0_x0_0 = self.peak_center()[0]
+        else:
+            p0_x0_0 = self.peak_center()[0]+1.0
+        p0_x0_1 = self.interpulse_center()[0]+1.0
+
+        m_init = niutils.two_gauss()
+        fit = astropy.modeling.fitting.LevMarLSQFitter()
+        model = fit(m_init, phasebins_fitting, counts_fitting)
+
+        ax.plot(phasebins_fitting, counts_fitting)
+        ax.plot(phasebins_fitting, model(phasebins_fitting),
+                color='xkcd:azure', lw=6, zorder=1, alpha=.4)
+        ax.plot(self.phasebins_extended, self.counts_extended,
+                marker='.', color='xkcd:violet', zorder=2)
+
+        plt.show()
 
