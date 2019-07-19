@@ -27,9 +27,9 @@ rc('text', usetex=True)
 class LightCurve:
     def __init__(self, evtfile):
         assert(type(evtfile) == str)
-        assert(os.path.isfile(evtfile))
         if not os.path.isfile(evtfile):
-            raise FileNotFoundError("Cmon Lauren use the right evt path \nhttps://tinyurl.com/yylzpd92")
+            raise FileNotFoundError(
+                    "Cmon Lauren use the right evt path \nhttps://tinyurl.com/yylzpd92")
 
         self.tab = Table.read(evtfile, hdu=1)
         self.pi = self.tab['PI']
@@ -437,92 +437,9 @@ class LightCurve:
         idx = np.where(np.array(self.counts) == max(interpulse_counts))[0]
         return self.phasebins[idx]
 
-
-    def fit_gauss(self, component, include_phases=None, ax=None):
-        if self.counts is None:
-            self.generate()
-        
-        #Parse user entered component type
-        component = process.extract(component, ['primary', 'interpulse'], 
-                                    limit=1)[0][0]
-    
-        if include_phases is None:
-            if component == 'primary':
-                phase_min = .75
-                phase_max = 1.25
-            elif component == 'interpulse':
-                phase_min = .4 
-                phase_max = .7
-            else:
-                print("Invalid component")
-                return -1
-        else:
-            phase_min = include_phases[0]
-            phase_max = include_phases[1]
-
-        phasebins_fitting = np.array([ p for p in self.phasebins_extended 
-                                       if phase_min <= p <= phase_max ])
-        counts_fitting = np.array([ 
-            self.counts_extended[i] for i in range(len(self.counts_extended)) 
-            if phase_min <= self.phasebins_extended[i] <= phase_max ])
-
-        
-
-        p0_a = max(counts_fitting)
-        if component == 'primary':
-            p0_x0 = self.peak_center()[0] + 1.0
-        elif component == 'interpulse':
-            p0_x0 = self.interpulse_center()[0]
-        else:
-            print("Invalid component")
-            return -1
-
-        p0_sigma = 0.1
-        p0_b = min(counts_fitting)
-        popt, pcov = curve_fit(niutils.gaus, phasebins_fitting, 
-                               counts_fitting, 
-                               p0=[p0_a, p0_x0, p0_sigma, p0_b])
-
-        if ax is None:
-            fig, ax = plt.subplots(1, 1, figsize=(8, 4))
-            plt.subplots_adjust(bottom=.2, top=.98, right=.98, left=.15)
-            created_fig = True
-            ax.set_xlabel('Phase', fontsize=25)
-            ax.set_ylabel('Counts', fontsize=25)
-        else:
-            created_fig=False
-
-        ax = niutils.plotparams(ax)
-        ax.set_xlim(left=phase_min-.025, right=phase_max+.025)
-
-        ax.plot(phasebins_fitting, counts_fitting,
-                marker='.', ls='-', color='xkcd:violet', zorder=2)
-        ax.plot(phasebins_fitting, 
-                niutils.gaus(phasebins_fitting, *popt),
-                color='xkcd:azure', ls='-', zorder=1, alpha=.4, lw=6)
-
-        chisq, p = chisquare(counts_fitting, 
-                             niutils.gaus(phasebins_fitting, *popt))
-        chisq = chisq / (len(counts_fitting)-len(popt))
-        ratio = popt[0] / np.std(counts_fitting)
-        if any(np.sqrt(np.diag(pcov)) == np.inf):
-            ratio=-1.0
-
-        ax.text(.95, .95, f"{self.name}", ha='right', va='top', 
-                fontsize=20, transform=ax.transAxes)
-        ax.text(.95, .85, f"Center: {round(popt[1], 3)}",
-                ha='right', va='top', fontsize=15, transform=ax.transAxes)
-
-        if created_fig:
-            plt.show()
-            return popt, ratio
-        else:
-            return ax, popt, ratio
-
-
         
     def fit_two_gauss(self, include_phases=None, ax=None, annotate=True,
-                      output_fit=False):
+                      output_fit=False, label=False):
         if self.counts is None:
             self.generate()
         
@@ -642,14 +559,52 @@ class LightCurve:
                     fontsize=20, transform=ax.transAxes, 
                     ha='right', va='top')
 
+
         PoptTup = collections.namedtuple('PoptTup',
                 ['primary_amplitude', 'primary_position', 
-                 'primary_sigma', 'interpulse_amplitude', 
-                 'interpulse_position', 'interpulse_sigma',
+                 'primary_sigma', 'secondary_amplitude', 
+                 'secondary_position', 'secondary_sigma',
                  'vertical_shift'])
 
         popt_tup = PoptTup(*popt)
                    
+        #Add component labels
+        if label:
+            if self.name == 'PSR B1821-24':
+                p1_coords = (popt_tup.primary_position-8*
+                             popt_tup.primary_sigma,
+                             popt_tup.primary_amplitude * 
+                             0.75 + popt_tup.vertical_shift)
+                p2_coords = ((popt_tup.secondary_position-1)-4*
+                              popt_tup.secondary_sigma,
+                              popt_tup.secondary_amplitude*1.25 
+                              + popt_tup.vertical_shift)
+            elif self.name == 'PSR B1937+21':
+                p1_coords = ((popt_tup.primary_position-1)+8*
+                             popt_tup.primary_sigma,
+                             popt_tup.primary_amplitude * 
+                             0.75 + popt_tup.vertical_shift)
+                p2_coords = ((popt_tup.secondary_position-1)+4*
+                              popt_tup.secondary_sigma,
+                              popt_tup.secondary_amplitude*1.35 
+                              + popt_tup.vertical_shift)
+
+            else:
+
+                p1_coords = ((popt_tup.primary_position)-2*
+                             popt_tup.primary_sigma,
+                             popt_tup.primary_amplitude * 
+                             0.8 + popt_tup.vertical_shift)
+                p2_coords = ((popt_tup.secondary_position-1)-2*
+                              popt_tup.secondary_sigma,
+                              popt_tup.secondary_amplitude*1.1
+                              + popt_tup.vertical_shift)
+
+            ax.text(p1_coords[0], p1_coords[1], "P1", 
+                    fontsize=23, ha='center', va='center')
+
+            ax.text(p2_coords[0], p2_coords[1], "P2", 
+                    fontsize=23, ha='center', va='center')
 
         if output_fit:
             return phasebins_fitting_extended, fit_counts_extended, popt_tup
@@ -658,4 +613,8 @@ class LightCurve:
             return popt_tup
         else:
             return ax, popt_tup
+
+    def height_ratio(self):
+        popt = self.fit_two_gauss()
+        return popt.primary_amplitude / popt.secondary_amplitude
 
