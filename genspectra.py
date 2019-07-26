@@ -42,6 +42,9 @@ Example function calls:
     >>> genspectra("1821data.evt", (.2, .4), (.7, .9),
                    700, save_pha="backgroundspec.pha"
                   
+TODO:
+    (1) Make rmf and arf import paths work for generating pha file outside current directory
+
 
 """
 
@@ -99,7 +102,7 @@ def fselect_two_phases(evt, output, phase_1, phase_2, clobber=False,
         subprocess.run(cmd)
 
 #Update exposure keyword with fmodhead
-def fmodhead(input_name, output, new_exp, verbose=True):
+def fmodhead_exp(input_name, output, new_exp, verbose=True):
     if verbose:
         log.info("Updating exposure with fmodhead")
 
@@ -116,6 +119,39 @@ def fmodhead(input_name, output, new_exp, verbose=True):
     #Change file name if necessary
     if input_name != output:
         subprocess.run(['cp', input_name, output])
+
+
+#Set the header keyword for RESP and ANCR
+def fparkey_resp_arf(input_name, verbose=True):
+    if verbose:
+        log.info("Updating resp and arf with fparkey")
+
+    #Check if paths exist
+    # (we can't use absolute paths because of fits header restrictions)
+    check_resp_arf_path()
+
+    #Run fparkey twice
+    cmd = ['fparkey', 'nixtiref20170601v001.rmf', 
+           f"{input_name}[1]", 'RESPFILE']
+
+    cmd2 = ['fparkey', 'nixtiaveonaxis20170601v002.arf',
+            f"{input_name}[1]", 'ANCRFILE']
+
+    subprocess.run(cmd)
+    subprocess.run(cmd2)
+
+
+#Make copies of resp and arf in current directory
+def check_resp_arf_path():
+    if not os.path.isfile('nixtiref20170601v001.rmf'):
+        cmd = ['cp', '/packages/caldb/data/nicer/xti/cpf/rmf/nixtiref20170601v001.rmf',
+               '.']
+        subprocess.run(cmd)
+
+    if not os.path.isfile('nixtiaveonaxis20170601v002.arf'):
+        cmd2 = ['cp', '/packages/caldb/data/nicer/xti/cpf/arf/nixtiaveonaxis20170601v002.arf',
+                '.']
+        subprocess.run(cmd2)
         
 #Find exposure of fits/evt/pha file
 def get_exposure(f):
@@ -184,7 +220,7 @@ def xselect(lower_e=0, upper_e=1200, lower_phase=0, upper_phase=1,
     xsel.close()
 
 #Pexpect wrapper for xspec to generate xspec plot
-def xspec_wrapper(phafile, channel_lower, channel_upper, 
+def xspec_wrapper(phafile, 
                   save=None, verbose=True):
     #Spawn xspec child with pexpect
     if verbose:
@@ -205,10 +241,6 @@ def xspec_wrapper(phafile, channel_lower, channel_upper,
         xspec.sendline("cpd /xs")
     else:
         xspec.sendline(f"cpd {save}.ps/cps")
-    xspec.expect("XSPEC12>")
-    xspec.sendline(f"ig {channel_upper}-**")
-    xspec.expect("XSPEC12>")
-    xspec.sendline(f"ig **-{channel_lower}")
     xspec.expect("XSPEC12>")
     xspec.sendline("plot data")
     time.sleep(1)
@@ -231,6 +263,9 @@ def grppha_wrapper(pha_in, pha_out, nchan, verbose=True):
     grppha.sendline(f"exit !{pha_out}")
     grppha.wait()
     grppha.close()
+
+    cmd = ['fparkey', str(nchan), f"{pha_out}[1]", 'GROUPING', 'add=yes']
+    subprocess.run(cmd)
     
 
 #Conver ps to pdf
@@ -286,8 +321,11 @@ def gen_spectra(evt, phase_lower, phase_upper,
 
 
     #Modify the exposure keyword to correspond to the phase selection
-    fmodhead("autoxselect_spec.pha", "autoxselect_spec_2.pha",
+    fmodhead_exp("autoxselect_spec.pha", "autoxselect_spec_2.pha",
              new_exp, verbose=verbose)
+
+    #Modify the resp and arf keywords
+    fparkey_resp_arf("autoxselect_spec_2.pha", verbose=verbose)
 
     #Apply grppha to set the grouping keyword
     grppha_wrapper("autoxselect_spec_2.pha", "autoxselect_spec_grppha.pha", 
@@ -300,7 +338,7 @@ def gen_spectra(evt, phase_lower, phase_upper,
     #Run xspec
     if run_xspec:
         xspec_wrapper('autoxselect_spec_grppha.pha', 
-                      channel_lower, channel_upper, save=save_plot,
+                      save=save_plot,
                       verbose=verbose)
 
         if save_plot is not None:
