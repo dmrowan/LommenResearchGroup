@@ -94,6 +94,7 @@ class joint_data:
 
             df.columns = ['energy', 'energy_err', 
                            'counts', 'counts_err', 'model']
+
             self.df_list.append(df)
 
         #Check that we have the correct number of data frames & lengths
@@ -110,6 +111,7 @@ class joint_data:
         for df in self.residuals:
             df.columns = ['energy', 'energy_err',
                           'delchi', 'delchi_err', 'model']
+
 
 
         #Setup empty telescope names list
@@ -161,7 +163,7 @@ def plot_joint_telescope(fname, source, output):
     source = process.extract(source, [r'PSR B1937$+$21', r'PSR B1821$-$24',
                                       r'PSR J0218$+$4232'], limit=1)[0][0]
     if source == r'PSR B1937$+$21':
-        labels = [ r'$NICER$', r'$XMM-Newton$',r'$NuSTAR$' ]
+        labels = [ r'$NICER$', r'$NuSTAR$',r'$XMM-Newton$' ]
 
         colors = ["#d5483a",
                 "#70c84c",
@@ -171,7 +173,7 @@ def plot_joint_telescope(fname, source, output):
                 #"#c24ebe", 
                 "xkcd:azure"]
     elif source == r'PSR B1821$-$24':
-        labels = [ r'$NICER$', r'$RXTE$', r'$NuSTAR$' ]
+        labels = [ r'$NICER$', r'$NuSTAR$', r'$RXTE$']
 
         colors = ["#d5483a",
                 "#70c84c",
@@ -248,9 +250,10 @@ if __name__ == '__main__':
                         type=str, required=False, default=None)
     parser.add_argument("-o", help="Output file", dest='output',
                         type=str, required=False, default=None)
+    args = parser.parse_args()
 
     if args.output is None:
-        base = os.path.splittext(os.path.basename(args.fname))[0]
+        base = os.path.splitext(os.path.basename(args.fname))[0]
         args.output = base + "_spec.pdf"
 
 

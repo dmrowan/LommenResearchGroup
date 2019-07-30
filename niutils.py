@@ -3,12 +3,13 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy import exp
 
 def round_sigfigs(val, err):
     idx = len(str(err))
     skip1=True
     for i in range(len(str(err))):
-        if str(err)[i] in ['-', '0', '.']:
+        if str(err)[i] in ['-', '0', '.'] and skip1:
             continue
         elif str(err)[i] == '1' and skip1:
             skip1=False
@@ -51,4 +52,9 @@ def two_gaus(x, a_0, x0_0, sigma_0,
 
     return a_0*exp(-(x-x0_0)**2/(2*sigma_0**2)) + a_1*exp(-(x-x0_1)**2/(2*sigma_1**2)) + b
 
+def two_lorentzians(x, a_0, x0_0, gamma_0,
+                       a_1, x0_1, gamma_1, b):
+
+    return (a_0*(gamma_0)**2 * (1 / (( gamma_0)**2 + (x -x0_0)**2 )) + 
+            a_1*(gamma_1)**2 * (1 / (( gamma_1)**2 + (x -x0_1)**2 )) + b)
 

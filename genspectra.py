@@ -249,8 +249,12 @@ def xspec_wrapper(phafile,
 #Pexpect wrapper for grppha to bin spectra
 def grppha_wrapper(pha_in, pha_out, nchan, verbose=True):
     #Spawn grppha child with pexpect
-    if verbose:
+    if nchan <= 0:
+        log.info("No grppha perfomed")
+        cmd = ['cp', pha_in, pha_out]
+    elif verbose:
         log.info("Grouping energy bins with grppha")
+
     grppha = pexpect.spawn("grppha")
     grppha.expect("Please enter PHA filename")
     grppha.sendline(f"{pha_in}")

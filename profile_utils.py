@@ -4,6 +4,7 @@ import numpy as np
 import collections
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import rc
 from LCClass import LightCurve
 import argparse
 from fuzzywuzzy import process
@@ -13,6 +14,8 @@ import spectraplots
 desc="""
 Various profile tools to use for generating pulse profiles
 """
+
+rc('text', usetex=True)
 
 # Produce energy profile over selected energy range in keV
 def energy_filtered_profile(lc_input, energy_min, energy_max, ax=None,
@@ -85,26 +88,6 @@ def parse_lc_input(lc_input):
     return lc
 
 
-# Find primary and interpulse phase ranges with user
-# defined offpeak phase ranges
-def find_phase_ranges(lc_input, off1, off2, nsigma, verbose=True):
-
-    lc = parse_lc_input(lc_input)
-
-    if type(nsigma) not in [float, int]:
-        raise TypeError("nsigma must be int or float")
-
-    if any( [type(v) not in [float, int, tuple, list] for v in [off1, off2]]):
-        raise TypeError
-
-    cutofftup = lc.peak_cutoff(off1, off2, nsigma=nsigma)
-    if verbose:
-        print(f"Min phase primary: {cutofftup.min_phase}")
-        print(f"Max phase primary: {cutofftup.max_phase}")
-        print(f"Min phase interpulse: {cutofftup.min_phase_ip}")
-        print(f"Max phase interpulse: {cutofftup.max_phase_ip}")
-    return cutofftup
-
 #Find trailing edge phase ranges
 def find_edge(lc_input, off1, off2, nsigma):
 
@@ -116,19 +99,19 @@ def find_edge(lc_input, off1, off2, nsigma):
     if any( [type(v) not in [float, int, tuple, list] for v in [off1, off2]]):
         raise TypeError
 
-    cutofftup = find_phase_ranges(lc, off1, off2, nsigma, verbose=False)
+    cutofftup = lc.peak_cutoff(off1, off2, nsigma)
     edge_tuple = collections.namedtuple('edge_tuple', ['peak', 'min', 'max'])
-    if cutofftup.min_phase < cutofftup.max_phase:
-        tup = edge_tuple(lc.peak_center()[0], cutofftup.min_phase, 
-                         cutofftup.max_phase)
+    if cutofftup.min_phase_p1 < cutofftup.max_phase_p1:
+        tup = edge_tuple(lc.pulse_centers()[0], cutofftup.min_phase_p1, 
+                         cutofftup.max_phase_p1)
     else:
-        tup = edge_tuple(lc.peak_center()[0]+1, cutofftup.min_phase, 
-                         cutofftup.max_phase+1)
+        tup = edge_tuple(lc.pulse_centers()[0]+1, cutofftup.min_phase_p1, 
+                         cutofftup.max_phase_p1+1)
     return tup
 
 #Produce multiple profiles with different energy ranges
-def multiple_profiles(evt, energy_ranges, fit_one=False, 
-                      fit_two=False, component=None,
+def multiple_profiles(evt, energy_ranges, 
+                      fit_two=False, model='gaussian',
                       output=None, show=True):
     if type(evt) != str:
         raise ValueError("filename must be string")
@@ -142,45 +125,50 @@ def multiple_profiles(evt, energy_ranges, fit_one=False,
         if any( [type(v) not in [float, int] for v in range_pair] ):
             raise ValueError("value must be int or float")
 
-    sourcename = process.extract(evt, ['PSR B1821-24', 'PSR B1937+21'],
+    sourcename = process.extract(evt, [r'PSR B1821$-$24', r'PSR B1937$+$21',
+                                       r'PSR J0218$+$4232'],
                                  limit=1)[0][0]
-    if fit_one and component is None:
-        raise ValueError("component must be defined for fit")
+
 
     fig, ax = plt.subplots(len(energy_ranges), 1, figsize=(8, len(energy_ranges)*3.5))
     ratios = []
     popts  = []
+    label_components=True
     for i in range(len(energy_ranges)):
         a = ax.reshape(-1)[i]
-        if fit_one or fit_two:
-            lc = LightCurve(evt)
-            lc.mask(lower_pi=energy_ranges[i][0]*100, upper_pi=energy_ranges[i][1]*100)
+        lc = LightCurve(evt)
+        name = lc.name
+        if fit_two:
+            lc.mask(lower_pi=energy_ranges[i][0]*100, 
+                    upper_pi=energy_ranges[i][1]*100)
             lc.generate(bs=.01)
-            name = lc.name
-            if fit_one:
-                a, popt, ratio = lc.fit_gauss(component, ax=a)
-                ratios.append(ratio)
-            else:
-                a, popt = lc.fit_two_gauss(ax=a, annotate=False)
+            a, popt = lc.fit_two(ax=a, model=model, annotate=False, 
+                                       label=label_components)
+            label_components=False
+
             popts.append(popt)
         else:
-            lc = LightCurve(evt)
-            name = lc.name
             a = energy_filtered_profile(evt, energy_ranges[i][0], 
                                         energy_ranges[i][1], ax=a,
                                         label=False)
         a.text(.95, .95, 
                f"{energy_ranges[i][0]}"+r'$-$'+ f"{energy_ranges[i][1]} keV",
-               ha='right', va='top', fontsize=20, transform=a.transAxes)
+               ha='right', va='top', fontsize=20, transform=a.transAxes, 
+               bbox=dict(facecolor='white', edgecolor='none', alpha=.6))
         a.set_xlabel("")
         if i != len(energy_ranges)-1:
             a.tick_params(labelbottom=False)
 
-    ax.reshape(-1)[0].text(.05, .95, f"{name}", ha='left',
-                           va='top', transform=ax.reshape(-1)[0].transAxes,
-                           fontsize=20)
-    ax.reshape(-1)[len(energy_ranges)-1].set_xlabel("Phase", fontsize=20)
-    fig.text(.0255, .5, "Photon Counts", ha='center', va='center', 
+    if sourcename == r'PSR B1937$+$21':
+        ax.reshape(-1)[0].text(.2, .95, sourcename, ha='left',
+                               va='top', transform=ax.reshape(-1)[0].transAxes,
+                               fontsize=20)
+    else:
+        ax.reshape(-1)[0].text(.05, .95, sourcename, ha='left',
+                               va='top', transform=ax.reshape(-1)[0].transAxes,
+                               fontsize=20)
+    ax.reshape(-1)[len(energy_ranges)-1].set_xlabel("Phase", fontsize=25)
+    fig.text(.04, .5, r'Photon Counts', ha='center', va='center', 
              rotation='vertical', fontsize=30)
     plt.subplots_adjust(hspace=0, bottom=.08, top=.94, right=.98, left=.15)
     if output is None:
@@ -190,9 +178,7 @@ def multiple_profiles(evt, energy_ranges, fit_one=False,
     else:
         fig.savefig(output, dpi=2000)
 
-    if fit_one:
-        return popts, ratios
-    elif fit_two:
+    if fit_two:
         return popts
 
 #Test different energy range fits to find optimal spectra range

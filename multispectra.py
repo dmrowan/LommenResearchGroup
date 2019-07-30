@@ -511,18 +511,22 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
                 fontsize=15, ha='right', va='top')
 
         if sourcename == r'PSR B1937$+$21':
-            ax.legend(loc=4, fontsize=13, edgecolor='black',
+            ax.legend(loc=(.6, .05), fontsize=13, edgecolor='black',
                       framealpha=.9)
         else:
             ax.legend(loc=(.20, 0.05), fontsize=13, 
                       edgecolor='black', framealpha=.9)
-        ax.set_xlim(right=11)
+        ax.set_xlim(right=10.1)
         fig.add_subplot(ax)
 
     #Adjust axis for 1937
     if sourcename == r'PSR B1937$+$21':
-        axs0.set_ylim(top=axs0.get_ylim()[1]*3)
+        #axs0.set_ylim(top=axs0.get_ylim()[1]*3)
         axf0.set_ylim(top=axf0.get_ylim()[1]*3)
+        axs0.set_xlim(left=0.7)
+
+    if axs0.get_ylim()[0] < 1e7:
+        axs0.set_ylim(bottom=1.2e-6)
 
     #Plot residuals
     for i, ax in enumerate([axf1, axs1]):
@@ -678,7 +682,7 @@ def wrapper(evt,  output,
             log.info("Generating Spectra")
 
             gen_multispectra(evt, first_ranges, second_ranges, 
-                             back
+                             back,
                              first_mincounts, second_mincounts,
                              lower_energies_first, lower_energies_second)
 

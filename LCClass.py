@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function, division, absolute_import
 import collections
+from collections.abc import Iterable
 import math
 from math import log10, floor
 import matplotlib.pyplot as plt
@@ -275,19 +276,20 @@ class LightCurve:
             ax.axhline(cutofftup.nsigma, ls=':', color='darkblue', 
                        label=str(cutofftup.n)+r'$\sigma$')
             default_span = dict(alpha=.2, color='gray')
-            if cutofftup.min_phase_ip is not None:
+            if cutofftup.min_phase_p2 is not None:
                 for i in range(n_phase):
-                    ax.axvspan(cutofftup.min_phase_ip+i, 
-                               cutofftup.max_phase_ip+i,
+                    ax.axvspan(cutofftup.min_phase_p2+i, 
+                               cutofftup.max_phase_p2+i,
                                **default_span)
 
-            if cutofftup.min_phase > cutofftup.max_phase:
+            if cutofftup.min_phase_p1 > cutofftup.max_phase_p1:
                 for i in range(n_phase):
-                    ax.axvspan(i, cutofftup.max_phase+i, **default_span)
-                    ax.axvspan(cutofftup.min_phase+i, i+1, **default_span)
+                    ax.axvspan(i, cutofftup.max_phase_p1+i, **default_span)
+                    ax.axvspan(cutofftup.min_phase_p1+i, i+1, **default_span)
             else:
                 for i in range(n_phase):
-                    ax.axvspan(cutofftup.min_phase+i, cutofftup.max_phase+i, 
+                    ax.axvspan(cutofftup.min_phase_p1+i, 
+                               cutofftup.max_phase_p1+i, 
                                **default_span)
                     #ax.legend()
         
@@ -313,149 +315,146 @@ class LightCurve:
 
         if self.counts is None:
             self.generate()
+        
+        assert(type(l1) == type(l2))
 
-        #If using one bkgd range
-        if all([ type(l) in [int, float] for l in [l1, l2] ]):
-            if not all([ 0 <= l <= 1 for l in [l1, l2] ]):
-                raise ValueError("Invalid phase val")
+        #If we have one bkgd range
+        if not isinstance(l1, Iterable):
+            assert(l1 < l2)
+            if 0 <= l1 <= l2 <= 1:
+                off_pc = [ self.counts[i] for i in
+                           range(len(self.phasebins))
+                           if l1 <= self.phasebins[i] <= l2 ]
+            else:
+                # ex l1=.85 l2 =1.15
+                off_pc = [ self.counts[i] for i in 
+                           range(len(self.phasebins))
+                           if ( ( self.phasebins[i] >= l1) or
+                                ( self.phasebins[i] <= (l2-1.0) ) ) ]
+        #Using two bkgd ranges
+        else: 
+            assert(l1[1] > l1[0])
+            assert(l2[1] > l2[0])
 
-            if l1 >= l2:
-                raise ValueError("Invalid phase range")
+            if l1[1] <= 1:
+                off_pc = [ self.counts[i] for i in 
+                           range(len(self.phasebins))
+                           if l1[0] <= self.phasebins[i] <= l1[1] ]
+            else:
+                off_pc = [ self.counts[i] for i in 
+                           range(len(self.phasebins))
+                           if ( ( self.phasebins[i] >= l1[0] ) or
+                                ( self.phasebins[i] <= (l1[1]-1) ) ) ]
 
-            #Collect all counts in selected off peak region
-            off_pc = [ self.counts[i] for i in 
-                       range(len(self.phasebins)) 
-                       if l1 <= self.phasebins[i] <= l2 ]
+            if l2[1] <= 1:
+                off_pc.extend([self.counts[i] for i in
+                               range(len(self.phasebins))
+                               if l2[0] <= self.phasebins[i] <= l2[1]])
+            else:
+                off_pc.extend([self.counts[i] for i in
+                               range(len(self.phasebins))
+                               if ( (self.phasebins[i] >= l2[0]) or
+                                    (self.phasebins[i] <= (l2[1]-1) ) ) ])
 
-        #If using two background ranges
-        else:
-            if not all([ type(l) in [list, tuple, np.ndarray] 
-                         for l in [l1, l2] ]):
-                raise TypeError("Phase limits must be int/float or list"\
-                                "tuple array")
-
-            if not all( [ all([ 0 <= ll <= 1 for ll in l]) 
-                          for l in [l1, l2]  ]):
-                raise ValueError("Invalid phase val")
-
-            if any( [l[0] >= l[1] for l in [l1, l2] ]):
-                raise ValueError("invalid phase range")
-
-            #Collect all counts in selected off peak region
-            off_pc = [ self.counts[i] for i in range(len(self.phasebins)) 
-                       if ( (l1[0] <= self.phasebins[i] <= l1[1]) 
-                          or (l2[0] <= self.phasebins[i] <= l2[1]) ) ]
-
-                        
 
         #collect phases where counts are greater than nsigma away
         on_peak_phases = self.phasebins[np.where(
             self.counts >= (np.median(off_pc) + nsigma*np.std(off_pc)))[0]]
-        #If phases wrap around 0 need to take extra care
-        wp = []
-        for i in range(len(on_peak_phases)):
-            if on_peak_phases[i] > .9:
-                wp.append(on_peak_phases[i])
 
-        #Look for gap in selected phases to determine pulse region
-        for i in range(len(on_peak_phases)):
-            if i != len(on_peak_phases) - 1:
-                if on_peak_phases[i+1] - on_peak_phases[i] > .02:
-                    max_phase = on_peak_phases[i]
-                    break
-            else:
-                max_phase = on_peak_phases[i]
-        #If we have no wrapped phases the min of pulse is first index
-        if len(wp) == 0:
-            min_phase = on_peak_phases[0]
-        #Else repeat process for max in other direction
+        #Determine if pulse overlaps 0 phase
+        if (0.0 in on_peak_phases) and (1.0 - self.bs in on_peak_phases):
+            self.wraps_zero = True
         else:
-            if max(wp) >= .98:
-                min_phase = wp[0]
-                wp.reverse()
-                for i in range(len(wp)):
-                    if i != len(wp) -1:
-                        if abs(wp[i+1] - wp[i]) > .02:
-                            min_phase = wp[i]
+            self.wraps_zero = False
 
-        #Search for interpuse
-        ip_found = False
-        for i in range(len(on_peak_phases)):
-            if ip_found:
-                if i != len(on_peak_phases) - 1:
-                    if on_peak_phases[i+1] - on_peak_phases[i] > .02:
-                        max_phase_interpulse = on_peak_phases[i]
-                        break
-                else:
-                    max_phase_interpulse = on_peak_phases[i]
+        groups = [ [on_peak_phases[0]] ]
+        for i in range(1, len(on_peak_phases)):
+            if on_peak_phases[i] <= groups[-1][-1] + 2*self.bs:
+                groups[-1].append(on_peak_phases[i])
             else:
-                if i != len(on_peak_phases) - 1:
-                    if ((on_peak_phases[i] >= interpulse_lower) and 
-                       (on_peak_phases[i+1] - on_peak_phases[i] < .02)):
-                        min_phase_interpulse = on_peak_phases[i]
-                        ip_found = True
-        if not ip_found:
-            min_phase_interpulse = None
-            max_phase_interpulse = None
+                groups.append([on_peak_phases[i]])
 
+        if self.wraps_zero:
+            groups[0] = groups[-1]+groups[0]
+        while len(groups) > 2:
+            lengths = [ len(g) for g in groups ]
+            for i in range(len(groups)):
+                if len(groups[i]) == min(lengths):
+                    del groups[i]
+                    break
+
+        phase_max = self.phasebins[ np.where(
+            self.counts == max(self.counts))[0][0] ]
+        if groups[1][0] <= phase_max <= groups[1][-1]:
+            groups = groups[::-1]
+
+        """
+        if self.wraps_zero:
+            print(groups[0])
+            groups[0] = [ groups[0][i] + 1 if groups[0][i] < groups[0][0] 
+                          else groups[0][i]
+                          for i in range(len(groups[0])) ]
+            print(groups[0])
+        """
 
         #Define return tuple
         CutoffTup = collections.namedtuple('CutoffTup', 
-                ['min_phase', 'max_phase', 
-                 'min_phase_ip', 'max_phase_ip', 
+                ['min_phase_p1', 'max_phase_p1', 
+                 'min_phase_p2', 'max_phase_p2', 
                  'median', 'nsigma', 'n'])
-        tup = CutoffTup(min_phase, max_phase, 
-                        min_phase_interpulse,
-                        max_phase_interpulse,
+        tup = CutoffTup(groups[0][0], groups[0][-1],
+                        groups[1][0], groups[1][-1],
                         np.median(off_pc), 
                         np.median(off_pc)+nsigma*np.std(off_pc),
                         nsigma)
         
         if verbose:
-            print(f"Min phase primary: {tup.min_phase}")
-            print(f"Max phase primary: {tup.max_phase}")
-            print(f"Min phase interpulse: {tup.min_phase_ip}")
-            print(f"Max phase interpulse: {tup.max_phase_ip}")
+            print(f"Min phase primary: {tup.min_phase_p1}")
+            print(f"Max phase primary: {tup.max_phase_p1}")
+            print(f"Min phase interpulse: {tup.min_phase_p2}")
+            print(f"Max phase interpulse: {tup.max_phase_p2}")
 
         return tup
 
-    def peak_center(self):
-        if self.counts is None:
-            self.generate()
+    def pulse_centers(self, l1=None, l2=None):
+        if l1 or l2 is None:
+            if self.name == 'PSR B1821-24':
+                l1 = (.85, 1.15)
+                l2 = (.4, .6)
+            elif self.name == 'PSR B1937+21':
+                l1 = (.90, 1.20)
+                l2 = (.45, .75)
+            elif self.name == 'PSR J0218+4232':
+                l1 = .25
+                l2 = .35
 
-        idx = np.where(np.array(self.counts_extended) 
-                       == max(self.counts_extended))[0]
-        return self.phasebins_extended[idx]
-       
-    def interpulse_center(self):
-        if self.counts is None:
-            self.generate()
-        
-        interpulse_counts = [ self.counts[i] for i in range(len(self.counts))
-                              if 0.2 <= self.phasebins[i] <= 0.8 ]
+        cutoff_tup = self.peak_cutoff(l1, l2)
+            
+        #Pulse 1
+        idx_p1 = np.where(np.array(self.counts_extended) == 
+                          max(self.counts_extended))[0][0]
+        p1_center = self.phasebins_extended[idx_p1]
 
-        idx = np.where(np.array(self.counts) == max(interpulse_counts))[0]
-        return self.phasebins[idx]
+        #Pulse 2
+        pulse2_counts = [ self.counts_extended[i] for i in 
+                          range(len(self.counts_extended))
+                          if (cutoff_tup.min_phase_p2 
+                              <= self.phasebins_extended[i] 
+                              <= cutoff_tup.max_phase_p2) ]
 
-        
-    def fit_two_gauss(self, include_phases=None, ax=None, annotate=True,
+        idx_p2 = np.where(np.array(self.counts) == max(pulse2_counts))[0][0]
+        p2_center = self.phasebins[idx_p2]
+
+        return p1_center, p2_center
+
+    def fit_two(self, model, ax=None, annotate=True,
                       output_fit=False, label=False):
         if self.counts is None:
             self.generate()
         
-    
-        if include_phases is None:
-            phase_min = .75
-            phase_max = 1.75
-        else:
-            phase_min = include_phases[0]
-            phase_max = include_phases[1]
 
-        phasebins_fitting = np.array([ p for p in self.phasebins_extended 
-                                       if phase_min <= p < phase_max ])
-        counts_fitting = np.array([ 
-            self.counts_extended[i] for i in range(len(self.counts_extended)) 
-            if phase_min <= self.phasebins_extended[i] < phase_max ])
+        phasebins_fitting = self.phasebins
+        counts_fitting = self.counts
 
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=(8, 4))
@@ -464,7 +463,7 @@ class LightCurve:
         else:
             created_fig = False
 
-        ax.set_xlim(left=phase_min-.025, right=phase_max+.025)
+        #ax.set_xlim(left=phase_min-.025, right=phase_max+.025)
         ax = niutils.plotparams(ax)
 
         if self.name == 'PSR B1821-24':
@@ -473,14 +472,19 @@ class LightCurve:
             p0_a_1 = p0_a_0 *0.5
             p0_sigma_0 = .01
             p0_sigma_1 = .01
-            p0_x0_0 = 1.0
-            p0_x0_1 = 1.55
+            p0_x0_0 = self.pulse_centers()[0]
+            p0_x0_1 = self.pulse_centers()[1]
 
-            bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
-                     [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
+            bounds = ([0, self.pulse_centers()[0]-.1, 0, 0, 
+                       self.pulse_centers()[1]-.1, 0, 0],
+                      [np.inf, self.pulse_centers()[0]+.1, 1, np.inf,
+                       self.pulse_centers()[1]+.1, 1, max(counts_fitting)])
 
             p0= [p0_a_0, p0_x0_0, p0_sigma_0, 
                  p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+
+            phase_min = 0
+            phase_max = phase_min + 1
 
         #Initial values and bounds for 1937
         elif self.name == 'PSR B1937+21':
@@ -489,14 +493,19 @@ class LightCurve:
             p0_a_1 = p0_a_0 *0.1
             p0_sigma_0 = .01
             p0_sigma_1 = .01
-            p0_x0_0 = self.peak_center()[0]+1.0
-            p0_x0_1 = self.interpulse_center()[0]+1.0
+            p0_x0_0 = self.pulse_centers()[0]
+            p0_x0_1 = self.pulse_centers()[1]
 
-            bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
-                     [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
+            bounds =([0, self.pulse_centers()[0]-.1, 0, 0,
+                      self.pulse_centers()[1]-.1, 0, 0],
+                     [np.inf, self.pulse_centers()[0]+.1, 1, np.inf, 
+                      self.pulse_centers()[1]+.1, 1, max(counts_fitting)])
 
             p0= [p0_a_0, p0_x0_0, p0_sigma_0, 
                  p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+
+            phase_min = 0
+            phase_max = phase_min + 1
 
         #Initial values and bounds for J0218
         else:
@@ -505,17 +514,23 @@ class LightCurve:
             p0_a_1 = p0_a_0 *0.5
             p0_sigma_0 = .3
             p0_sigma_1 = .3
-            if self.peak_center()[0] > .5:
-                p0_x0_0 = self.peak_center()[0]
-            else:
-                p0_x0_0 = self.peak_center()[0]+1.0
-            p0_x0_1 = self.interpulse_center()[0]+1.0
+            p0_x0_0 = self.pulse_centers()[0]+1.0
+            p0_x0_1 = self.pulse_centers()[1]
 
-            bounds =([0,      0.9, 0, 0,      1.4, 0, 0],
-                     [np.inf, 1.1, 1, np.inf, 1.6, 1, max(counts_fitting)])
+            bounds =([0,      p0_x0_0-.1, 0, 0,      p0_x0_1-.1, 0, 0],
+                     [np.inf, p0_x0_0+.1, 1, np.inf, p0_x0_1+.1, 1, 
+                      max(counts_fitting)])
 
             p0= [p0_a_0, p0_x0_0, p0_sigma_0, 
                  p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
+
+            phase_min = 0.3 
+            phase_max = phase_min + 1.0
+            phasebins_fitting = np.array([ p for p in self.phasebins_extended 
+                                           if phase_min <= p < phase_max ])
+            counts_fitting = np.array([ 
+                self.counts_extended[i] for i in range(len(self.counts_extended)) 
+                if phase_min <= self.phasebins_extended[i] < phase_max ])
 
 
         valid = []
@@ -529,31 +544,57 @@ class LightCurve:
             raise ValueError
 
         #Perform scipy curve fit 
-        popt, pcov = curve_fit(niutils.two_gaus, phasebins_fitting, 
-                               counts_fitting, 
-                               p0=p0,
-                               bounds=bounds)
+        model = process.extract(model, ['gaussian', 'lorentzian'],
+                                limit=1)[0][0]
+                        
+        if model == 'gaussian':
+            popt, pcov = curve_fit(niutils.two_gaus, phasebins_fitting, 
+                                   counts_fitting, 
+                                   p0=p0,
+                                   bounds=bounds)
+            fit_counts = niutils.two_gaus(phasebins_fitting, *popt)
+
+        elif model == 'lorentzian':
+
+            p0[2] = p0[2]*2.355
+            p0[5] = p0[5]*2.355
+            popt, pcov = curve_fit(niutils.two_lorentzians, 
+                                   phasebins_fitting, 
+                                   counts_fitting, 
+                                   p0=p0, 
+                                   bounds=bounds)
+            
+            fit_counts = niutils.two_lorentzians(phasebins_fitting, *popt)
 
 
-        fit_counts = niutils.two_gaus(phasebins_fitting, *popt)
 
+        fit_counts_extended = np.append(fit_counts, fit_counts)
+        fit_counts_extended = np.append(fit_counts_extended, fit_counts)
+        phasebins_fitting_extended = np.array(
+                [round(b,4) for b in np.arange(0, 3, self.bs) ])
+        if phase_min != 0:
+            phasebins_fitting_extended = np.array(
+                [ pb - (1-phase_min) for pb in phasebins_fitting_extended ])
+
+        ax.plot(phasebins_fitting_extended, fit_counts_extended, 
+                color='xkcd:azure', lw=6, zorder=1, alpha=.4)
+
+        ax.plot(self.phasebins_extended, self.counts_extended, 
+                marker='.', color='xkcd:violet', zorder=2)
+
+        plt.setp(ax.get_xticklabels()[0], visible=False)
+        plt.setp(ax.get_xticklabels()[-1], visible=False)
+        ax.set_xlim(0,2)
+
+        """
         n_phase = 3
         fit_counts_extended = np.array([])
         for i in range(n_phase):
             fit_counts_extended = np.append(fit_counts_extended, fit_counts)
         phasebins_fitting_extended = np.array([round(b,4) - 1.0 
             for b in np.arange(phase_min, phase_max+n_phase-1, self.bs) ])
-        ax.set_xlim(0,2)
+        """
 
-        plt.setp(ax.get_xticklabels()[0], visible=False)
-        plt.setp(ax.get_xticklabels()[-1], visible=False)
-
-        ax.plot(phasebins_fitting, counts_fitting)
-        ax.plot(phasebins_fitting_extended,
-                fit_counts_extended,
-                 color='xkcd:azure', lw=6, zorder=1, alpha=.4)
-        ax.plot(self.phasebins_extended, self.counts_extended, 
-                marker='.', color='xkcd:violet', zorder=2)
         if annotate:
             ax.text(.95, .95, f"{round(popt[1], 4)}, {round(popt[4], 4)}", 
                     fontsize=20, transform=ax.transAxes, 
@@ -573,29 +614,29 @@ class LightCurve:
             if self.name == 'PSR B1821-24':
                 p1_coords = (popt_tup.primary_position-8*
                              popt_tup.primary_sigma,
-                             popt_tup.primary_amplitude * 
-                             0.75 + popt_tup.vertical_shift)
-                p2_coords = ((popt_tup.secondary_position-1)-4*
+                             popt_tup.primary_amplitude*.8
+                             + popt_tup.vertical_shift)
+                p2_coords = (popt_tup.secondary_position-4*
                               popt_tup.secondary_sigma,
                               popt_tup.secondary_amplitude*1.25 
                               + popt_tup.vertical_shift)
             elif self.name == 'PSR B1937+21':
-                p1_coords = ((popt_tup.primary_position-1)+8*
+                p1_coords = ((popt_tup.primary_position)+10*
                              popt_tup.primary_sigma,
                              popt_tup.primary_amplitude * 
                              0.75 + popt_tup.vertical_shift)
-                p2_coords = ((popt_tup.secondary_position-1)+4*
+                p2_coords = ((popt_tup.secondary_position)+8*
                               popt_tup.secondary_sigma,
                               popt_tup.secondary_amplitude*1.35 
                               + popt_tup.vertical_shift)
 
             else:
 
-                p1_coords = ((popt_tup.primary_position)-2*
+                p1_coords = ((popt_tup.primary_position-1)+2*
                              popt_tup.primary_sigma,
                              popt_tup.primary_amplitude * 
                              0.8 + popt_tup.vertical_shift)
-                p2_coords = ((popt_tup.secondary_position-1)-2*
+                p2_coords = ((popt_tup.secondary_position)+1.5*
                               popt_tup.secondary_sigma,
                               popt_tup.secondary_amplitude*1.1
                               + popt_tup.vertical_shift)
@@ -615,6 +656,6 @@ class LightCurve:
             return ax, popt_tup
 
     def height_ratio(self):
-        popt = self.fit_two_gauss()
+        popt = self.fit_two('lorentz')
         return popt.primary_amplitude / popt.secondary_amplitude
 
