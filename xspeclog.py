@@ -15,12 +15,37 @@ Classes for parsing log and wdata files from Xspec
 logfile: Handles collection of parameters, errors, and contours
 """
 
+def warning_filter(line):
+    if "Parameter pegged" in line:
+        return
+    else:
+        print(line)
+
+class modelcomp:
+
+    def __init__(self, name, param):
+
+        self.name = name
+        self.params = { param.name:param }
+
+    def add_param(self, new):
+
+        self.params[new.name] = new
+
+    def set_num(self, component_number):
+        self.n = component_number
+
+
 class modelparam:
-    def __init__(self, value=None, error=None, num=None, unit=None):
+    def __init__(self, name=None, value=None, error=None, 
+                 param_num=None, comp_num=None, unit=None, frozen=False):
+        self.name = name
         self.value = value
         self.error = error
-        self.num = num
+        self.param_num = param_num
+        self.comp_num = comp_num
         self.unit= unit
+        self.frozen = frozen
     
     def set_name(self, name):
         self.name = name
@@ -41,7 +66,7 @@ class logfile:
 
         self.fname = fname
         self.lines = open(self.fname, 'r').readlines()
-        self.params = None
+        self.model = {}
 
     #Returns photon index and column density values
     def get_params(self):
@@ -54,68 +79,44 @@ class logfile:
         else:
             idx_params = idx_params[-1]
 
-        #Find the photon index
-        phot_index_val = float([ v[0] for v in [ [ self.lines[j].split()[i+1]
-                                               for i in range(len(self.lines[j].split()))
-                                               if 'PhoIndex' in self.lines[j].split()[i] ]
-                                            for j in range(idx_params, idx_params+5) ]
-                             if len(v) != 0 ][0])
 
+        iiter = idx_params+1
+        while "___________" not in self.lines[iiter]:
+            current_row = self.lines[iiter].strip('#').split()
+            parnumber = int(current_row[0])
+            compnumber = int(current_row[1])
+            compname = current_row[2]
+            paramname = current_row[3]
+            try:
+                value = float(current_row[4])
+                unit = None
+            except:
+                unit = current_row[4]
+                value = float(current_row[5])
 
-        phot_index_number = int([ v[0] for v in [ [ self.lines[j].split()[i-3]
-                                                    for i in range(len(self.lines[j].split()))
-                                                    if 'PhoIndex' in self.lines[j].split()[i] ]
-                                                 for j in range(idx_params, idx_params+5) ]
-                                  if len(v) != 0 ][0])
+            if current_row[-1] == 'frozen':
+                frozen=True
+            else:
+                frozen=False
 
-        self.phot_index = modelparam(value=phot_index_val, num=phot_index_number)
-        self.phot_index.set_name("phot_index")
-        self.phot_index.set_label(r'Photon Index $\mathrm{\Gamma}$')
-                                                   
-                      
-        #Find the Hydrogen column density
-        nH_val = float([ v[0] for v in [ [self.lines[j].split()[i+1]
-                                      for i in range(len(self.lines[j].split()))
-                                      if '10^22' in self.lines[j].split()[i] ]
-                                    for j in range(idx_params, idx_params+5) ]
-                     if len(v) != 0 ][0])
+            param = modelparam(name=paramname, 
+                               param_num=parnumber, comp_num=compnumber, 
+                               value=value, unit=unit, frozen=frozen)
 
-        nH_number = int([ v[0] for v in [ [self.lines[j].split()[i-4]
-                                           for i in range(len(self.lines[j].split()))
-                                           if '10^22' in self.lines[j].split()[i] ]
-                                         for j in range(idx_params, idx_params+5) ]
-                          if len(v) != 0 ][0])
-        
-        self.nH = modelparam(value=nH_val, num=nH_number, unit='10^22')
-        self.nH.set_name("nH")
-        self.nH.set_label(r'Column Density $N_H$ $(10^{22}$ cm$^{-2}$)')
-        
-        #Find normalization 
-        norm_val = float([ v[0] for v in [ [ self.lines[j].split()[i+1]
-                                         for i in range(len(self.lines[j].split()))
-                                         if 'norm' in self.lines[j].split()[i] ]
-                                      for j in range(idx_params, idx_params+5) ]
-                       if len(v) != 0 ][0])
+            if compname in self.model:
+                if param not in self.model[compname].params:
+                    self.model[compname].add_param(param)
+            else:
+                self.model[compname] = modelcomp(compname, param)
+                self.model[compname].set_num(compnumber)
 
-        norm_number = int([ v[0] for v in [ [ self.lines[j].split()[i-3]
-                                              for i in range(len(self.lines[j].split()))
-                                              if 'norm' in self.lines[j].split()[i] ]
-                                           for j in range(idx_params, idx_params+5) ]
-                            if len(v) != 0 ][0])
-       
-        self.norm = modelparam(value=norm_val, num=norm_number)
-        self.norm.set_name("norm")
-        self.norm.set_label("Normalization")
-        
-        self.params = {'phot_index':self.phot_index, 
-                     'nH':self.nH,
-                     'norm':self.norm}
+            iiter += 1
 
-        return [ self.params[k].value for k, p in self.params.items() ]
+        return self.model
 
     #Returns errors on photon index and column density
-    def get_errors(self):
-        if self.params is None:
+    def get_errors(self, print_warnings=True):
+        if self.model is None:
             self.get_params()
 
         #Find the confidence interval on the parameters
@@ -126,32 +127,41 @@ class logfile:
         else:
             idx_conf = idx_conf[-1]
 
-    
-        err_list = [ [int(self.lines[i].strip("#").split()[0]),
-                      np.mean( [ abs(val) 
-                                 for val in ast.literal_eval(
-                                 self.lines[i].strip("#").split()[-1]) ])] 
-                      for i in range(idx_conf+1, idx_conf+len(self.params)) 
-                      if 'Warning' not in self.lines[i] ]
-        
-        for pair in err_list:
-            for key, param in self.params.items():
-                if param.num == pair[0]:
-                    param.error = pair[1]
 
-        return [ self.params[k].error for k, p in self.params.items() ]
+        iiter = idx_conf+1
+        while self.lines[iiter].strip('#') != '\n':
+            if not self.lines[iiter].strip('#').split()[0].isdigit():
+                if print_warnings:
+                    warning_filter(self.lines[iiter].strip('#').strip('\n'))
+            else:
+                param_number = int(self.lines[iiter].strip('#').split()[0])   
+                error = np.mean( [ abs(val) for val in ast.literal_eval(
+                                   self.lines[iiter].strip("#").split()[-1]) ] )
+
+                for comp in self.model.values():
+                    for param in comp.params.values():
+                        if param.param_num == param_number:
+                            param.error = error
+
+            iiter+=1
+
         
-    def param_string(self, name):
+    def param_string(self, comp, param):
         self.get_params()
         self.get_errors()
 
-        name = process.extract(name, list(self.params.keys()), 
-                               limit=1)[0][0]
+        comp = process.extract(comp, list(self.model.keys()),
+                              limit=1)[0][0]
+        param = process.extract(param, list(self.model[comp].params.keys()),
+                                limit=1)[0][0]
 
-        val_rounded, err_rounded = niutils.round_sigfigs(self.params[name].value,
-                                                       self.params[name].error)
-
-        return f"{val_rounded}" + r'$\pm$' + f"{err_rounded}"
+        value = self.model[comp].params[param].value
+        error = self.model[comp].params[param].error
+        if error is not None:
+            val_rounded, err_rounded = niutils.round_sigfigs(value, error)
+            return f"{val_rounded}" + r'$\pm$' + f"{err_rounded}"
+        else:
+            return f"{value}"
 
     #Returns fit model chi2 and degrees of freedom
     def get_chi2(self):
@@ -222,6 +232,16 @@ class logfile:
         return tup
 
 
+    def get_commands(self):
+
+        commands = [ self.lines[i] for i in range(len(self.lines))
+                     if self.lines[i][0] == '!' ]
+
+        commands = [ c.replace('!XSPEC12>', '').lstrip() 
+                     for c in commands ]
+
+        return commands
+
 #This class reads in the txt file output from ipl/wdata
 class xspecdata:
     def __init__(self, filename):
@@ -265,9 +285,7 @@ class xspecdata:
     def phot_index_from_log(self, fname):
         assert(os.path.isfile(fname))
         log = logfile(fname)
-        self.phot_index, self.phot_index_err = niutils.round_sigfigs(
-                log.get_params()[0], log.get_errors()[0])
-
+        self.phot_string = log.param_string("powerlaw", 'phot')
 
     def get_label(self):
         if self.lower is None or self.upper is None:
@@ -280,9 +298,7 @@ class xspecdata:
         if self.mincounts is not None:
             label = label + f", Mincounts: {self.mincounts}"
 
-        if self.phot_index is not None:
-            label = label + r', $\Gamma=$'+'{:.2f}'.format(self.phot_index)
-            if self.phot_index_err is not None:
-                label += r'$\pm$' + '{:.2f}'.format(self.phot_index_err)
+        if self.phot_string is not None:
+            label += r', $\Gamma=$' + self.phot_string
 
         return label
