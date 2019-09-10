@@ -112,6 +112,13 @@ if __name__== '__main__':
     if len(args) < 1:
         raise ValueError('Must provide an input evt/fits file!')
     phases = getPhases(args[0])
+    p0=[]
+    if options.pulsar_name == 'B1937':
+        p0=[0.04,0.29,0.025,0.003,0.82,0.01,0.9]
+    if options.pulsar_name == 'B1821':
+        p0=[2,0.72843,0.023,1.5,0.28,0.04,0.9]
+    if options.pulsar_name == 'J0218':
+        p0=[1.4,1.1,0.2,1.2,0.56,0.13,1]
     #Plot histogram = light_curve
     fig,ax = plt.subplots(1,1,figsize=(8,5))
     yarr,bins,patches = plt.hist(phases,bins = BINS, color ='b', alpha=0.5, density = True)
@@ -122,14 +129,14 @@ if __name__== '__main__':
     xarr=np.array(xarr)
     #perform Gaussiann fit
     if options.fit == 'gaussian':
-        gopt,gcov=fitter.curve_fit(Gaussians,xarr,yarr,p0=[2,0.72843,0.023,1.5,0.28,0.04,0.9])
+        gopt,gcov=fitter.curve_fit(Gaussians,xarr,yarr,p0)
         ax.plot(xarr,Gaussians(xarr,*gopt),'r-')
         print('The value of the CHI2 test for the Gaussian fit is ',X2_compute(Gaussians(xarr,*gopt),BINS) )
         if options.res == 'true':
             add_Residuals(Gaussians(xarr,*gopt))
     #perform Moffat fit
     if options.fit == 'moffat':
-        popt,pcov = fitter.curve_fit(Moffats,xarr,yarr,p0=[3.17,0.027,0.03,4.765,1.35737,0.557907,0.02,4.765,0.9],bounds=(0,10))
+        popt,pcov = fitter.curve_fit(Moffats,xarr,yarr,p0,bounds=(0,10))
         ax.plot(xarr,Moffats(xarr,*popt),'r-')
         #correct in case of null convergence
         i=0
@@ -142,15 +149,15 @@ if __name__== '__main__':
         writeTemplate(popt,pcov,'moffat')
     #perform Lorentzian fitting
     if options.fit == 'lorentzian':
-        lopt,lcov= fitter.curve_fit(Lorentzians,xarr,yarr,p0=[2,0.72843,0.023,1.5,0.28,0.04,0.9])
+        lopt,lcov= fitter.curve_fit(Lorentzians,xarr,yarr,p0)
         plt.plot(xarr,Lorentzians(xarr,*lopt),'r-')
         print('The value of the CHI2 test for the Lorentzian fit is ',X2_compute(Lorentzians(xarr,*lopt),BINS))
         if options.res == 'true':
             add_Residuals(Lorentzians(xarr,*lopt))
         writeTemplate(lopt,lcov,'lorentz')
     #add triple-Gaussian
-    if options.fit == 'tripleGauss'
-        topt,tcov= fitter.curve_fit(triple_Gaussian,xarr,yarr,p0=[3.17,0.027,0.03,1.35737,0.557907,0.02,1.2,0.04,0.05,0.9])
+    if options.fit == 'tripleGauss':
+        topt,tcov= fitter.curve_fit(triple_Gaussian,xarr,yarr,p0)
         plt.plot(xarr,triple_Gaussian(xarr,*topt),'b-')
         print('The value of the CHI2 test for the triple Gaussian fit is ',X2_compute(triple_Gaussian(xarr,*topt),BINS))
         if options.res == 'true':
@@ -158,18 +165,16 @@ if __name__== '__main__':
         writeTemplate(topt,tcov,'gauss')
     #fit to asymmetrical Gaussian
     if options.fit == 'agauss':
-        aopt,acov = fitter.curve_fit(asymmetricalgaussian,xarr,yarr,p0=[2,0.72843,0.023,0.1,1.5,0.28,0.04,0.9])
+        aopt,acov = fitter.curve_fit(asymmetricalgaussian,xarr,yarr,p0)
         plt.plot(xarr,asymmetricalgaussian(xarr,*aopt),'b--')
         print('The value of the CHI2 test for the assymetrical Gaussian fit is ',X2_compute(asymmetricalgaussian(xarr,*aopt),BINS))
         if options.res == 'true':
             add_Residuals(asymmetricalgaussian(xarr,*aopt))
     #fit to asymmetrical Lorentzians
     if options.fit == 'alorentz':
-        fopt,fcov = fitter.curve_fit(asymmetricallorentzian,xarr,yarr,p0=[2,0.72843,0.023,0.1,1.5,0.28,0.04,0.9])
+        fopt,fcov = fitter.curve_fit(asymmetricallorentzian,xarr,yarr,p0)
         plt.plot(xarr,asymmetricallorentzian(xarr,*fopt),'b--')
         print('The value of the CHI2 test for the assymetrical Lorentzian fit is ',X2_compute(asymmetricallorentzian(xarr,*fopt),BINS))
         if options.res == 'true':
-            add_Residuals(asymmetricallorentzian(xarr,*fopt)
-
-
+            add_Residuals(asymmetricallorentzian(xarr,*fopt))
     plt.show()
