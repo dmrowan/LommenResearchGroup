@@ -227,17 +227,17 @@ ax2.legend(custom_lines,['P1 FWHM','P2 FWHM', main_label,inter_label], handletex
 ax2= plotparams(ax2)
 ax2.set_xlabel('Energy (keV)',fontsize = 15)
 print(fit_slopesM[0],round_sf(fit_slopesM[0],2),np.sqrt(covMatrixM[0][0]),round_sf(np.sqrt(covMatrixM[0][0]),2))
-#if args['pulsar'] == 'B1821' :
-    #plt.title('PSR B1821-24', size=25,loc='right')
-    #ax1.text(0.75,0.9,'PSR B1821'+r'$-$'+'24',size='xx-large',transform=ax1.transAxes)
-#if args['pulsar'] == 'B1937' :
-    #plt.title('PSR B1937+21', size=25)
-    #ax1.text(0.7,0.88,'PSR B1937+21',size='xx-large',transform=ax1.transAxes)
+if args['pulsar'] == 'B1821' :
+    plt.title('PSR B1821-24', size=25,loc='right')
+    ax1.text(0.75,0.9,'PSR B1821'+r'$-$'+'24',size='xx-large',transform=ax1.transAxes)
+if args['pulsar'] == 'B1937' :
+    plt.title('PSR B1937+21', size=25)
+    ax1.text(0.7,0.88,'PSR B1937+21',size='xx-large',transform=ax1.transAxes)
 
-    #ax1.set_yticks([x for x in np.arange(0.0270, 0.0300, 0.0005)])
-    #ax1.text(0.040,0.92,'PSR B1937+21',size='x-large',transform=ax1.transAxes)
-#if args['pulsar'] == 'J0218' :
-    #plt.title('PSR J0218+4232', size=25)
-    #ax1.text(0.7,0.9,'PSR J0218+4232',size='xx-large',transform=ax1.transAxes)
+    ax1.set_yticks([x for x in np.arange(0.0270, 0.0300, 0.0005)])
+    ax1.text(0.040,0.92,'PSR B1937+21',size='x-large',transform=ax1.transAxes)
+if args['pulsar'] == 'J0218' :
+    plt.title('PSR J0218+4232', size=25)
+    ax1.text(0.7,0.9,'PSR J0218+4232',size='xx-large',transform=ax1.transAxes)
 
 plt.show()
