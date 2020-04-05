@@ -35,7 +35,7 @@ def numerical_integrate(fname, lower_energy, upper_energy, plot=True):
         ax.set_ylabel(r'Photons cm$^{-2}$ s$^{-1}$ keV$^{-1}$', fontsize=20)
 
         #ax.set_xlim(left=4.5, right=8.5)
-        ax.set_xlim(left=2, right=9)
+        ax.set_xlim(left=.2, right=10)
         ax.set_ylim(bottom=10e-6, top=.0001)
 
     idx_lower = np.where(xd.data['energy'] == min(xd.data['energy'], 
@@ -93,8 +93,7 @@ def polynomial_integrate(fname, lower_energy, upper_energy, plot=True, degree=8)
         ax.set_xlabel('Energy keV', fontsize=20)
         ax.set_ylabel(r'Photons cm$^{-2}$ s$^{-1}$ keV$^{-1}$', fontsize=20)
 
-        #ax.set_xlim(left=4.5, right=8.5)
-        ax.set_xlim(left=2, right=9)
+        ax.set_xlim(left=.2, right=10)
         ax.set_ylim(bottom=10e-6, top=.0001)
 
     coefs = poly.polyfit(xd.data['energy'], xd.data['model'], degree)
@@ -120,6 +119,7 @@ def polynomial_integrate(fname, lower_energy, upper_energy, plot=True, degree=8)
         ax.axvline(center_energy, color='red')
         plt.show()
 
+
     return center_energy
 
 if __name__ == '__main__':
@@ -135,7 +135,7 @@ if __name__ == '__main__':
 
 
     numerical_integrate(args.fname, args.emin, args.emax, plot=False)
-    polynomial_integrate(args.fname, args.emin, args.emax, degree=args.degree, plot=False)
+    polynomial_integrate(args.fname, args.emin, args.emax, degree=args.degree, plot=True)
 
 
 

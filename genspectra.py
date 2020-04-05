@@ -122,7 +122,7 @@ def fmodhead_exp(input_name, output, new_exp, verbose=True):
 
 
 #Set the header keyword for RESP and ANCR
-def fparkey_resp_arf(input_name, verbose=True):
+def fparkey_resp_arf_back(input_name, verbose=True, back=None):
     if verbose:
         log.info("Updating resp and arf with fparkey")
 
@@ -140,6 +140,14 @@ def fparkey_resp_arf(input_name, verbose=True):
     subprocess.run(cmd)
     subprocess.run(cmd2)
 
+    if back is not None:
+        if not os.path.isfile(back):
+            raise FileNotFoundError
+        else:
+            cmd3 = ['fparkey', back, f"{input_name}[1]",
+                    'BACKFILE']
+            subprocess.run(cmd3)
+
 
 #Make copies of resp and arf in current directory
 def check_resp_arf_path():
@@ -152,6 +160,7 @@ def check_resp_arf_path():
         cmd2 = ['cp', '/packages/caldb/data/nicer/xti/cpf/arf/nixtiaveonaxis20170601v002.arf',
                 '.']
         subprocess.run(cmd2)
+
         
 #Find exposure of fits/evt/pha file
 def get_exposure(f):
@@ -174,7 +183,7 @@ def xselect(lower_e=0, upper_e=1200, lower_phase=0, upper_phase=1,
             session="autopython", verbose=True):
 
     if verbose:
-        log.info("Producing pha in xselect")
+        log.info("Extracting pha in xselect")
     assert(all([type(val) in [int, float] for val in [
                 lower_phase, upper_phase, 
                 epoch, period]]))
@@ -284,6 +293,7 @@ def convertPDF(psfile, display=False, verbose=True):
 #Wrap heasarc calls to generate spectra with energy/phase selections
 def gen_spectra(evt, phase_lower, phase_upper, 
                 nchan, save_pha=None, 
+                back=None,
                 save_plot=None, display=False,
                 run_xspec=True, verbose=True):
 
@@ -317,7 +327,7 @@ def gen_spectra(evt, phase_lower, phase_upper,
                       phase_lower, phase_upper, clobber=True, 
                       verbose=verbose)
 
-    #test_fselect("autofits.fits", plot=False)
+    #test_fselect("autofits.fits", plot=True)
 
     #Run xselect to create pha file
     xselect(datadir='./', eventfile="autofits.fits", 
@@ -329,11 +339,16 @@ def gen_spectra(evt, phase_lower, phase_upper,
              new_exp, verbose=verbose)
 
     #Modify the resp and arf keywords
-    fparkey_resp_arf("autoxselect_spec_2.pha", verbose=verbose)
+    fparkey_resp_arf_back("autoxselect_spec_2.pha", verbose=verbose, back=back)
 
     #Apply grppha to set the grouping keyword
     grppha_wrapper("autoxselect_spec_2.pha", "autoxselect_spec_grppha.pha", 
                    nchan, verbose=verbose)
+
+    cmd = ['fparkey', str(phase_lower), "autoxselect_spec_grppha.pha[1]", 'phase_lower', 'add=yes']
+    cmd2 = ['fparkey', str(phase_upper), "autoxselect_spec_grppha.pha[1]", 'phase_upper', 'add=yes']
+    subprocess.run(cmd)
+    subprocess.run(cmd2)
 
     #Save pha to output name
     if save_pha is not None:
@@ -347,6 +362,30 @@ def gen_spectra(evt, phase_lower, phase_upper,
 
         if save_plot is not None:
             convertPDF(f"{save}.ps", display=display, verbose=verbose)
+
+def gen_bkgd_spectra(evt, nchan, save_pha=None, 
+                     run_xspec=True, verbose=True):
+
+    #Run xselect to create pha file
+    xselect(datadir='./', eventfile=evt,
+            session='autoxselect', verbose=verbose)
+
+    #fparkey for resp and arf
+    fparkey_resp_arf_back("autoxselect_spec.pha", verbose=verbose)
+
+    #Apply grppha to set the grouping keyword
+    grppha_wrapper("autoxselect_spec.pha", "autoxselect_spec_grppha.pha", 
+                   nchan, verbose=verbose)
+
+    #Save pha to output name
+    if save_pha is not None:
+        subprocess.run(['cp', 'autoxselect_spec_grppha.pha', save_pha])
+
+    #Run xspec
+    if run_xspec:
+        xspec_wrapper('autoxselect_spec_grppha.pha', 
+                      save=False,
+                      verbose=verbose)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=desc)
@@ -377,12 +416,25 @@ if __name__ == '__main__':
                         help="Display saved plot after converting to pdf", 
                         default=False, action='store_true')
 
+    parser.add_argument("--back", 
+                        help="Specify background for spectra", default=None)
+
+    parser.add_argument("--bkg", 
+                        help="Specify extracting from RXTE BKGD data",
+                        default=False, action='store_true')
+
     args = parser.parse_args()
 
 
-    gen_spectra(args.evt, args.lp, args.up, 
-                args.nchan, save_pha=args.save_pha, 
-                save_plot=args.save_plot, display=args.display)
+    if not args.bkg:
+        gen_spectra(args.evt, args.lp, args.up, 
+                    args.nchan, save_pha=args.save_pha, 
+                    back=args.back,
+                    save_plot=args.save_plot, display=args.display)
+    else:
+        gen_bkgd_spectra(args.evt, args.nchan, save_pha=args.save_pha)
+                        
+
 
 
 

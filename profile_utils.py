@@ -4,12 +4,15 @@ import numpy as np
 import collections
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import ticker
 from matplotlib import rc
 from LCClass import LightCurve
 import argparse
 from fuzzywuzzy import process
 import os
+from tqdm import tqdm
 import spectraplots
+import niutils
 
 desc="""
 Various profile tools to use for generating pulse profiles
@@ -112,7 +115,7 @@ def find_edge(lc_input, off1, off2, nsigma):
 #Produce multiple profiles with different energy ranges
 def multiple_profiles(evt, energy_ranges, 
                       fit_two=False, model='gaussian',
-                      output=None, show=True):
+                      output=None, show=True, nbins=300):
     if type(evt) != str:
         raise ValueError("filename must be string")
     if type(energy_ranges) not in [list, tuple]:
@@ -141,9 +144,11 @@ def multiple_profiles(evt, energy_ranges,
         if fit_two:
             lc.mask(lower_pi=energy_ranges[i][0]*100, 
                     upper_pi=energy_ranges[i][1]*100)
-            lc.generate(bs=.01)
+            lc.generate(nbins=nbins)
             a, popt = lc.fit_two(ax=a, model=model, annotate=False, 
                                        label=label_components)
+
+            a, bounds = niutils.add_CharErrBar(a, lc.counts, .95, .80)
             label_components=False
 
             popts.append(popt)
@@ -151,16 +156,36 @@ def multiple_profiles(evt, energy_ranges,
             a = energy_filtered_profile(evt, energy_ranges[i][0], 
                                         energy_ranges[i][1], ax=a,
                                         label=False)
-        a.text(.95, .95, 
+        textbox = a.text(
+               .95, .95, 
                f"{energy_ranges[i][0]}"+r'$-$'+ f"{energy_ranges[i][1]} keV",
                ha='right', va='top', fontsize=20, transform=a.transAxes, 
                bbox=dict(facecolor='white', edgecolor='none', alpha=.6))
+        
+        """
+        textbox_bounds = [textbox.get_bbox_patch().get_x(),
+                          textbox.get_bbox_patch().get_y(),
+                          textbox.get_bbox_patch().get_x() + textbox.get_bbox_patch().get_width(),
+                          textbox.get_bbox_patch().get_y() + textbox.get_bbox_patch().get_height()]
+        print(textbox_bounds)
+        """
+        text_bottom = (a.get_ylim()[1]-a.get_ylim()[0])*textbox.get_position()[1]+a.get_ylim()[0]
+        if text_bottom / bounds[-1] <= 1.035:
+            print("here")
+            print(a.get_ylim()[1])
+            print(1.02*a.get_ylim()[1])
+            a.set_ylim(bottom=a.get_ylim()[0], top=1.02*a.get_ylim()[1])
+
+
+
         a.set_xlabel("")
         if i != len(energy_ranges)-1:
             a.tick_params(labelbottom=False)
+            #a.yaxis.set_major_locator(ticker.MaxNLocator(prune='lower'))
+            #plt.setp(a.get_yticklabels()[0], visible=False)
 
-    if sourcename == r'PSR B1937$+$21':
-        ax.reshape(-1)[0].text(.2, .95, sourcename, ha='left',
+    if sourcename == r'PSR J0218$+$4232':
+        ax.reshape(-1)[0].text(.25, .95, sourcename, ha='left',
                                va='top', transform=ax.reshape(-1)[0].transAxes,
                                fontsize=20)
     else:
@@ -180,6 +205,34 @@ def multiple_profiles(evt, energy_ranges,
 
     if fit_two:
         return popts
+
+def compare_bins(evt, model, output):
+    fig, ax = plt.subplots(6, 1, figsize=(8,20), sharex=True)
+    bin_list = np.arange(50, 350, 50)
+    label=False
+    for i in tqdm(range(len(bin_list))):
+        lc = LightCurve(evt)
+        lc.generate(n_phase=2, nbins=bin_list[i])
+
+        if i == 0:
+            label=True
+
+        ax[i], popt_tup = lc.fit_two(ax=ax[i], model=model, annotate=False, label=label)
+
+        if i != len(bin_list)-1:
+            ax[i].tick_params(labelbottom=False)
+            ax[i].set_xlabel("") 
+        else:
+            ax[i].set_xlabel("Phase", fontsize=30)
+        ax[i].set_ylabel("")
+        fig.text(.95, .95, str(bin_list[i]), va='top', ha='right', 
+                 transform=ax[i].transAxes, fontsize=20)
+
+    fig.text(.04, .5, r'Photon Counts', ha='center', va='center',
+             rotation='vertical', fontsize=30)
+    plt.subplots_adjust(hspace=0, top=.98, right=.98)
+    fig.savefig(output)
+    
 
 #Test different energy range fits to find optimal spectra range
 def find_min_energy(evt, component):

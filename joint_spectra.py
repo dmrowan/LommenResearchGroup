@@ -2,6 +2,7 @@
 import argparse
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.ticker as mticker
 from matplotlib import rc
 import numpy as np
 import os
@@ -70,14 +71,20 @@ class joint_data:
             lines = f.readlines()
 
         #Find all break indicies
-        breakidx = np.where(np.array(lines) == 'NO NO NO NO NO\n')[0]
+        length_break = len(lines[4].split())
+        break_string = ('NO '*length_break).rstrip()+"\n"
+        breakidx = np.where(np.array(lines) == break_string)[0]
 
         #read in fist df seperately with skiprows=3
         df0 = pd.read_csv(self.fname, skiprows=3, delimiter=" ", header=None,
                           nrows=breakidx[0]-3)
         #reset column names
-        df0.columns = ['energy', 'energy_err', 'counts', 
-                       'counts_err', 'model']
+        try:
+            df0.columns = ['energy', 'energy_err', 'counts', 
+                           'counts_err', 'model']
+        except:
+            df0.columns = ['energy', 'energy_err', 'counts', 
+                           'counts_err', 'model', '5', '6']
 
         self.df_list = [df0]
 
@@ -92,8 +99,12 @@ class joint_data:
                 df = pd.read_csv(self.fname, skiprows=breakidx[i]+1, 
                                  delimiter=" ", header=None)
 
-            df.columns = ['energy', 'energy_err', 
-                           'counts', 'counts_err', 'model']
+            try:
+                df.columns = ['energy', 'energy_err', 
+                               'counts', 'counts_err', 'model']
+            except:
+                df.columns = ['energy', 'energy_err', 
+                               'counts', 'counts_err', 'model', '5', '6']
 
             self.df_list.append(df)
 
@@ -109,8 +120,12 @@ class joint_data:
 
         #Reset column names for residuals
         for df in self.residuals:
-            df.columns = ['energy', 'energy_err',
-                          'delchi', 'delchi_err', 'model']
+            try:
+                df.columns = ['energy', 'energy_err',
+                              'delchi', 'delchi_err', 'model']
+            except:
+                df.columns = ['energy', 'energy_err',
+                              'delchi', 'delchi_err', 'model', '5', '6']
 
 
 
@@ -183,10 +198,21 @@ def plot_joint_telescope(fname, source, output):
                 #"#c24ebe", 
                 "xkcd:azure"]
 
+    elif source == r'PSR J0218$+$4232':
+        labels = [ r'$NICER$', r'$NuSTAR$',r'$XMM-Newton$' ]
+
+        colors = ["#d5483a",
+                "#70c84c",
+                "#853bce",
+                #"#d4ae2f",
+                #"#625cce",
+                #"#c24ebe", 
+                "xkcd:azure"]
+
     else:
         return -1
 
-
+    zorders = [2, 1.5, 1]
     #Iterate through each data and residual pair
     for i in range(len(xd.data)):
         ax0.errorbar(xd.data[i]['energy'],
@@ -196,11 +222,11 @@ def plot_joint_telescope(fname, source, output):
                      ls=' ', marker='.', 
                      color=colors[i],
                      label=labels[i],
-                     zorder=i)
+                     zorder=zorders[i])
         ax0.plot(xd.data[i]['energy'],
                  xd.data[i]['model'],
                  ls='-', lw=3, color=colors[i],
-                 zorder=len(xd.data)+i,
+                 zorder=zorders[i],
                  label='_nolegend_')
 
         ax1.errorbar(xd.residuals[i]['energy'].astype(float),
@@ -208,12 +234,13 @@ def plot_joint_telescope(fname, source, output):
                      xerr=xd.residuals[i]['energy_err'].astype(float),
                      yerr=xd.residuals[i]['delchi_err'].astype(float),
                      ls=' ', marker='.', color=colors[i], alpha=0.8,
-                     zorder=i)
+                     zorder=zorders[i])
 
 
     #Misc plot params
     ax0 = plotparams(ax0)
     ax1 = plotparams(ax1)
+    #ax0.set_ylim(bottom=5e-7)
     ax0.set_xscale('log')
     ax0.set_yscale('log')
     ax0.text(.95, .95, source, transform=ax0.transAxes, 
@@ -222,6 +249,7 @@ def plot_joint_telescope(fname, source, output):
                edgecolor='black', framealpha=.9)
     ax1.axhline(0, ls=':', lw=1.5, color='gray')
     ax1.set_xscale('log')
+    ax1.xaxis.set_major_formatter(mticker.FormatStrFormatter('%.1f'))
     ax1.set_xlabel('Energy (keV)', fontsize=20)
 
     #Add subplots to figure

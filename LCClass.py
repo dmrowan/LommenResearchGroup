@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function, division, absolute_import
-import astropy.fitting
+import astropy
 import collections
 from collections.abc import Iterable
 import math
@@ -113,7 +113,6 @@ class LightCurve:
         #fastconst = 1.1 is the overall ratio threshold (normal ratio is 1.0 with a tolerance of 0.1=10%)
         # I recommend changing the threshold number blc.ploty small amounts to see the difference in info
         if fastconst == 1.18:
-            print('hello1')
             t = np.arange(0,1201,1)
             newLine = []
             for pi in t:
@@ -215,33 +214,37 @@ class LightCurve:
         self.name = name
 
     #Generate count/phasebin information
-    def generate(self, n_phase=2, bs=.01):
+    def generate(self, n_phase=2, nbins=100):
         assert(n_phase > 0)
-        self.bs = bs 
+        self.nbins = nbins
         self.n_phase = n_phase
         #Array of phase bins
-        self.phasebins = np.array([round(b, 4) for b in np.arange(0, 1, bs)])
+        self.phasebins = np.linspace(0, 1, nbins)
+
         #Initialize array of counts
         self.counts = np.zeros(len(self.phasebins))
         for phase in self.ph:
             idx_phasebins = np.where(self.phasebins <= phase)[0].max()
             self.counts[idx_phasebins] +=1
 
+
+        self.counts = self.counts[:-1]
+        self.phasebins = self.phasebins[:-1]
+
+
         #If n_phase is greater than 1 need to extend both axes
-        if n_phase > 1:
-            self.counts_extended = np.array([])
-            for i in range(n_phase):
-                self.counts_extended = np.append(
-                        self.counts_extended, self.counts)
-            self.phasebins_extended = np.array(
-                    [round(b, 2) for b in np.arange(0, n_phase, bs)])
-        else:
-            self.counts_extended = None
-            self.phasebins_extended = None
+        self.counts_extended = np.array([])
+        for i in range(n_phase):
+            self.counts_extended = np.append(
+                    self.counts_extended, self.counts)
+
+        self.phasebins_extended = np.array([])
+        for i in range(n_phase):
+            self.phasebins_extended = np.append(
+                    self.phasebins_extended, self.phasebins + i)
 
     # Produce plot of puslar profile
-    def plot(self, n_phase=2, bs=.01, 
-             output=None, extension='pdf', 
+    def plot(self, output=None, extension='pdf', 
              l1=None, l2=None, nsigma=3, ax=None,
              label=True):
 
@@ -250,7 +253,7 @@ class LightCurve:
             assert(type(extension) == str)
 
         if self.counts is None:
-            self.generate(n_phase, bs=bs)
+            self.generate()
 
         if ax is None:
             #Initialize matplotlib figure
@@ -265,7 +268,7 @@ class LightCurve:
         if label:
             ax.set_xlabel('Phase', fontsize=25)
             ax.set_ylabel('Counts', fontsize=25)
-        ax.set_xlim(left=-.025, right=n_phase+.025)
+        ax.set_xlim(left=-.025, right=self.n_phase+.025)
 
         ax.plot(self.phasebins_extended, self.counts_extended, 
                 marker='.', ls='-', color='xkcd:violet')
@@ -278,25 +281,26 @@ class LightCurve:
                        label=str(cutofftup.n)+r'$\sigma$')
             default_span = dict(alpha=.2, color='gray')
             if cutofftup.min_phase_p2 is not None:
-                for i in range(n_phase):
+                for i in range(self.n_phase):
                     ax.axvspan(cutofftup.min_phase_p2+i, 
                                cutofftup.max_phase_p2+i,
                                **default_span)
 
             if cutofftup.min_phase_p1 > cutofftup.max_phase_p1:
-                for i in range(n_phase):
+                for i in range(self.n_phase):
                     ax.axvspan(i, cutofftup.max_phase_p1+i, **default_span)
                     ax.axvspan(cutofftup.min_phase_p1+i, i+1, **default_span)
             else:
-                for i in range(n_phase):
+                for i in range(self.n_phase):
                     ax.axvspan(cutofftup.min_phase_p1+i, 
                                cutofftup.max_phase_p1+i, 
                                **default_span)
                     #ax.legend()
         
+        ax, _ = niutils.add_CharErrBar(ax, self.counts, .95, .85)
         #ax.legend(loc=(.85, .85), fontsize=20, edgecolor='black')
         if self.name is not None and label:
-            ax.text(.95, .95, self.name, ha='right', va='top', 
+            ax.text(.05, .95, self.name, ha='left', va='top', 
                     transform=ax.transAxes, fontsize=20)
         #Save/display/return plot
         if output is not None:
@@ -363,14 +367,15 @@ class LightCurve:
             self.counts >= (np.median(off_pc) + nsigma*np.std(off_pc)))[0]]
 
         #Determine if pulse overlaps 0 phase
-        if (0.0 in on_peak_phases) and (1.0 - self.bs in on_peak_phases):
+        bs = self.phasebins[2]-self.phasebins[1]
+        if (0.0 in on_peak_phases) and (self.phasebins[-1] in on_peak_phases):
             self.wraps_zero = True
         else:
             self.wraps_zero = False
 
         groups = [ [on_peak_phases[0]] ]
         for i in range(1, len(on_peak_phases)):
-            if on_peak_phases[i] <= groups[-1][-1] + 2*self.bs:
+            if on_peak_phases[i] <= groups[-1][-1] + 2*bs:
                 groups[-1].append(on_peak_phases[i])
             else:
                 groups.append([on_peak_phases[i]])
@@ -423,11 +428,11 @@ class LightCurve:
                 l1 = (.85, 1.15)
                 l2 = (.4, .6)
             elif self.name == 'PSR B1937+21':
-                l1 = (.90, 1.20)
-                l2 = (.45, .75)
+                l1 = (.2, .4)
+                l2 = (.7, 1.0)
             elif self.name == 'PSR J0218+4232':
-                l1 = .25
-                l2 = .35
+                l1 = (.60, .75)
+                l2 = (.1, .2)
 
         cutoff_tup = self.peak_cutoff(l1, l2)
             
@@ -449,13 +454,15 @@ class LightCurve:
         return p1_center, p2_center
 
     def fit_two(self, model, ax=None, annotate=True,
-                      output_fit=False, label=False):
+                      output_fit=False, label=False, 
+                      plot=True):
         if self.counts is None:
             self.generate()
         
 
         phasebins_fitting = self.phasebins
         counts_fitting = self.counts
+
 
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=(8, 4))
@@ -498,9 +505,9 @@ class LightCurve:
             p0_x0_1 = self.pulse_centers()[1]
 
             bounds =([0, self.pulse_centers()[0]-.1, 0, 0,
-                      self.pulse_centers()[1]-.1, 0, 0],
+                      p0_x0_1-.1, 0, 0],
                      [np.inf, self.pulse_centers()[0]+.1, 1, np.inf, 
-                      self.pulse_centers()[1]+.1, 1, max(counts_fitting)])
+                      p0_x0_1+.1, 1, max(counts_fitting)])
 
             p0= [p0_a_0, p0_x0_0, p0_sigma_0, 
                  p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
@@ -515,24 +522,25 @@ class LightCurve:
             p0_a_1 = p0_a_0 *0.5
             p0_sigma_0 = .3
             p0_sigma_1 = .3
-            p0_x0_0 = self.pulse_centers()[0]+1.0
-            p0_x0_1 = self.pulse_centers()[1]
+            p0_x0_0 = .4
+            p0_x0_1 = .8
+            #p0_x0_0 = self.pulse_centers()[0]+1.0
+            #p0_x0_1 = self.pulse_centers()[1]
 
-            bounds =([0,      p0_x0_0-.1, 0, 0,      p0_x0_1-.1, 0, 0],
-                     [np.inf, p0_x0_0+.1, 1, np.inf, p0_x0_1+.1, 1, 
+            bounds =([0,      p0_x0_0-.2, 0, 0,      p0_x0_1-.2, 0, 0],
+                     [np.inf, p0_x0_0+.2, 1, np.inf, p0_x0_1+.2, 1, 
                       max(counts_fitting)])
 
             p0= [p0_a_0, p0_x0_0, p0_sigma_0, 
                  p0_a_1, p0_x0_1, p0_sigma_1, p0_b]
 
-            phase_min = 0.3 
+            phase_min = 0.1 
             phase_max = phase_min + 1.0
             phasebins_fitting = np.array([ p for p in self.phasebins_extended 
                                            if phase_min <= p < phase_max ])
             counts_fitting = np.array([ 
                 self.counts_extended[i] for i in range(len(self.counts_extended)) 
                 if phase_min <= self.phasebins_extended[i] < phase_max ])
-
 
         valid = []
         for i in range(len(p0)):
@@ -571,20 +579,26 @@ class LightCurve:
 
         fit_counts_extended = np.append(fit_counts, fit_counts)
         fit_counts_extended = np.append(fit_counts_extended, fit_counts)
-        phasebins_fitting_extended = np.array(
-                [round(b,4) for b in np.arange(0, 3, self.bs) ])
+
+        phasebins_fitting_extended = np.append(phasebins_fitting, 
+                                               phasebins_fitting+1)
+        phasebins_fitting_extended = np.append(phasebins_fitting_extended,
+                                               phasebins_fitting+2)
+
+        phasebins_fitting_extended = phasebins_fitting_extended - phase_min
+
         if phase_min != 0:
             phasebins_fitting_extended = np.array(
                 [ pb - (1-phase_min) for pb in phasebins_fitting_extended ])
 
         ax.plot(phasebins_fitting_extended, fit_counts_extended, 
-                color='xkcd:azure', lw=6, zorder=1, alpha=.4)
+                color='xkcd:azure', lw=6, zorder=2, alpha=.4)
 
         ax.plot(self.phasebins_extended, self.counts_extended, 
-                marker='.', color='xkcd:violet', zorder=2)
+                marker='.', color='xkcd:violet', zorder=1)
 
-        plt.setp(ax.get_xticklabels()[0], visible=False)
-        plt.setp(ax.get_xticklabels()[-1], visible=False)
+        #plt.setp(ax.get_xticklabels()[0], visible=False)
+        #plt.setp(ax.get_xticklabels()[-1], visible=False)
         ax.set_xlim(0,2)
 
         """
@@ -602,56 +616,47 @@ class LightCurve:
                     ha='right', va='top')
 
 
-        PoptTup = collections.namedtuple('PoptTup',
-                ['primary_amplitude', 'primary_position', 
-                 'primary_sigma', 'secondary_amplitude', 
-                 'secondary_position', 'secondary_sigma',
-                 'vertical_shift'])
+        if model=='gaussian':
+            PoptTup = collections.namedtuple('PoptTup',
+                    ['primary_amplitude', 'primary_position', 
+                     'primary_sigma', 'secondary_amplitude', 
+                     'secondary_position', 'secondary_sigma',
+                     'vertical_shift'])
+        else:
+            PoptTup = collections.namedtuple('PoptTup',
+                    ['primary_amplitude', 'primary_position', 
+                     'primary_fwhm', 'secondary_amplitude', 
+                     'secondary_position', 'secondary_fwhm',
+                     'vertical_shift'])
 
         popt_tup = PoptTup(*popt)
                    
+        #if self.name == 'PSR J0218+4232':
+            #ax.axhline(popt_tup.vertical_shift, color='gray', ls=':')
+
         #Add component labels
         if label:
             if self.name == 'PSR B1821-24':
-                p1_coords = (popt_tup.primary_position-8*
-                             popt_tup.primary_sigma,
-                             popt_tup.primary_amplitude*.8
-                             + popt_tup.vertical_shift)
-                p2_coords = (popt_tup.secondary_position-4*
-                              popt_tup.secondary_sigma,
-                              popt_tup.secondary_amplitude*1.25 
-                              + popt_tup.vertical_shift)
+                p1_coords, p2_coords = niutils.component_label(
+                        popt_tup, (-8, .7), (-4, 1.25))
             elif self.name == 'PSR B1937+21':
-                p1_coords = ((popt_tup.primary_position)+10*
-                             popt_tup.primary_sigma,
-                             popt_tup.primary_amplitude * 
-                             0.75 + popt_tup.vertical_shift)
-                p2_coords = ((popt_tup.secondary_position)+8*
-                              popt_tup.secondary_sigma,
-                              popt_tup.secondary_amplitude*1.35 
-                              + popt_tup.vertical_shift)
-
-            else:
-
-                p1_coords = ((popt_tup.primary_position-1)+2*
-                             popt_tup.primary_sigma,
-                             popt_tup.primary_amplitude * 
-                             0.8 + popt_tup.vertical_shift)
-                p2_coords = ((popt_tup.secondary_position)+1.5*
-                              popt_tup.secondary_sigma,
-                              popt_tup.secondary_amplitude*1.1
-                              + popt_tup.vertical_shift)
+                p1_coords, p2_coords = niutils.component_label(
+                        popt_tup, (10, .75), (8, 1.35))
+            else: #Name == 'PSR J0218+4232':
+                p1_coords, p2_coords = niutils.component_label(
+                        popt_tup, (2.2, 0.8), (1.7, 1.1))
 
             ax.text(p1_coords[0], p1_coords[1], "P1", 
-                    fontsize=23, ha='center', va='center')
+                 fontsize=23, ha='center', va='center')
 
             ax.text(p2_coords[0], p2_coords[1], "P2", 
-                    fontsize=23, ha='center', va='center')
+                     fontsize=23, ha='center', va='center')
 
         if output_fit:
             return phasebins_fitting_extended, fit_counts_extended, popt_tup
         elif created_fig:
-            plt.show()
+            if plot:
+                plt.show()
             return popt_tup
         else:
             return ax, popt_tup

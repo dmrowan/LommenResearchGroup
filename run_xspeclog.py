@@ -16,6 +16,8 @@ def main(fname, default_params=True):
 
     commands = logfile.get_commands()
 
+    print(commands)
+    commands = list(filter(None, commands))
     commands = [ c for c in commands if c[0] != '@' ]
     if 'exit' in commands[-1]:
         commands = commands[:-1]

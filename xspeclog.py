@@ -21,6 +21,7 @@ def warning_filter(line):
     else:
         print(line)
 
+
 class modelcomp:
 
     def __init__(self, name, param):
@@ -129,7 +130,8 @@ class logfile:
 
 
         iiter = idx_conf+1
-        while self.lines[iiter].strip('#') != '\n':
+        while ( (self.lines[iiter].strip('#') != '\n') and
+                ( not self.lines[iiter].strip('#').startswith('XSPEC'))):
             if not self.lines[iiter].strip('#').split()[0].isdigit():
                 if print_warnings:
                     warning_filter(self.lines[iiter].strip('#').strip('\n'))
@@ -249,17 +251,30 @@ class xspecdata:
         assert(os.path.isfile(filename))
         with open(filename) as h:
             lines = h.readlines()
-        breakidx = np.where(np.array(lines) == 'NO NO NO NO NO\n')[0][0]
+
+        try:
+            breakidx = np.where(np.array(lines) == 'NO NO NO NO NO\n')[0][0]
+            irregular=False
+        except:
+            irregular=True
+            breakidx = np.flatnonzero(
+                    np.core.defchararray.find(np.array(lines), 'NO NO NO NO NO\n')!=-1)[0]
         #First table is the spectra
         df0 = pd.read_csv(filename, skiprows=3, delimiter=" ", 
                           header=None, nrows=breakidx-3)
         #Second table gives delchi
         df1 = pd.read_csv(filename, skiprows=breakidx+1, 
                           delimiter=" ", header=None)
-        df0.columns = ['energy', 'energy_err', 
-                       'counts', 'counts_err', 'model']
-        df1.columns = ['energy', 'energy_err', 
-                       'delchi', 'delchi_err', 'model']
+        if not irregular:
+            df0.columns = ['energy', 'energy_err', 
+                           'counts', 'counts_err', 'model']
+            df1.columns = ['energy', 'energy_err', 
+                           'delchi', 'delchi_err', 'model']
+        else:
+            df0.columns = ['energy', 'energy_err', 
+                           'counts', 'counts_err', 'model', '5', '6']
+            df1.columns = ['energy', 'energy_err', 
+                           'delchi', 'delchi_err', 'model', '5', '6']
         self.data = df0
         self.residuals = df1
 
@@ -299,6 +314,6 @@ class xspecdata:
             label = label + f", Mincounts: {self.mincounts}"
 
         if self.phot_string is not None:
-            label += r', $\Gamma=$' + self.phot_string
+            label += r', $\Gamma=$ ' + self.phot_string
 
         return label

@@ -7,6 +7,7 @@ import collections
 from fuzzywuzzy import process
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 from matplotlib import rc
 import numpy as np
 import os
@@ -86,12 +87,15 @@ def make_table(evt, output, first_ranges, second_ranges,
     chi2 = np.zeros(len(logs))
     dof = np.zeros(len(logs))
 
+    usenH=False
+
     #Fill data with each log file
     for i in range(len(logs)):
         logfile = xspeclog.logfile(logs[i])
-        phot_index.append(logfile.param_string('phot'))
-        nH.append(logfile.param_string('nH'))
-        chi2[i] = logfile.get_chi2()[0]
+        phot_index.append(logfile.param_string('powerlaw', 'phot'))
+        if usenH:
+            nH.append(logfile.param_string('tbabs', 'nH'))
+        chi2[i] = round(logfile.get_chi2()[0], 2)
         dof[i] = logfile.get_chi2()[1]
 
 
@@ -99,19 +103,28 @@ def make_table(evt, output, first_ranges, second_ranges,
     phase_ranges = [ f"{round(tup[0], 2)} -- {round(tup[1],2)}" 
                      for tup in phase_ranges ]
 
+    regions = ['\textbf{Pulse 1}', '', '\textbf{Pulse 2}', '', 
+               'Leading Edge', '', 'Trailing Edge', '']
+
     #Form the output dataframe
-    df = pd.DataFrame({"Phase Range": phase_ranges,
+    df = pd.DataFrame({'Region': regions,
+                       "Phase Range": phase_ranges,
                        r'$\Gamma$':phot_index, 
-                       r'$N_{\rm{H}}$':nH,
-                       r'$\chi^2$':chi2,
+                       #r'$N_{\rm{H}}$':nH,
+                       r'$\chi^2_{\nu}$':chi2,
                        "Degrees of":dof,
                        "Number of":ncounts,
                        })
 
+    if usenH:
+        df[r'$\Gamma$']=phot_index
+
+    df = df.reindex([0, 1, 4, 5, 6, 7, 2, 3])
+
     #Write to csv and latex
     df.to_csv(f"{output}.csv", index=False)
     df.to_latex(f"{output}.tex", index=False, escape=False, 
-                column_format='llcccr')
+                column_format='llcccrr')
     
     #Open the tex file
     with open(f"{output}.tex", 'r') as f:
@@ -119,8 +132,12 @@ def make_table(evt, output, first_ranges, second_ranges,
         f.close()
 
     #Insert second header line
-    table_lines.insert(3, "& &" + r'($10^{22}$ cm$^2$)' + 
-                       " & & Freedom & Photons\\\ \n")
+    if usenH:
+        table_lines.insert(3, "& & &" + r'($10^{22}$ cm$^2$)' + 
+                           " & & Freedom & Photons\\\ \n")
+    else:
+        table_lines.insert(3, "& & & & Freedom & Photons\\\ \n")
+    table_lines.insert(11, "\midrule\n")
 
     #Re-write tex file
     with open(f"{output}.tex", 'w') as f:
@@ -129,7 +146,7 @@ def make_table(evt, output, first_ranges, second_ranges,
         f.close()
 
 #Varation of V1. Starts with nsigma and increments smaller
-def find_phase_ranges(evt, lower, upper, nranges, sigma0=2):
+def find_phase_ranges(evt, lower, upper, nranges, sigma0=3, nbins=100):
 
     #Parameter Checking
     if type(evt) != str:
@@ -139,7 +156,7 @@ def find_phase_ranges(evt, lower, upper, nranges, sigma0=2):
 
     #Create LC object and find peak cutoff regions
     lc = LightCurve(evt)
-    lc.generate()
+    lc.generate(nbins=nbins)
     tup = lc.peak_cutoff(lower, upper, sigma0)
     p1_ranges = [niutils.phase_correction((tup.min_phase_p1, tup.max_phase_p1))]
     p2_ranges = [niutils.phase_correction((tup.min_phase_p2, 
@@ -263,6 +280,7 @@ def gen_multispectra(evt, first_ranges, second_ranges, offpeak_range,
     clobber=True
 
     log.info("Generating Off-Peak Background Spectra")
+
     #Use genspectra to create and background spectrum
     genspectra.gen_spectra(evt, 
                            offpeak_range[0], offpeak_range[1], 
@@ -396,7 +414,6 @@ def gen_multispectra(evt, first_ranges, second_ranges, offpeak_range,
 #Plotting routine for files generated in gen_multispectra
 def plot_multi_ufspec(sourcename, firsttxts, secondtxts, 
                       first_ranges, second_ranges, 
-                      first_mincounts, second_mincounts,
                       first_logs,
                       second_logs,
                       first_label,
@@ -432,20 +449,15 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
     second_data = []
 
     #Create xspeclog.xspecdata objects
-    use_counts_label=False #Setting this manually for now 
     for i in range(len(firsttxts)):
         xd = xspeclog.xspecdata(firsttxts[i])
         xd.set_phaserange(first_ranges[i][0], first_ranges[i][1])
-        if use_counts_label:
-            xd.set_counts(first_mincounts[i])
         if len(first_logs) != 0:
             xd.phot_index_from_log(first_logs[i])
         first_data.append(xd)
     for i in range(len(secondtxts)):
         xd = xspeclog.xspecdata(secondtxts[i])
         xd.set_phaserange(second_ranges[i][0], second_ranges[i][1])
-        if use_counts_label:
-            xd.set_counts(second_mincounts[i])
         if len(second_logs) != 0:
             xd.phot_index_from_log(second_logs[i])
         second_data.append(xd)
@@ -486,7 +498,7 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
                         alldata[i][j].data['counts'],
                         xerr = alldata[i][j].data['energy_err'],
                         yerr = alldata[i][j].data['counts_err'],
-                        ls=' ', marker='o', color=colors[i][j],
+                        ls=' ', marker='.', color=colors[i][j],
                         label=alldata[i][j].get_label(),
                         zorder=i)
             ax.plot(alldata[i][j].data['energy'],
@@ -499,11 +511,19 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
         ax.set_xscale('log')
         ax.set_yscale('log')
 
-        if sourcename == 'PSR B1937+21':
+        if sourcename == r'PSR B1937$+$21':
             if i==0:
-                ax.set_ylim(top=ax.get_ylim()[1]*2)
+                #ax.set_ylim(top=ax.get_ylim()[1]*2)
 
                 ax.set_ylim(bottom=ax.get_ylim()[0]*.5)
+
+        elif sourcename == r'PSR B1821$-$24':
+            if i==0:
+                ax.set_ylim(bottom=1e-6)
+
+        elif sourcename == r'PSR J0218$+$4232':
+            if i==0:
+                ax.set_ylim(bottom=1.1e-6)
 
         ax.text(.95, .95, sourcename, transform=ax.transAxes, 
                 ha='right', va='top', fontsize=20)
@@ -521,7 +541,7 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
 
     #Adjust axis for 1937
     if sourcename == r'PSR B1937$+$21':
-        #axs0.set_ylim(top=axs0.get_ylim()[1]*3)
+        axs0.set_ylim(top=axs0.get_ylim()[1]*2)
         axf0.set_ylim(top=axf0.get_ylim()[1]*3)
         axs0.set_xlim(left=0.7)
 
@@ -541,6 +561,7 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
         ax = niutils.plotparams(ax)
         ax.axhline(0, ls=':', lw=1.5, color='gray')
         ax.set_xscale('log')
+        ax.xaxis.set_major_formatter(mticker.FormatStrFormatter('%.1f'))
         ax.set_xlim(right=10)
         if vertical:
             ax.set_ylabel(r'Residuals ($\chi$)', fontsize=15)
@@ -561,6 +582,13 @@ def plot_multi_ufspec(sourcename, firsttxts, secondtxts,
     else:
         axf0.set_ylabel('Photons cm$^{-2}$ s$^{-1}$ keV$^{-1}$',fontsize=30)
         axf1.set_ylabel(r'Residuals ($\sigma$)', fontsize=18)
+
+
+    #Add labels for figure caption
+    axf0.text(.05, .95, '(a)', transform=axf0.transAxes,
+              ha='right', va='top', fontsize=18)
+    axs0.text(.05, .95, '(b)', transform=axs0.transAxes,
+              ha='right', va='top', fontsize=18)
 
     #Write figure to file
     fig.savefig(output, dpi=2000)
@@ -590,7 +618,7 @@ def wrapper(evt,  output,
             mincounts_interpulse_init = 800
             mincounts_leading_init = 200
             mincounts_trailing_init = 600
-            back = [ (.85, 1.15), (.40, .60) ]
+            back = [ (.9, 1.2), (.40, .60) ]
 
         #hardcoded parameters for 1937
         elif source == 'PSR B1937+21':
@@ -602,18 +630,20 @@ def wrapper(evt,  output,
             mincounts_interpulse_init = 800
             mincounts_leading_init = 200
             mincounts_trailing_init = 800
-            back = [ (.9, 1.2), (.45, .75) ]
+            back = [ (.2, .4), (.70, 1.0) ]
+            nbins = 100
 
         #hardcoded parameters for 0218
         else:
-            lower_energy_primary = 1.0
-            lower_energy_interpulse = 1.0
-            lower_energy_leading = 0.7
-            lower_energy_trailing = 0.8
+            lower_energy_primary = .2
+            lower_energy_interpulse = .2
+            lower_energy_leading = .2
+            lower_energy_trailing = .2
             mincounts_primary_init = 1500
             mincounts_interpulse_init = 800
             mincounts_leading_init = 200
             mincounts_trailing_init = 800
+            back = [ (.25, .35), (.75, .85) ]
 
 
         #Use pickle for phase ranges if it exists in current dir
@@ -630,8 +660,11 @@ def wrapper(evt,  output,
 
 
             #Find phase ranges for primary and interpulse
+            lower_back = back[0]
+            upper_back = back[1]
             pi_rangetup = find_phase_ranges(evt, lower_back, upper_back, 
-                                               nranges=2)
+                                               nranges=2, nbins=nbins)
+            print(pi_rangetup)
             p1_ranges = pi_rangetup.p1
             p2_ranges = pi_rangetup.p2
 
@@ -701,7 +734,6 @@ def wrapper(evt,  output,
         #Plot the spectra output from gen_multispectra
         plot_multi_ufspec(evt, firsttxts, secondtxts,
                           first_ranges, second_ranges, 
-                          first_mincounts, second_mincounts,
                           firstlogs, secondlogs, 
                           first_label, second_label, output, 
                           vertical=vertical)
