@@ -6,22 +6,63 @@ import matplotlib.pyplot as plt
 from scipy import exp
 import matplotlib.patches as patches
 
+#Set colors for all plots
 def get_colors():
     d = {'br_colors': ['#ffa600', '#ff6361', '#bc5090',  
                        '#58508d',  '#003f5c'],
+         'br_colors_dark': ['#805300', '#803230', '#3D1A2F',
+                            '#302C4D', '#000000'],
          'environ_color': '#217525',
          '3c50_color': '#009FE8'}
                        
     return d
 
-def map_colors(ranges=['--40', '40--60', '60--80', '80--180', '180--']):
-    br_colors = get_colors()['br_colors']
+#Map colors to ranges
+def map_colors(ranges=['--40', '40--60', '60--80', '80--180', '180--'],
+               dark=False):
+    if dark:
+        br_colors = get_colors()['br_colors_dark']
+    else:
+        br_colors = get_colors()['br_colors']
     assert(len(ranges) == len(br_colors))
     map_colors = {}
     for i in range(len(ranges)):
         map_colors[ranges[i]] = br_colors[i]
 
     return map_colors
+
+#Check if list tuple, np array, etc
+def check_iter(var):
+    if type(var) == str:
+        return False
+    elif hasattr(var, '__iter__'):
+        return True
+    else:
+        return False
+
+#Format bright earth range for legend or txt
+def br_label(r):
+    split = r.split('--')
+    assert(len(split)==2)
+    if split[0] == '':
+        return r'BR\_EARTH $<{0}^\circ$'.format(split[1])
+    elif split[1] == '':
+        if split[0] in ['180', 180]:
+            return r'BR\_EARTH$=200^\circ$'
+        else:
+            return r'BR\_EARTH $>{0}^\circ$'.format(split[0])
+    else:
+        return r'${0}^\circ<$BR\_EARTH$<{1}^\circ$'.format(*split)
+
+#Format sun angle range for legend or txt
+def sa_label(r):
+    split = r.split('--')
+    assert(len(split)==2)
+
+    if split[0] == '':
+        return r'SUN\_ANGLE $<{0}^\circ$'.format(split[1])
+    else:
+        return r'SUN\_ANGLE $>{0}^\circ$'.format(split[0])
 
 def round_sigfigs(val, err):
     idx = len(str(err))
