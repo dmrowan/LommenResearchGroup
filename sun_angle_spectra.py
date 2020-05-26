@@ -195,5 +195,5 @@ def wrapper2(gen=True):
 
     text="For each bright earth angle range we extract\ntwo spectra: one with sun angle below the \nmedian, and one above. For each bright earth\nangle range we plot the two \nspectra with the area between shaded in"
 
-    plot_sun_angle_fill(data_list, br_ranges, sa_ranges, text=text, 
+    plot_sun_angle_fill(data_list, br_ranges, sa_ranges, #text=text, 
                         savefig='sun_angle_spectra.pdf')

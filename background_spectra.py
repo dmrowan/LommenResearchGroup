@@ -111,8 +111,8 @@ def plot_bkgd_spectra(br_data_list, br_ranges,
                       sa_ranges=None,
                       environ=None, bkg3c50=None,
                       two_panel=False, savefig=None,
-                      zoom_top=0.3, zoom_bottom=0.9,
-                      zoom_left=0.3, zoom_right=0.9):
+                      zoom_top=0.9, zoom_bottom=0.3,
+                      zoom_left=0.28, zoom_right=0.92):
 
     assert(len(br_data_list) == len(br_ranges))
 
@@ -160,8 +160,9 @@ def plot_bkgd_spectra(br_data_list, br_ranges,
         ls_flat.append('-')
 
     if two_panel:
-        fig, (ax, ax1) = plt.subplots(2, 1, figsize=(16, 16))
-        plt.subplots_adjust(hspace=.1)
+        fig, (ax, ax1) = plt.subplots(2, 1, figsize=(16, 14))
+        plt.subplots_adjust(hspace=.1, top=.98, right=.98, 
+                            bottom=.08, left=.08)
         ax_list = [ax, ax1]
 
     else:
@@ -170,15 +171,19 @@ def plot_bkgd_spectra(br_data_list, br_ranges,
 
     for a in ax_list: a = niutils.plotparams(a)
 
+    markers = ['.', 'o']
     for i in range(len(data_flat)):
         df = pd.read_csv(data_flat[i], skiprows=3, delimiter=" ", header=None)
         df.columns = ['energy', 'energy_err', 'counts', 'counts_err']
 
+        mi = 0
         for a in ax_list:
             a.errorbar(df['energy'], df['counts'],
                        xerr=df['energy_err'], yerr=df['counts_err'],
-                       ls=ls_flat[i], marker='.', color=colors_flat[i],
+                       ls=ls_flat[i], marker=markers[mi], 
+                       color=colors_flat[i],
                        label=labels_flat[i])
+            mi += 1
 
     ax.legend(edgecolor='black', fontsize=20)
 
@@ -186,12 +191,12 @@ def plot_bkgd_spectra(br_data_list, br_ranges,
         a.set_ylabel(r'Normalized Counts (s$^{-1}$ keV$^{-1}$)', fontsize=20)
         a.set_xscale('log')
         a.set_yscale('log')
-    ax_list[-1].set_xlabel('Energy (keV)', fontsize=20)
+        a.set_xlabel('Energy (keV)', fontsize=20)
     ax.xaxis.set_major_formatter(mticker.FormatStrFormatter('%.1f'))
     if two_panel:
         ax1.xaxis.set_minor_formatter(mticker.FormatStrFormatter('%.01f'))
-        ax1.set_xlim(zoom_bottom, zoom_top)
-        ax1.set_ylim(zoom_left, zoom_right)
+        ax1.set_xlim(left=zoom_left, right=zoom_right)
+        ax1.set_ylim(bottom=zoom_bottom, top=zoom_top)
 
         con1 = ConnectionPatch(xyA=(ax1.get_xlim()[0], ax1.get_ylim()[1]),
                                xyB=(ax1.get_xlim()[0], ax1.get_ylim()[0]),
@@ -244,5 +249,14 @@ if __name__ == '__main__':
                        ['--40', '40--60', '60--80', '80--180', '180--'],
                        environ='environ_all/data_environ_all.txt',
                        bkg3c50='3c50/data_3c50.txt',
-                       savefig='BKGD_spectra.pdf')
+                       savefig='BKGD_spectra.pdf',
+                       two_panel=True)
 
+    plot_bkgd_spectra(['br_earth_--40_data.txt',
+                       'br_earth_40--60_data.txt', 
+                       'br_earth_60--80_data.txt', 
+                       'br_earth_80--180_data.txt', 
+                       'br_earth_180--_data.txt'], 
+                       ['--40', '40--60', '60--80', '80--180', '180--'],
+                       savefig='BKGD_spectra_no_model.pdf', 
+                       two_panel=True)

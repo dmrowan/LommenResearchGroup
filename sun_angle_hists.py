@@ -36,7 +36,7 @@ def sun_angle_hist(mkf_list, ranges, savefig=None, multiple_panels=False,
             a.axvline(np.median(tab['SUN_ANGLE']), color='gray', ls=':',
                       lw=3)
             if i in [3,4]:
-                a.set_xlabel('Sun Angle', fontsize=30)
+                a.set_xlabel('Sun Angle (Degrees)', fontsize=30)
             else:
                 a.set_xticklabels([])
         else:

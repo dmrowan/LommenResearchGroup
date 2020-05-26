@@ -2,6 +2,7 @@
 
 import argparse
 import astropy.coordinates as coord
+from astropy.io import fits
 from astropy.table import Table
 from astropy import log
 import astropy.units as u
@@ -12,9 +13,13 @@ from matplotlib.patheffects import withStroke
 import pandas as pd
 from tqdm import tqdm
 
+from background_LC import convert_time
+
 desc="""
 Generate a skymap showing the BKGD_RXTE regions
 """
+
+rc('text', usetex=True)
 
 def find_exposure():
 
@@ -29,10 +34,19 @@ def find_exposure():
     #Make dictionary
     exp_totals = {'1':0, '2':0, '3':0, '4':0, '5':0, '6':0, '8':0}
 
+    full_exp_list = []
     #Pull exp val from each table
     for i in tqdm(range(len(paths))):
+        """
         tab = Table.read(paths[i], hdu=1)
         exp = tab.meta['EXPOSURE']
+        if exp > 1e8: print(paths[i])
+        full_exp_list.append(exp)
+        """
+        hdul = fits.open(paths[i])
+        tstart = convert_time(hdul[0].header['TSTART'])
+        tstop = convert_time(hdul[0].header['TSTOP'])
+        exp = (tstop - tstart).total_seconds()
         exp_totals[bkgd_number[i]] += exp
 
     return exp_totals
@@ -68,9 +82,9 @@ def make_table(output):
 
     #Create the dataframe
     df = pd.DataFrame({
-        'Region': [ f'BKGD\_RXTE\_{i}' for i in bkgd_n ],
+        'Region': ['BKGD\_RXTE\_1']+bkgd_n[1:],
         'Number of ObsIDs': [ obs_n_dic[k] for k in obs_n_dic.keys() ],
-        'Total Exposure (Ms)': [ int(round(exp_dic[k]/(1e6))) 
+        'Total Exposure (ks)': [ int(round(exp_dic[k]/(1e3))) 
                                 for k in exp_dic.keys() ],
         'Right Ascension': [ r'${0}^\circ$'.format(str(c[0])) 
                              for c in coord_list ],
@@ -79,7 +93,7 @@ def make_table(output):
 
     #First write to latex table format
     with open(output, 'w') as f:
-        f.write(df.to_latex(index=False, escape=False, column_format='cccrr'))
+        f.write(df.to_latex(index=False, escape=False, column_format='rccrr'))
         f.close()
 
     #Read in the file again
@@ -92,7 +106,7 @@ def make_table(output):
     lines.insert(i, '\midrule\n')
     lines.insert(i+1, 'Total: & {0} & {1} & &\\\ \n'.format(
         sum(df['Number of ObsIDs']), 
-        int(round(sum([ exp_dic[k]/(1e6) for k in exp_dic.keys() ])))))
+        int(round(sum([ exp_dic[k]/(1e3) for k in exp_dic.keys() ])))))
 
     #Save the file again
     with open(output, 'w') as f:
@@ -124,7 +138,7 @@ def plot_skymap(savefig=None):
 
     #Rescale exposure to point size
     key_max = max(exp_totals.keys(), key=(lambda k: exp_totals[k]))
-    scalar = 500
+    scalar = 600
     exp_scaled = [ (exp_totals[k]/exp_totals[key_max])*scalar
                    for k in exp_totals.keys() ]
 
@@ -135,7 +149,9 @@ def plot_skymap(savefig=None):
     txtkwargsw = dict(path_effects=[myeffectw])
     afont = {'fontname':'monospace'}
     for i in range(len(labels)):
-        if labels[i] != '6':
+        if labels[i] == '8':
+            rai = ra[i].radian + 10*np.pi/180
+        elif labels[i] != '6':
             rai = ra[i].radian + 7*np.pi/180
             va='bottom'
         else:
@@ -156,13 +172,23 @@ def plot_skymap(savefig=None):
     ax.scatter(mw.ra.wrap_at(180*u.degree).radian, mw.dec.radian, color='gray', alpha=.6, s=2)
 
 
+    #This is literally the worst
+    fig.canvas.draw()
+    ylabels = [ item.get_text() for item in ax.get_yticklabels() ]
+    new_y_labels = [ s.replace('°', r'$^{\circ}$') for s in ylabels ]
+    ax.set_yticklabels(new_y_labels)
+
+    xlabels = [ item.get_text() for item in ax.get_xticklabels() ]
+    new_x_labels = [ s.replace('°', r'$^{\circ}$') for s in xlabels ]
+    ax.set_xticklabels(new_x_labels)
+    
     #Save or show
     if savefig is None:
         plt.show()
     else:
         fig.savefig(savefig)
-        if savefig.endswith('pdf'):
-            fig.savefig(savefig.replace('pdf', 'png'))
+        #if savefig.endswith('pdf'):
+        #    fig.savefig(savefig.replace('pdf', 'png'))
 
 
 if __name__ == '__main__':

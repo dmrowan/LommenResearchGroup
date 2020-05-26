@@ -104,6 +104,34 @@ def plotparams(ax):
         ax.spines[axis].set_linewidth(1.7)
     return ax
 
+def DoubleY(ax, colors=('black', 'black')):
+    '''
+    Create a double y axis with two seperate colors
+
+    :param ax: axes to modify
+
+    :type ax: matplotlib axes object
+
+    :param colors: 2-tuple of axes colors
+
+    :type colors: tuple length 2
+
+    :returns: two axes, modified original and new y scale
+    '''
+    if (type(colors) != tuple) or (len(colors) != 2):
+        raise TypeError("colors must be 2-tuple")
+    ax2 = ax.twinx()
+    ax.minorticks_on()
+    ax.xaxis.set_ticks_position('both')
+    for a in [ax, ax2]:
+        a.minorticks_on()
+        a.tick_params(direction='in', which='both', labelsize=15)
+        a.tick_params('both', length=8, width=1.8, which='major')
+        a.tick_params('both', length=4, width=1, which='minor')
+    ax.tick_params('y', colors=colors[0], which='both')
+    ax2.tick_params('y', colors=colors[1], which='both')
+    return ax, ax2
+
 def add_CharErrBar(ax, counts, xfrac, yfrac):
     xmin, xmax = ax.get_xlim()
     ymin, ymax = ax.get_ylim()
