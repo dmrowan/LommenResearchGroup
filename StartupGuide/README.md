@@ -9,3 +9,11 @@ Requirements:
 * Heasoft 6.27
 * PINT
 * nicersoft
+
+Sections
+* What's in an ObsID?
+* How "clean" an observation
+* Using event files for data analysis
+* Spectra analysis
+* Background modeling
+* Misc
