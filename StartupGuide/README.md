@@ -7,7 +7,7 @@ Here, we assume the reader has a basic understanding of python and unix.
 Requirements: 
 * Python 3
 * Heasoft 6.27
-* PINT
+* [https://github.com/nanograv/PINT](PINT)
 * [github.com/paulray/nicersoft](nicersoft)
 
 Sections
