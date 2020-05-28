@@ -13,7 +13,8 @@ Requirements:
 Sections
 * What's in an ObsID?
 * How "clean" an observation
-* Using event files for data analysis
+* EventFiles: Using event files for data analysis
+    * Example: construct a pulse profile from PSR B1937+21 data
 * Spectra analysis
 * Background modeling
 * Misc
