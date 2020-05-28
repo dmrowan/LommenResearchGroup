@@ -8,7 +8,7 @@ Requirements:
 * Python 3
 * Heasoft 6.27
 * PINT
-* nicersoft
+* [github.com/paulray/nicersoft](nicersoft)
 
 Sections
 * What's in an ObsID?
