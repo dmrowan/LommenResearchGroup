@@ -10,7 +10,7 @@ A collection of procedures designed for analysis of NICER observations. Develope
 ```
 git clone https://github.com/dmrowan/LommenResearchGroup
 ```
-3. Modify PATH and PYTHONPATH in bashrc. If the directory you cloned LommenResarchGroup into is <basedir>, this would look like:
+3. Modify PATH and PYTHONPATH in the bashrc file. If the directory you cloned LommenResarchGroup into is <basedir>, this would look like:
 ```
   export PATH=<basedir>/LommenResearchGroup:$PATH
   export PYTHONPATH=<basedir>/LommenResearchGroup/:$PYTHONPATH
