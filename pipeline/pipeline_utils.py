@@ -3,8 +3,16 @@
 from __future__ import print_function, division
 from astropy import log
 import argparse
+from bs4 import BeautifulSoup
+import numpy as np
+import pandas as pd
+import pint
+import requests
 import subprocess
 import os
+
+#LommenResearchGroup imports
+import niutils
 
 #Dom Rowan 2020
 
@@ -127,4 +135,75 @@ def run_datadownload(sourcename, heasarc_user, heasarc_pwd, outdir,
 		cmd.append('--clobber')
 
 	subprocess.call(cmd)
+
+
+def version_check():
+	print("Heasoft version: ", 
+		  subprocess.check_output('echo $HEADAS', shell=True))
+
+	print("Last NICERsift git pull",
+		  subprocess.check_output(
+			  'stat -c %y /homes/pipeline/nicersoft/.git/FETCH_HEAD', 
+			  shell=True))
+
+	print("pint version: ", pint.__version__)
+
+
+#Code from ni_data_download
+#Can't do an import because code is written as executable for some reason...
+def print_nicer_segment(url = 'https://heasarc.gsfc.nasa.gov/docs/nicer/team_schedule/nicer_seg_team.html',
+                        username = None, password=None):
+    """
+    This prints out the segment detail table in text format
+    usage: % print_nicer_segment(username = "nicer_user_name" password = "nicer password")
+    outputs: prints the nicer segment table to the terminal
+    :param url: location of the segment detail page
+    :param username: nicer team username
+    :param password: nicer team password
+    :return:
+    """
+    if (not username) or (not password):
+        raise ValueError("must supply username and password to access the NICER obs page")
+    req = requests.get(url, auth=(username, password))
+    if req.status_code != 200:
+        raise ValueError('Problem accessing {0} with ({1}, {2}) \nReturn code: {3}'.format(
+            url, username, password, req.status_code))
+        
+    soup = BeautifulSoup(req.text, 'lxml')
+    tabs = soup.find_all('table')[1]    
+    df = pd.read_html(str(tabs))
+    return df[0]
+
+
+def get_exposure(sources):
+	df = print_nicer_segment(username='nicer_team', password='sextant')
+
+	if not niutils.check_iter(sources):
+		sources = [sources]
+	else:
+		pass
+
+	exp_list = []
+	n_obsIDs = []
+	for s in sources:
+		df_selection = df[df['Target Name']==s]
+		n_obsIDs.append(len(df_selection))
+		exp_list.append(np.sum(df_selection['Good Expo[s]']))
+
+	return exp_list, n_obsIDs
+
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
 
