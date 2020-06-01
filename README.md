@@ -1,15 +1,26 @@
 # Lommen Research Group
 
-A collection of procedures designed for profile and spectral analysis of NICER millisecond pulsars. Developed by students in Prof. Lommen's research group at Haverford College. 
+A collection of procedures designed for analysis of NICER observations. Developed by students in Prof. Lommen's research group at Haverford College. 
 
 <a href="https://gameon.nasa.gov/projects/deep-space-x-ray-navigation-and-communication/"><img src="https://gameon.nasa.gov/files/2017/03/nicer_logo.png" title="NICERlogo" alt="NICERlogo" width="400"></a>
 
 ## Getting Started
-
-
+1. Ensure all pre-requisites are met
+2. Use git clone to clone the directory
+```
+git clone https://github.com/dmrowan/LommenResearchGroup
+```
+3. Modify PATH and PYTHONPATH in bashrc. If the directory you cloned LommenResarchGroup into is <basedir>, this would look like:
+```
+  export PATH=<basedir>/LommenResearchGroup:$PATH
+  export PYTHONPATH=<basedir>/LommenResearchGroup/:$PYTHONPATH
+```
 ### Prerequisites
-
-What things you need to install the software and how to install them
+* Python 3
+* PINT
+* Heasoft
+* [NICERsoft](https://github.com/paulray/nicersoft)
+* See requirements.txt for python package requirements (dom still has to do this)
 
 ## Authors
 
