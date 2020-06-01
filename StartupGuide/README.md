@@ -1,8 +1,10 @@
-# NICER Data Analysis Intro
+#NICER Data Analysis Intro
 
 In this directory you can find documentation & examples regarding use of NICER data analysis. 
 
 Here, we assume the reader has a basic understanding of python and unix. 
+
+Each section below contains a markdown file (md).
 
 Requirements: 
 * Python 3
@@ -10,7 +12,7 @@ Requirements:
 * [https://github.com/nanograv/PINT](PINT)
 * [github.com/paulray/nicersoft](nicersoft)
 
-Sections
+## Sections
 * What's in an ObsID?
 * How "clean" an observation
 * EventFiles: Using event files for data analysis
