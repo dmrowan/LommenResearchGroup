@@ -60,7 +60,7 @@ def run_psrpipe(obsID, par,
 		   '--minsun', str(min_sun)]
 
 	if par is not None:
-		cmd.append('--par', par)
+		cmd.extend(['--par', par])
 	else:
 		log.info("No par file input: pulse phase will not be defined")
 
@@ -76,6 +76,7 @@ def allprocedures(obsID, par,
 				  trumpet=True, keith=True, 
 				  clobber=False):
 	
+	print(obsID)
 	if ((os.path.isfile("{}_pipe/cleanfilt.evt".format(obsID))) 
 	    and (not clobber)):
 		return 0
@@ -88,7 +89,8 @@ def allprocedures(obsID, par,
 		log.error("obsID not found")
 		return -1
 
-	pipeline_utils.run_nicerl2(obsID, trumpet=trumpet)
+	if (not pipeline_utils.check_nicerl2(obsID)) or clobber:
+		pipeline_utils.run_nicerl2(obsID, trumpet=trumpet)
 
 	pipeline_utils.run_add_kp(obsID)
 
@@ -101,6 +103,7 @@ def wrapper(par, emin=0.25, emax=12,
 			trumpet=True, keith=True, clobber=False):
 
 	pool = mp.Pool(processes=mp.cpu_count()+2)
+	#pool = mp.Pool(processes=1)
 	jobs = []
 	times = []
 	for f in os.listdir("./"):
@@ -116,8 +119,7 @@ def wrapper(par, emin=0.25, emax=12,
 				jobs.append(job)
 
 	for job in jobs:
-		output = job.get()
-		times.append(output)
+		job.get()
 
 
 def update(sourcename, heasarc_user, heasarc_pwd, outdir, decryptkey,

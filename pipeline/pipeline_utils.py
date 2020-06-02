@@ -91,7 +91,7 @@ def run_nicerl2(obsID, clobber=False, br_filter=True, horizon_filter=False,
 		cmd.append('nicersaafilt=NO')
 		cmd.append('trackfilt=NO')
 		cmd.append('st_valid=NO')
-		cmd.append('ang_dist=0.015')
+		cmd.append('ang_dist=180')
 
 	if not trumpet:
 		log.info("Not using trumpet filter")
@@ -105,18 +105,20 @@ def run_add_kp(obsID):
 	cmd = ['add_kp.py', "{f}/auxil/ni{f}.mkf".format(f=obsID),
 		   '--potsdam']
 
+	subprocess.call(cmd)
+
 
 def outdircheck(sourcename):
-	log.warning("WARNING: source name {}\
+	log.warning("source name {}\
 	inconsistent with output dir".format(sourcename))
-	check = raw_input("Continue -- [y/n] ")
-	if any([check == ['y', 'Y']]):
-		return 1
+	check = input("Continue -- [y/n] ")
+	if check in ['y', 'Y']:
+		return True
 	else:
-		return 0
+		return False
 
 def run_datadownload(sourcename, heasarc_user, heasarc_pwd, outdir,
-					 decryptkey, clobber=False):
+					 decryptkey, clobber=False, obsIDs=None):
 
 	if outdir == "./":
 		if not os.getcwd().endswith(sourcename):
@@ -133,6 +135,10 @@ def run_datadownload(sourcename, heasarc_user, heasarc_pwd, outdir,
 
 	if clobber:
 		cmd.append('--clobber')
+
+	if obsIDs is not None:
+		cmd.append('--obsIDs')
+		cmd.extend(obsIDs)
 
 	subprocess.call(cmd)
 
