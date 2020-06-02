@@ -1,0 +1,13 @@
+data 1:1 onpeak_1.pha 2:2 nu30101031002_on_off_bk_sr.pha.grp 3:3 b1937_xmm_mos_src.pha.grp
+resp 1:1 /packages/caldb/data/nicer/xti/cpf/rmf/nixtiref20170601v001.rmf
+arf 1:1 /packages/caldb/data/nicer/xti/cpf/arf/nixtiaveonaxis20170601v002.arf
+back 1:1 offpeak.pha
+
+cpd /xs
+abund wilm
+
+ignore 1:**-1., 9.-**
+ignore 2:80.-**
+ignore 3:**-1.,10.-** 
+
+model powerlaw*tbabs

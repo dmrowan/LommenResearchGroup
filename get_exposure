@@ -1,0 +1,197 @@
+#!/usr/bin/env python
+from __future__ import print_function, division
+import os, sys
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import argparse
+from astropy import log
+from os import path
+from glob import glob
+from subprocess import check_call
+import shutil
+from astropy.table import Table
+import sys
+from nicer.values import *
+from datetime import datetime
+from dateutil import parser as pr
+import pylab
+import itertools
+from datetime import timedelta
+
+#Dom Rowan & Liam Lynch, 2018
+desc = """
+This plots the cumulative exposure by week for the ObsIDs in the current directory. It looks at the raw, clean, and cut data to compare exposure times 
+"""
+
+parser = argparse.ArgumentParser(description = desc)
+parser.add_argument("--nocut", help="Dont use cr_cut.py", default=False, action='store_true')
+parser.add_argument("--cutval", help="Cut option for cr_cut.py", type=float, default=None)
+parser.add_argument("--overwrite", help="Overwrite previous cut.evt files", default=False, action='store_true')
+parser.add_argument("--timebin", help="Timebin option for cr_cut.py", type=float, default=8)
+args = parser.parse_args()
+
+#Define a function for sorting dates by week
+#Takes a list of tuples in [(date1, exposure1), (date2, exposure2)]
+def toWeek(tuplist):
+	sunday = datetime.strptime(tuplist[0], '%Y-%m-%d').strftime('%Y-%U-0')
+    	return datetime.strptime(sunday, '%Y-%U-%w').strftime('%Y-%m-%d')
+
+#Make a directory of the unordered files
+files_unordered = {}
+#Iterate through all obsIDs
+for filename in os.listdir(os.getcwd()):
+	if os.path.isfile(filename+"_pipe/tot.gti"):
+		print(filename)
+		#First get the clean exposure time from cleanfilt.evt
+		cleanfilt = filename + "_pipe/cleanfilt.evt"
+		if os.path.isfile(cleanfilt):
+			cleanevttable = Table.read(cleanfilt, hdu=2)
+			cleanexposure = cleanevttable.meta['EXPOSURE']
+		else:
+			cleanexposure = 0
+
+		#Now get raw exposure time 
+		rawufa = filename + "/xti/event_cl/ni"+filename+"_0mpu7_ufa.evt"
+		ufatable = Table.read(rawufa, hdu=1)
+		rawexposure = ufatable.meta['EXPOSURE']
+		obstime = ufatable.meta['DATE-OBS']
+		obstime_dt = pr.parse(obstime)
+		sourcename = ufatable.meta['OBJECT']
+
+		#Run cr_cut and get cut exposure time
+		if (not args.nocut) and (os.path.isfile(filename+"_pipe/cleanfilt.evt")):
+			if os.path.isfile(filename + "_pipe/cleanfilt_cut.evt"):
+				if args.overwrite:
+					print("Running cr_cut.py")
+					if args.cutval is not None:
+						os.system('cr_cut.py '+cleanfilt+' --cut ' + str(args.cutval) + ' --timebin '+str(args.timebin))
+					else:
+						os.system('cr_cut.py '+cleanfilt + ' --timebin '+str(args.timebin))
+				else:
+					print("cleanfilt_cut already exists")
+			
+			else:
+				if args.cutval is not None:
+					os.system('cr_cut.py '+cleanfilt+' --cut ' + str(args.cutval) + ' --timebin '+str(args.timebin))
+				else:
+					os.system('cr_cut.py '+cleanfilt + ' --timebin '+str(args.timebin))
+
+
+			cutfilt = filename + "_pipe/cleanfilt_cut.evt"
+			cutevttable = Table.read(cutfilt, hdu=1)
+			cutexposure = cutevttable.meta['EXPOSURE']
+	
+		else:
+			cutexposure=0
+
+		#Add values to directory
+		files_unordered[obstime_dt] = [filename, cleanexposure, rawexposure, cutexposure]
+
+print("clean exposure: {}".format(cleanexposure))
+#Sort everything
+dates = []
+ordered_clean_exposure = []
+ordered_raw_exposure = []
+ordered_cut_exposure = []
+for key in sorted(files_unordered.iterkeys()):
+	dates.append(key)
+	ordered_clean_exposure.append(files_unordered[key][1])
+	ordered_raw_exposure.append(files_unordered[key][2])
+	ordered_cut_exposure.append(files_unordered[key][3])
+		
+#We are only interested in the year day and month of the time (since we are grouping by week)		
+date_ydm = []
+for i in range(len(dates)):
+	date_ydm.append(str(dates[i])[:10])
+
+###Create Tuples###
+tup_clean = []
+for i in range(len(date_ydm)):
+	tup_clean.append((date_ydm[i], ordered_clean_exposure[i]))
+
+tup_raw = []
+for i in range(len(date_ydm)):
+	tup_raw.append((date_ydm[i], ordered_raw_exposure[i]))
+
+tup_cut = []
+for i in range(len(date_ydm)):
+	tup_cut.append((date_ydm[i], ordered_cut_exposure[i]))
+
+###Group by Week###
+grouped_clean_exposures = itertools.groupby(tup_clean, toWeek)
+		
+aggregate_exposures_clean = (
+    	(week, sum(day_exposures for date, day_exposures in week_exposures))
+    	for week, week_exposures in grouped_clean_exposures)
+
+aggregate_exposures_clean = list(aggregate_exposures_clean)
+
+grouped_raw_exposures = itertools.groupby(tup_raw, toWeek)
+
+aggregate_exposures_raw = (
+    	(week, sum(day_exposures for date, day_exposures in week_exposures))
+    	for week, week_exposures in grouped_raw_exposures)
+
+aggregate_exposures_raw = list(aggregate_exposures_raw)
+
+grouped_cut_exposures = itertools.groupby(tup_cut, toWeek)
+
+aggregate_exposures_cut = (
+    	(week, sum(day_exposures for date, day_exposures in week_exposures))
+    	for week, week_exposures in grouped_cut_exposures)
+
+aggregate_exposures_cut = list(aggregate_exposures_cut)
+
+###Get our lists to plot###
+week_list = [ i[0] for i in aggregate_exposures_clean ]
+values_clean = [ (i[1])/1000.0 for i in aggregate_exposures_clean ]
+values_raw = [ (i[1])/1000.0 for i in aggregate_exposures_raw ]
+values_cut = [ (i[1])/1000.0 for i in aggregate_exposures_cut ]
+dates_converted = [ pr.parse(i) for i in week_list ]
+#We have to shift the dates over a bit for the multi-bar graph
+dates_converted_raw = [ date + timedelta(days=7.0/6.0) for date in dates_converted ]
+dates_converted_clean = [ date + timedelta(days=21.0/6.0)  for date in dates_converted ] 
+dates_converted_cut = [ date + timedelta(days=35.0/6.0)  for date in dates_converted ]
+
+
+###Make Tick Marks###
+print(dates_converted)
+firstweek = dates_converted[0]
+lastweek = dates_converted[-1]
+iterweek = firstweek
+iter2week = firstweek
+ticklist = []
+linelist = []
+while True:
+	linelist.append(iterweek)
+	if iterweek >= lastweek:
+		break
+	else:
+		iterweek = iterweek + timedelta(days=7)
+
+while True:
+	ticklist.append(iter2week)
+	if iter2week >= lastweek:
+		break
+	else:
+		iter2week = iter2week + timedelta(days=14)
+
+ticklabels = [ date.strftime('%m/%d/%Y') for date in ticklist ]
+
+###Plot Everything###
+plt.bar(dates_converted_clean, values_clean, color='g', width=14.0/6.0, label='Clean (cleanfilt.evt)')
+plt.bar(dates_converted_raw, values_raw, color='r', width=14.0/6.0, label='Raw (0mpu7_ufa.evt)')
+plt.bar(dates_converted_cut, values_cut, color='b', width=14.0/6.0, label='Cut (cleanfilt_cut.evt)')
+plt.axhline(y=6.4, alpha=.5, color='black', linestyle='--')
+
+plt.xticks(ticklist, ticklabels)
+plt.tick_params(axis='x', labelsize=6)
+for date in linelist:
+	plt.axvline(x=date, alpha=.2, color='black', linestyle='--')
+plt.legend()
+plt.xlabel("Date")
+plt.ylabel("Exposure [ks]")
+plt.title("Cumulative Exposure for "+str(sourcename))
+plt.savefig("Exp_"+str(sourcename)+".png")
+plt.show()
