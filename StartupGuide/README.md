@@ -1,4 +1,4 @@
-#NICER Data Analysis Intro
+# NICER Data Analysis Intro
 
 In this directory you can find documentation & examples regarding use of NICER data analysis. 
 
