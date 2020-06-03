@@ -10,6 +10,28 @@ Here, we give an overview of these routines and discuss how they might be used f
 
 # nicerl2
 
+[HEADAS Help File](https://heasarc.gsfc.nasa.gov/lheasoft/ftools/headas/nicerl2.html5)
+
+`nicerl2` combines multiple nicer calibration routines into one step to allow for easy handling of observations. In it's simplest form, nicerl2 can be run as
+```
+$ nicerl2 obsID
+```
+where obsID is the number corresponding to the observation directory. 
+
+nicerl2 combines four steps:
+1. [nicercal](https://heasarc.gsfc.nasa.gov/lheasoft/ftools/headas/nicercal.html)
+2. [niprefilter2](https://heasarc.gsfc.nasa.gov/lheasoft/ftools/headas/niprefilter2.html)
+3. [nimaketime](https://heasarc.gsfc.nasa.gov/lheasoft/ftools/headas/nimaketime.html)
+4. [nicermergeclean](https://heasarc.gsfc.nasa.gov/lheasoft/ftools/headas/nicermergeclean.html)
+
+In the nicercal step, gain calibration and clock corrections are applied for each MPU separately. This calculates the PI columns.
+
+In the niprefilter2 step, the filter file is transformed into a 'level 2' filter file. This means that additional columns are added to the mkf, notably X-ray rates, overshoot and undershoot rates, deadtime information, and Soyuz vehicle docking information. 
+
+In the nimaketime step, the standard filtering criteria are used to generate good time intervals (GTI). We discuss these criteria in more detail below. 
+
+Finally, nicermergeclean generates the ni\*_0mpu7_cl.evt file, which applies the GTI screening criteria to the (now calibrated) MPU events. This is also where the trumpet cut is made (through a call to [nicerclean](https://heasarc.gsfc.nasa.gov/lheasoft/ftools/headas/nicerclean.html)). 
+
 # nimaketime
 
 # niextract-events
