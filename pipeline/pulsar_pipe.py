@@ -6,10 +6,11 @@ import datetime
 import os
 import argparse
 import multiprocessing as mp
+import numpy as np
+import pandas as pd
 import subprocess
 import getpass
 import time
-from datetime import datetime
 
 #LommenResearchGroup imports
 import pipeline_utils
@@ -17,31 +18,85 @@ import pipeline_utils
 #Dom Rowan 2020
 
 desc = """
-Calls psrpipe with standard options with mulitprocessing
+Pipeline for pulsar analysis
 """
 
-"""
-Note about python versions:
+def crab_pipe(par_dir='/students/pipeline/parfiles/crab', outdir='./', 
+              par_date_clearance=None, par_save='par_info'):
+    
+    par_df = pipeline_utils.crab_par_table(par_dir=par_dir)
 
-Depending on package versions for various PINT dependencies, some of the psrpipe related code may throw syntax errors*. One way i solve this in the past was to jump to python 2.7.15. Therefore, this code does not use f strings so it is compatible with both python 2 and 3.
+    if outdir == './':
+        pre_split = os.getcwd()
+    else:
+        pre_split = outdir
+    source_dir = pre_split.split('/')[-1]
+    log.info("Checking sourcename and directory match")
+    if 'PSR_B0531+21' != source_dir:
+        check = outdircheck('PSR_B0531+21')
+        if not check:
+            return
+    
+    #Next get all crab obsIDs
+    obsids = []
+    for f in os.listdir(outdir):
+        if (os.path.isdir(f)) and (not f.endswith('_pipe')) and (f!='tmp'):
+            obsids.append(f)        
 
-* the error is in some pint TOA thing
-"""
+    #Need to read the mkfs to get date
+    mkfs = [ os.path.join(outdir, ID, f'auxil/ni{ID}.mkf')
+             for ID in obsids ]
 
-#This is temporary until i get the par file for crab
-def nicerl2_wrapper(clobber=False, trumpet=True):
-	pool = mp.Pool(processes=mp.cpu_count()+2)
-	jobs = []
-	times = []
-	for f in os.listdir("./"):
-		if (os.path.isdir(f)) and (not f.endswith('_pipe')):
-			if f != 'tmp':
-				job = pool.apply_async(run_nicerl2, (f,), 
-									   dict(trumpet=trumpet,clobber=clobber))
-				jobs.append(job)
-	for job in jobs:
-		output = job.get()
-		times.append(output)
+    obs_dates = []
+    obs_par = []
+    obs_clearance = [] #date leway clearance
+    format_specifier = '%Y-%m-%dT%H:%M:%S'
+    log.info("Matching observation dates with par files")
+    for m in mkfs:
+        if not os.path.isfile(m):
+            log.error("No MKF found", m)
+            obs_dates.append("-")
+            obs_par.append("-")
+            obs_clearance.append("-")
+            continue
+        tab = Table.read(m, hdu=1)
+        date = tab.meta['DATE-OBS']
+        date_formatted = datetime.datetime.strptime(date, format_specifier)
+        obs_dates.append(date_formatted)
+        par = None
+        clearance = 0
+        for i in range(len(par_df)):
+            if par_df['start'][i] <= date_formatted <= par_df['finish'][i]:
+                par = par_df['par'][i]
+
+        if (par is None) and (par_date_clearance is not None):
+            diff = []
+            for i in range(len(par_df)):
+                if date_formatted < par_df['start'][i]:
+                    diff.append((date_formatted - par_df['start'][i]).days)
+                else:
+                    assert(date_formatted > par_df['finish'][i])
+                    diff.append((date_formatted - par_df['finish'][i]).days)
+
+            diff_abs = list(map(abs, diff))
+            idx_min = np.where(np.array(diff_abs) == min(diff_abs))[0][0]
+            if abs(diff[idx_min]) <= par_date_clearance:
+                par = par_df['par'][idx_min]
+                clearance = diff[idx_min]
+
+        obs_par.append(par)
+        obs_clearance.append(clearance)
+        
+    df_obs = pd.DataFrame({'obsID':obsids,
+                           'date':obs_dates,
+                           'par':obs_par,
+                           'clearance':obs_clearance})
+
+    log.info("Writing par date match to file")
+    if par_save is not None:
+        df_obs.to_csv(par_save+'.csv')
+        df_obs.to_latex(par_save+'.tex', index=False)
+
 
 def run_psrpipe(obsID, par, 
 				emin=0.25, emax=12,
@@ -76,28 +131,31 @@ def allprocedures(obsID, par,
 				  trumpet=True, keith=True, 
 				  clobber=False):
 	
-	print(obsID)
-	if ((os.path.isfile("{}_pipe/cleanfilt.evt".format(obsID))) 
-	    and (not clobber)):
-		return 0
-	elif ((os.path.isfile("{}_pipe/cleanfilt.evt".format(obsID)))
-		  and clobber):
-		log.info("Removing {}_pipe".format(obsID))
-		os.rmdir("{}_pipe".format(obsID))
+    if ((os.path.isfile("{}_pipe/cleanfilt.evt".format(obsID))) 
+        and (not clobber)):
+        return 0
+    elif ((os.path.isfile("{}_pipe/cleanfilt.evt".format(obsID)))
+            and clobber):
+        log.info("Removing {}_pipe".format(obsID))
+        os.rmdir("{}_pipe".format(obsID))
 
-	if not os.path.isdir(obsID):
-		log.error("obsID not found")
-		return -1
+    if not os.path.isdir(obsID):
+        log.error("obsID not found")
+        return -1
 
-	if (not pipeline_utils.check_nicerl2(obsID)) or clobber:
-		pipeline_utils.run_nicerl2(obsID, trumpet=trumpet)
+    if not os.path.isdir(obsID+'/xti/event_cl'):
+        log.error("no event cl dir for {}".format(obsID))
+        return -1
 
-	pipeline_utils.run_add_kp(obsID)
+    if (not pipeline_utils.check_nicerl2(obsID)) or clobber:
+        pipeline_utils.run_nicerl2(obsID, trumpet=trumpet)
 
-	run_psrpipe(obsID, par,
-				emin=emin, emax=emax,
-				keith=keith)
-	return 1
+    pipeline_utils.run_add_kp(obsID)
+
+    run_psrpipe(obsID, par,
+                emin=emin, emax=emax,
+                keith=keith)
+    return 1
 
 def wrapper(par, emin=0.25, emax=12,
 			trumpet=True, keith=True, clobber=False):
@@ -121,34 +179,6 @@ def wrapper(par, emin=0.25, emax=12,
 	for job in jobs:
 		job.get()
 
-
-def update(sourcename, heasarc_user, heasarc_pwd, outdir, decryptkey,
-		   par, emin=0.25, emax=12, cut=2, filterbinsize=16,
-		   trumpet=True, keith=True):
-
-	source_dir = os.getcwd().split('/')[-1]
-	log.info("Checking sourcename")
-	if sourcename != source_dir:
-		check = outdircheck(sourcename)
-		if check == -1:
-			return
-
-	pipeline_utils.run_datadownload(sourcename, heasarc_user, 
-									heasarc_pwd, outdir, 
-									decryptkey, clobber=False)
-
-	for f in os.listdir(outdir):
-		if (os.path.isdir(f)) and (not f.endswith('_pipe')):
-			if not os.path.isdir(f+"_pipe"):
-				allprocedures(f,  par, emin=emin, emax=emax,
-							  trumpet=trumpet, keith=keith, 
-							  clobber=False)
-
-	run_niextract(sourcename)
-
-	run_cr_cut(sourcename+"_combined.evt", cut, filterbinsize)
-
-	
 def run_niextract(sourcename, max_date=None):
 	source_dir = os.getcwd().split('/')[-1]
 	if sourcename != source_dir:
@@ -160,7 +190,8 @@ def run_niextract(sourcename, max_date=None):
 	for f in os.listdir("./"):
 		if os.path.isfile(f+"/cleanfilt.evt"):
 			tab = Table.read(f+"/cleanfilt.evt", hdu=1)
-			date = datetime.strptime(tab.meta['DATE-OBS'], '%Y-%m-%dT%H:%M:%S')
+			date = datetime.datetime.strptime(
+                    tab.meta['DATE-OBS'], '%Y-%m-%dT%H:%M:%S')
 			if max_date is not None:
 				if date > max_date:
 					print("Excluding "+f+" at date "+str(date))
@@ -183,7 +214,6 @@ def run_niextract(sourcename, max_date=None):
 		for fn in invalid_columns:
 			f2.write(fn+"\n")
 
-#I want to change this to only perform cr_cut on merged event file
 def run_cr_cut(merged_evt, cut, filterbinsize):
 	log.info("Running cr_cut")
 
@@ -194,35 +224,55 @@ def run_cr_cut(merged_evt, cut, filterbinsize):
 	
 	subprocess.call(cmd)
 
-#Need to change this to work with decrypt key
-def cronjob(heasarc_user, heasarc_pwd, decryptkey, emin, emax, mask,
-			cormin, cut, filterbinsize, 
-			trumpet, keith):
+def update(sourcename, heasarc_user, heasarc_pwd, outdir, decryptkey,
+		   par, emin=0.25, emax=12, cut=2, filterbinsize=16,
+		   trumpet=True, keith=True):
+
+    source_dir = os.getcwd().split('/')[-1]
+    log.info("Checking sourcename")
+    if sourcename != source_dir:
+        check = outdircheck(sourcename)
+        if not check:
+            return
+
+    pipeline_utils.run_datadownload(sourcename, heasarc_user, 
+            heasarc_pwd, outdir, 
+            decryptkey, clobber=False)
+
+    for f in os.listdir(outdir):
+        if (os.path.isdir(f)) and (not f.endswith('_pipe')):
+            if not os.path.isdir(f+"_pipe"):
+                if f != 'tmp':
+                    allprocedures(f,  par, emin=emin, emax=emax,
+                                  trumpet=trumpet, keith=keith, 
+                                  clobber=False)
+
+    run_niextract(sourcename)
+
+    run_cr_cut(sourcename+"_combined.evt", cut, filterbinsize)
+
+def cronjob(heasarc_user, heasarc_pwd, decryptkey):
 
 	fname = "/homes/pipeline/logs/"+datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 	with open(fname, 'w') as f:
 		f.write("Completed at " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
 		
-	### Running on PSR_B1821-24 ###
-	os.chdir("/students/pipeline/PSR_B1821-24")
-	par_1821 = "/students/pipeline/parfiles/PSR_B1821-24.par"
-	update("PSR_B1821-24", heasarc_user, heasarc_pwd, './', decryptkey, 
-		   emin, emax, mask, par_1821, cormin, cut, 
-		   filterbinsize, trumpet)
-
 	### Running on PSR_B1937+21 ###
-	os.chdir("/students/pipeline/PSR_B1937+21")
-	par_1937 = "/students/pipeline/parfiles/PSR_B1937+21.par"
-	update("PSR_B1937+21", heasarc_user, heasarc_pwd, './', decryptkey,
-		   emin, emax, mask, par_1937, cormin, cut, 
-		   filterbinsize, trumpet)
+	os.chdir("/students/pipeline/heasoft6.27/PSR_B1937+21")
+	par_1937 = "/students/pipeline/parfiles/PSR_B1937+21.par.nancaytzr"
+	update("PSR_B1937+21", heasarc_user, heasarc_pwd, './', decryptkey, 
+		   par_1937)
 
-	### Running on PSR_J0218+4232 ###
-	os.chdir("/students/pipeline/PSR_J0218+4232")
-	par_0218 = "/students/pipeline/parfiles/PSR_J0218+4232.par"
-	update("PSR_J0218+4232", heasarc_user, heasarc_pwd, './', decryptkey,
-			emin, emax, mask, par_0218, cormin, cut, 
-			filterbinsize, _trumpet)
+"""
+Dom notes
+
+once the mp is done running on 1937 want to check the update function
+then check cronjob function
+
+check out this link for crontab enviornmental variables:
+https://unix.stackexchange.com/questions/27289/how-can-i-run-a-cron-command-with-existing-environmental-variables
+
+"""
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description=desc)
@@ -295,7 +345,7 @@ if __name__ == '__main__':
 		if args.max_date is None:
 			run_niextract(args.sourcename)
 		else:
-			dt = datetime.strptime(args.max_date, '%Y-%m-%d')
+			dt = datetime.datetime.strptime(args.max_date, '%Y-%m-%d')
 			run_niextract(args.sourcename, max_date=dt)
 	elif args.update:
 		update(args.sourcename, args.user, args.passwd, 
@@ -306,9 +356,5 @@ if __name__ == '__main__':
 			   trumpet=args.trumpet,
 			   keith=args.keith)
 	elif args.cron:
-		cronjob(args.user, args.passwd, args.key, 
-				args.emin, args.emax, args.mask,
-				args.cormin, args.cut, args.filterbinsize, 
-				args.no_trumpet, args.keith)
-
+		cronjob(args.user, args.passwd, args.key)
 
