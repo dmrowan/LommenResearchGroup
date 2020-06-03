@@ -22,6 +22,11 @@ git clone https://github.com/dmrowan/LommenResearchGroup
 * [NICERsoft](https://github.com/paulray/nicersoft)
 * See requirements.txt for python package requirements (dom still has to do this)
 
+## Project Directories
+* bright_earth -- investigation into soft X-ray background dependence on bright earth angle
+* pipeline -- collection of pipeline routines for various sources
+
+
 ## Authors
 
 * **Dominick Rowan**
