@@ -61,7 +61,7 @@ Similarly, information on ISS mission docking, ISS manuevering, and ISS robotics
 
 Filtering of the South Atlantic Anomaly is turned on by default. The filtering of the NICER defined contour for the SAA is controled with __`nicersaafilt=YES`__. There is also a more general SAA region. Since the default is to use the NICER contour, __`saafilt`__ is set to zero. 
 
-There are three flags corresponding to the instrument attitude that can be used to identify times of good tracking. These are added to the MKF file during the niprefilter call. `ATT_MODE` gives the pointing contorl mode. It is set to 1 for science mode. ` ATT_SUBMODE_AZ` gives the azimuthal tracking flag. If the flag is 2, tracking is good. Similarly, `ATT_SUBMODE_EL==2` indicates good tracking in elevation. These criteria are combined in a boolean expression to indicate tracking. `(ATT_MODE==1 && ATT_SUBMODE_AZ==2 && ATT_SUBMODE_EL==2)`. In nicerl2, using the default  __`trackfile=YES`__ selects times of good tracking where the boolean expression is True. While we will usually want to keep this flag set to YES, for some science purposes, such as horizon crossings, we might want to allow times of bad tracking. 
+There are three flags corresponding to the instrument attitude that can be used to identify times of good tracking. These are added to the MKF file during the niprefilter call. `ATT_MODE` gives the pointing contorl mode. It is set to 1 for science mode. ` ATT_SUBMODE_AZ` gives the azimuthal tracking flag. If the flag is 2, tracking is good. Similarly, `ATT_SUBMODE_EL==2` indicates good tracking in elevation. These criteria are combined in a boolean expression to indicate tracking. `(ATT_MODE==1 && ATT_SUBMODE_AZ==2 && ATT_SUBMODE_EL==2)`. In nicerl2, using the default  __`trackfilt=YES`__ selects times of good tracking where the boolean expression is True. While we will usually want to keep this flag set to YES, for some science purposes, such as horizon crossings, we might want to allow times of bad tracking. 
 
 The NICER startracker is used to achieve good pointing. A valid star tracker solution is saved in the flag `st_valid`. nicerl2 filters for times where __`ST_VALID=YES`__ by default. As was the case for trackfilt, this condition is typically left at its default unless performing observations like a horizon crossing. 
 
@@ -80,7 +80,7 @@ that the overshoot rate is less than 1.52\*COR_SAX\*\*(-0.633). This expression 
 
 We can restrict our events to times where a minimum number FPMs were on. By default, the __`min_fpm=7`__. 
 
-Not all possile filtering options are given as arguments of nicerl2. Using the __`gitfiles`__ argument, additional GTI filters can be applied. 
+Not all possile filtering options are given as arguments of nicerl2. Using the __`gtifiles`__ argument, additional GTI filters can be applied. 
 
 The range of energies kept by nicerl2 is given with the __`pirange`__ argument. The default 0s 0.2 keV to 15.0 keV. This is written in the 10eV units of PI, so the default range is written as 20:1500. If you only wish to have energies up to 6keV, for example, the argument would be given as `pirange="20:600"`.
 
