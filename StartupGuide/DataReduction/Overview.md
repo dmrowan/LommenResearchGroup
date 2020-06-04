@@ -36,24 +36,24 @@ Finally, nicermergeclean generates the ni\*_0mpu7_cl.evt file, which applies the
 
 There are an abundance of optional arguments listed on the nicerl2 [help page](https://heasarc.gsfc.nasa.gov/lheasoft/ftools/headas/nicerl2.html). Here, we briefly discuss each in the order they are listed under 'Parameters'. 
 
-As mentioned above, the __`indir`__ input is the NICER observation ID (which is a directory). This directory contains the relevant event files and filter file, so the paths should almost always be kept as the defaults for the `ufdir`, `cldir`, `ufafile`, `clfile`, and `mkfile` arguments.
+As mentioned above, the __`indir`__ input is the NICER observation ID (which is a directory). This directory contains the relevant event files and filter file, so the paths should almost always be kept as the defaults for the __`ufdir`__, __`cldir`__, __`ufafile`__, __`clfile`__, and __`mkfile`__ arguments.
 
-The `mpulist` arguments gives the MPU selections. The NICER detectors are grouped into 7 MPUs (decribed on the [Mission Guide](https://heasarc.gsfc.nasa.gov/docs/nicer/mission_guide/). The default is to use all the MPUs.
+The __`mpulist`__ arguments gives the MPU selections. The NICER detectors are grouped into 7 MPUs (decribed on the [Mission Guide](https://heasarc.gsfc.nasa.gov/docs/nicer/mission_guide/). The default is to use all the MPUs.
 
 
-To apply the calibrations in nicercal, the NICER calibration database, stored in CALDB, should be used. The `picalfile`, `pifastcalfile`, and `timebiascalfile` arguments use CALDB as the default value. 
+To apply the calibrations in nicercal, the NICER calibration database, stored in CALDB, should be used. The __`picalfile`__, __`pifastcalfile`__, and __`timebiascalfile`__ arguments use CALDB as the default value. 
 
-Corrections based on leap seconds can be modified with the `leapint` argument. This corection is done automatically by default. 
+Corrections based on leap seconds can be modified with the __`leapint`__ argument. This corection is done automatically by default. 
 
-In addition to X-ray photon events, the detectors also record overshoot events, undershoot events, and forced triggers. The `nicercal_filtexpr` argument extracts only X-ray events and forced triggers by default. While the event flag can be changed during the call to nicerl2, it is often simpler to do so in a latter call to niextract-events (discussed below). Each NICER event is given a 8-bit event flag, as described in the [Mission Guide](https://heasarc.gsfc.nasa.gov/docs/nicer/mission_guide/). The default expression is 'bxxxx00'. 
+In addition to X-ray photon events, the detectors also record overshoot events, undershoot events, and forced triggers. The __`nicercal_filtexpr`__ argument extracts only X-ray events and forced triggers by default. While the event flag can be changed during the call to nicerl2, it is often simpler to do so in a latter call to niextract-events (discussed below). Each NICER event is given a 8-bit event flag, as described in the [Mission Guide](https://heasarc.gsfc.nasa.gov/docs/nicer/mission_guide/). The default expression is 'bxxxx00'. 
 
-The `calstation` argument simply says where the observation was performed. This is set to "FLIGHT" by default for in-flight observations. 
+The __`calstation`__ argument simply says where the observation was performed. This is set to "FLIGHT" by default for in-flight observations. 
 
-The use of niprefilter (not niprefilter2) can be controlled with the `niprefilter` flag. This is set to "YES" by default. 
+The use of niprefilter (not niprefilter2) can be controlled with the __`niprefilter`__ flag. This is set to "YES" by default. 
 
-The next two arguments, `orbfile` and `attfile` also give paths to the auxiliary files. In the [ObsID](https://github.com/dmrowan/LommenResearchGroup/tree/master/StartupGuide/ObsID) section of the startup guide we discuss how to view these files in python. 
+The next two arguments, __`orbfile`__ and __`attfile`__ also give paths to the auxiliary files. In the [ObsID](https://github.com/dmrowan/LommenResearchGroup/tree/master/StartupGuide/ObsID) section of the startup guide we discuss how to view these files in python. 
 
-When the niprefilter (not niprefilter2) task is called, specific columns can be computed. This is controlled using the `prefilter_columns` in nicerl2. By default, all relevant columns are computed. 
+When the niprefilter (not niprefilter2) task is called, specific columns can be computed. This is controlled using the __`prefilter_columns`__ in nicerl2. By default, all relevant columns are computed. 
 
 The South Atlantic Anomaly is a region where satellites experience high radiation levels. We typically want to filter out events detected while the ISS is flying over the SAA. This is done with the NICER region file, defined in CALDB. This is set using __`saaregfile="CALDB"`__. 
 
