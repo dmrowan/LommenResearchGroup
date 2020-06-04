@@ -1,6 +1,6 @@
 # Overview of data reduction procedures
 
-NICER observations can be downloaded from the [Nasa archive](https://heasarc.gsfc.nasa.gov/docs/nicer/team_schedule/nicer_seg_team.html) using a curl command. The NICERsoft script [ni_data_download.py](https://github.com/paulray/NICERsoft/blob/master/scripts/ni_data_download.py) can be used for downloading observations in bulk*.
+NICER observations can be downloaded from the [NASA archive](https://heasarc.gsfc.nasa.gov/docs/nicer/team_schedule/nicer_seg_team.html) using a curl command. The NICERsoft script [ni_data_download.py](https://github.com/paulray/NICERsoft/blob/master/scripts/ni_data_download.py) can be used for downloading observations in bulk*.
 
 After downloading and unzipping files, the observation directory will be structured as described in the [ObsID section of the startup guide](https://github.com/dmrowan/LommenResearchGroup/tree/master/StartupGuide/ObsID). In the majority of cases, the next step of processing is to run `nicerl2`. This provides the standard level 2 processing procedures. 
 
@@ -36,7 +36,7 @@ Finally, nicermergeclean generates the ni\*_0mpu7_cl.evt file, which applies the
 
 There are an abundance of optional arguments listed on the nicerl2 [help page](https://heasarc.gsfc.nasa.gov/lheasoft/ftools/headas/nicerl2.html). Here, we briefly discuss each in the order they are listed under 'Parameters'. 
 
-As mentioned above, the `indir` input is the NICER observation ID (which is a directory). This directory contains the relevant event files and filter file, so the paths should almost always be kept as the defaults for the `ufdir`, `cldir`, `ufafile`, `clfile`, and `mkfile` arguments.
+As mentioned above, the __`indir`__ input is the NICER observation ID (which is a directory). This directory contains the relevant event files and filter file, so the paths should almost always be kept as the defaults for the `ufdir`, `cldir`, `ufafile`, `clfile`, and `mkfile` arguments.
 
 The `mpulist` arguments gives the MPU selections. The NICER detectors are grouped into 7 MPUs (decribed on the [Mission Guide](https://heasarc.gsfc.nasa.gov/docs/nicer/mission_guide/). The default is to use all the MPUs.
 
