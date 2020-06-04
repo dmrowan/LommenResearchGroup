@@ -55,6 +55,47 @@ The next two arguments, `orbfile` and `attfile` also give paths to the auxiliary
 
 When the niprefilter (not niprefilter2) task is called, specific columns can be computed. This is controlled using the `prefilter_columns` in nicerl2. By default, all relevant columns are computed. 
 
+The South Atlantic Anomaly is a region where satellites experience high radiation levels. We typically want to filter out events detected while the ISS is flying over the SAA. This is done with the NICER region file, defined in CALDB. This is set using __`saaregfile="CALDB"`__. 
+
+Similarly, information on ISS mission docking, ISS manuevering, and ISS robotics are stored in CALDB. The __`vehiclefile`__ argument can be used to disable retrieval of docking information or select on specific spacecraft. The __`issmanfile`__ and __`robofile`__ can be used to disable retrieval of maneuver and robotics information. 
+
+Filtering of the South Atlantic Anomaly is turned on by default. The filtering of the NICER defined contour for the SAA is controled with __`nicersaafilt=YES`__. There is also a more general SAA region. Since the default is to use the NICER contour, __`saafilt`__ is set to zero. 
+
+There are three flags corresponding to the instrument attitude that can be used to identify times of good tracking. These are added to the MKF file during the niprefilter call. `ATT_MODE` gives the pointing contorl mode. It is set to 1 for science mode. ` ATT_SUBMODE_AZ` gives the azimuthal tracking flag. If the flag is 2, tracking is good. Similarly, `ATT_SUBMODE_EL==2` indicates good tracking in elevation. These criteria are combined in a boolean expression to indicate tracking. `(ATT_MODE==1 && ATT_SUBMODE_AZ==2 && ATT_SUBMODE_EL==2)`. In nicerl2, using the default  __`trackfile=YES`__ selects times of good tracking where the boolean expression is True. While we will usually want to keep this flag set to YES, for some science purposes, such as horizon crossings, we might want to allow times of bad tracking. 
+
+The NICER startracker is used to achieve good pointing. A valid star tracker solution is saved in the flag `st_valid`. nicerl2 filters for times where __`ST_VALID=YES`__ by default. As was the case for trackfilt, this condition is typically left at its default unless performing observations like a horizon crossing. 
+
+The angular distance gives the minimum offset between the pointing and the target. The default is __`ang_dist=0.015`__. This can be modified to change acceptable pointing offsets. 
+
+The ELV parameter gives the elevation angle from the Earth limb to the target. The minimum value set in nicerl2 is __`ELV=15`__. This can be changed to a more or less restrictive criteria.
+
+When the Earth is illuminated, we typically want a larger minimum value for the elevation. This is called the bright earth angle. The default value in nicerl2 is __`br_earth=30`__. 
+
+The cutoff rigidity can be used to filter out cosmic ray events. nicerl2 gives the option to choose a range of cutoff rigidities to accept using the __`cor_range`__ parameter. There is no cutoff rigidity range defined defaulty. 
+
+Undershoot events occur when the detector experiences optical loading or dark current. The maximum underhoot count range per MPU is typically set to 200. The user can specify the undershoot range rate using __`underonly_range`__
+
+Overshoot events occur when high-energy particles saturate the detector. These events are due to the particle background, and should be filtered out. This is done using an expression that incorporates the cutoff rigidity `COR_SAX`. The default expression is
+that the overshoot rate is less than 1.52\*COR_SAX\*\*(-0.633). This expression is controlled with the __`overonly_expr`__ argument. Liek the undershoot event rate, the overshoot event rate is also subject to an upper and lower limit. This is set to 0 to 1 by default with the __`overonly_range`__ argument.
+
+We can restrict our events to times where a minimum number FPMs were on. By default, the __`min_fpm=7`__. 
+
+Not all possile filtering options are given as arguments of nicerl2. Using the __`gitfiles`__ argument, additional GTI filters can be applied. 
+
+The range of energies kept by nicerl2 is given with the __`pirange`__ argument. The default 0s 0.2 keV to 15.0 keV. This is written in the 10eV units of PI, so the default range is written as 20:1500. If you only wish to have energies up to 6keV, for example, the argument would be given as `pirange="20:600"`.
+
+The trumpet filter is used to reject background events using the PI_RATIO calculation from nicercal. This is turned on by default. To turn the trumpet filter off, nicerl2 can be called with the argument __`trumpetfilt=NO`__. 
+
+Not all nicerclean arguments are given as options for nicerl2. Additional arguments one would typically give nicerclean can instead be passed through nicerl2 using __`nicerclean_args`__. 
+
+During the various stages of nicerl2, various temporary files are generated. The unfiltered events files are kept defaulty, but can be removed using __`cleanup_ufa_files`__. The other temporary files (like the GTIs used for the event extraction) are removed defaultly. This can be changed with the __`cleanup`__ flag. 
+
+If nicerl2 has already been called on an observation, any subsequent calls will not overwrite unless the __`clobber`__ argument is set to yes. 
+
+In case the task is producing unexpected results, the __`chatter`__ argument can control what information is printed. This is given on a range of zero to 5. The standard value of 2 gives typically logging of what step in the process is being performed. chatter=5 prints full debugging output. 
+
+The nicerl2 parameters are saved into the output heaader if __`history`__ is set to YES. 
+
 
 
 # nimaketime
