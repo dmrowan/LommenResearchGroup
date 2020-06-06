@@ -2,6 +2,7 @@
 
 from __future__ import print_function, division
 from astropy import log
+from astropy.time import Time
 import argparse
 from bs4 import BeautifulSoup
 import numpy as np
@@ -198,11 +199,32 @@ def get_exposure(sources):
 
 	return exp_list, n_obsIDs
 
+
+def crab_par_table(par_dir='/students/pipeline/parfiles/crab/'):
+    
+    par_files = os.listdir(par_dir)
+    par_files = [ os.path.join(par_dir, p) for p in par_files ]
+    
+    start = []
+    finish = []
+    for par in par_files:
+        with open(par, 'r') as f:
+            lines = f.readlines()
+
+        for l in lines:
+            if l.split()[0] == 'START':
+                startval = float(l.split()[1].strip('\n'))
+                start_dt = Time(startval, format='mjd').utc.datetime
+                start.append(start_dt)
+            elif l.split()[0] == 'FINISH':
+                finishval = float(l.split()[1].strip('\n'))
+                finish_dt = Time(finishval, format='mjd').utc.datetime
+                finish.append(finish_dt)
+            else:
+                continue
 		
-
-
-
-
+    df = pd.DataFrame({'par':par_files, 'start':start, 'finish':finish})
+    return df
 
 
 
