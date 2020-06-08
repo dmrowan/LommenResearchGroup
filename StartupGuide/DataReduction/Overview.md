@@ -162,9 +162,18 @@ Note that specifiying the filename and eventsout arguments is not required.
 
 Finally, it is also important to note that since the timefile is optional, niextract-events can be run with the purpose of merging events files. If we had not included the timefile argument above, the output.evt would be a single event file containing all the events in input1.evt, input2.evt, input3.evt, etc. 
 
-
-
 # fltime
+
+It may be necessary to apply time filtering to files other than event files. For example, an mkf file can be changed to reflect filtering criteria encoded in the GTI. The `fltime` command is used to filter files in FITS format (say that times fast) using a GTI. 
+
+In an MKF file, the header of interest is 1. Therefore, if we have an MKF and a GTI, we would call fltime as
+
+```
+fltime MKF[1] GTI output.mkf
+```
+to apply the time filtering and produce the output file. 
+
+One alternative to this command is to use ftcopy to apply the relevant time filtering. 
 
 # photonphase
 
