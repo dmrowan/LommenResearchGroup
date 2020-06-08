@@ -51,21 +51,21 @@ def check_nicerl2(obsID):
 #Command line call of nicerl2
 def run_nicerl2(obsID, clobber=False, br_filter=True, horizon_filter=False,
 				trumpet=True):
-	'''
-	if br_filter is True, the bright earth filter is used with default value
-	else br_earth=0
+    '''
+    if br_filter is True, the bright earth filter is used with default value
+    else br_earth=0
 
-	if horizon_filter=True multiple conditions are changed for horizon
-		crossing project
-	else default values are used
-	'''
+    if horizon_filter=True multiple conditions are changed for horizon
+    crossing project
+    else default values are used
+    '''
 
-	assert(os.path.isdir(obsID))
+    assert(os.path.isdir(obsID))
 
-	log.info("Running nicerl2 for "+obsID)
+    log.info("Running nicerl2 for "+obsID)
 
-	if not os.path.isdir("tmp/"):
-		log.error("No tmp directory for pfiles exists")
+    if not os.path.isdir("tmp/"):
+        log.error("No tmp directory for pfiles exists")
         response = input("Would you like to create a tmp directory? [y/n] ")
         if response in ['Y', 'y']:
             os.mkdir('tmp')
@@ -74,38 +74,36 @@ def run_nicerl2(obsID, clobber=False, br_filter=True, horizon_filter=False,
             log.error("Exiting")
             return 0
 
-	if not os.path.isdir("tmp/"+obsID+"_pfiles"):
-		log.warning("Creating pfile dir for "+obsID)
-		os.mkdir("tmp/"+obsID+"_pfiles")
+    if not os.path.isdir("tmp/"+obsID+"_pfiles"):
+        log.warning("Creating pfile dir for "+obsID)
+        os.mkdir("tmp/"+obsID+"_pfiles")
 
-	abspath = os.path.abspath("tmp/"+obsID+"_pfiles")
-	os.environ['PFILES'] = ( abspath +
-					        ';/packages/heasoft-6.27.2/x86_64-pc-linux-gnu-libc2.23/syspfiles')
+    abspath = os.path.abspath("tmp/"+obsID+"_pfiles")
+    os.environ['PFILES'] = ( abspath +
+        ';/packages/heasoft-6.27.2/x86_64-pc-linux-gnu-libc2.23/syspfiles')
 
-	log.info("Set pfiles to" + os.environ['PFILES'])
+    log.info("Set pfiles to" + os.environ['PFILES'])
 
-	cmd = ['nicerl2', obsID]
-	if clobber:
-		cmd.append("clobber=YES")
-	
+    cmd = ['nicerl2', obsID]
+    if clobber:
+        cmd.append("clobber=YES")
 
-	if not br_filter:
-		cmd.append("br_earth=0")
+    if not br_filter:
+        cmd.append("br_earth=0")
 
-	if horizon_filter:
-		cmd.append('elv=0')
-		cmd.append('br_earth=0')
-		cmd.append('nicersaafilt=NO')
-		cmd.append('trackfilt=NO')
-		cmd.append('st_valid=NO')
-		cmd.append('ang_dist=180')
+    if horizon_filter:
+        cmd.append('elv=0')
+        cmd.append('br_earth=0')
+        cmd.append('nicersaafilt=NO')
+        cmd.append('trackfilt=NO')
+        cmd.append('st_valid=NO')
+        cmd.append('ang_dist=180')
 
-	if not trumpet:
-		log.info("Not using trumpet filter")
-		cmd.append("trumpetfilt=NO")
+    if not trumpet:
+        log.info("Not using trumpet filter")
+        cmd.append("trumpetfilt=NO")
 
-	subprocess.call(cmd)
-
+    subprocess.call(cmd)
 
 def run_add_kp(obsID):
 	log.info("Running add_kp with potsdam values")
