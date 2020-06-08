@@ -65,8 +65,14 @@ def run_nicerl2(obsID, clobber=False, br_filter=True, horizon_filter=False,
 	log.info("Running nicerl2 for "+obsID)
 
 	if not os.path.isdir("tmp/"):
-		log.error("No tmp directory for pfiles exists, exiting")
-		return 0
+		log.error("No tmp directory for pfiles exists")
+        response = input("Would you like to create a tmp directory? [y/n] ")
+        if response in ['Y', 'y']:
+            os.mkdir('tmp')
+            log.info("tmp directory created")
+        else:
+            log.error("Exiting")
+            return 0
 
 	if not os.path.isdir("tmp/"+obsID+"_pfiles"):
 		log.warning("Creating pfile dir for "+obsID)
@@ -130,7 +136,7 @@ def run_datadownload(sourcename, heasarc_user, heasarc_pwd, outdir,
 			if not outdircheck(soucename):
 				return 0
 
-	cmd = ['ni_data_download.py', sourcename,
+	cmd = ['custom_data_download.py', sourcename,
 		   heasarc_user, heasarc_pwd, '--outdir', outdir,
 		   '--decryptkey', decryptkey, '--unzip']
 
@@ -225,13 +231,5 @@ def crab_par_table(par_dir='/students/pipeline/parfiles/crab/'):
 		
     df = pd.DataFrame({'par':par_files, 'start':start, 'finish':finish})
     return df
-
-
-
-
-
-
-
-
 
 
