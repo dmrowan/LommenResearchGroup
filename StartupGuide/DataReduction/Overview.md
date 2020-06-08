@@ -32,6 +32,12 @@ In the nimaketime step, the standard filtering criteria are used to generate goo
 
 Finally, nicermergeclean generates the ni\*_0mpu7_cl.evt file, which applies the GTI screening criteria to the (now calibrated) MPU events. This is also where the trumpet cut is made (through a call to [nicerclean](https://heasarc.gsfc.nasa.gov/lheasoft/ftools/headas/nicerclean.html)). 
 
+Various filtering criteria can be passed to nicerl2 on the command line. If, for instance, we want to turn off filtering based on the bright earth angle, we would call nicerl2 as
+```
+$ nicerl2 br_earth=0 obsID
+```
+When processing an observation with nicerl2, it is therefore important to consider what the default criteria are. 
+
 # What are the default filtering criteria? 
 
 There are an abundance of optional arguments listed on the nicerl2 [help page](https://heasarc.gsfc.nasa.gov/lheasoft/ftools/headas/nicerl2.html). Here, we briefly discuss each in the order they are listed under 'Parameters'. 
@@ -96,13 +102,71 @@ In case the task is producing unexpected results, the __`chatter`__ argument can
 
 The nicerl2 parameters are saved into the output heaader if __`history`__ is set to YES. 
 
-
-
 # nimaketime
+
+The purpose of `nimaketime` is to identify 'Good Time Intervals', or GTIs, that meet the desired filtering criteria. These GTIs can then be used to extracting events or generating background spectra. To use the default filtering criteria, nimaketime can be called simply by giving the input mkf file and output gti name:
+```
+$ nimaketime infile.mkf out.gti
+```
+
+Of course, the criteria are typically changed from default to reflect the specific observing conditions. The majority of option arguments for nimaketime reflect the various parameters used for filtering:
+* nicersaafilt
+* saafilt
+* trackfilt
+* ang_dist
+* st_valid
+* elv
+* br_earth
+* cor_range
+* min_fpm
+* underonly_range
+* overonly_range
+* overonly_expr
+
+These parameters are identical to those described above for nicerl2, and also use the same default values. However, these parameters may not reflect all possible criteria one might filter on. 
+
+For example, the geomagnetic index KP is often used to remove times where a geomagnetic storm is occuring. The `expr` argument of nimaketime takes a string filtering expression as input. In this example, `expr='(KP.lt.5)'`. 
+
+Multiple filtering expressions can be joined using the boolean && operator. For example:
+```
+expr='((COR_SAX.gt.(1.914*KP**0.684+0.25)) && (KP.lt.5))'
+```
+
+To save a log of the expressions used for nimaketime, the optional argument `outexprfile` can be used. This is set to a filename where the filtering expressions are written. If `outexprfile=NONE`, no file is writen.
+
+After generating GTIs corresponding to the desired filtering parameters, corresponding events can be selected using `niextract-events`.
 
 # niextract-events
 
+`niextract-events` is used to select events based on GTIs. The selection can either come from a single event file or a list of events files. Temporal filtering is applied using the optional `timefile` argument.
+
+For example, say a filteredtimes.gti has been generated with nimaketime. niextract-events can be used to extract events matching this time from the original.evt file:
+```
+$ niextract-events original.evt output.evt timefile=filteredtimes.gti
+```
+
+If there are multiple events files (instead of a single original.evt, as above), create an ascii file with a list of events. This file would have lines like:
+```
+input1.evt
+input2.evt
+input3.evt
+.
+.
+.
+```
+If we call this file 'filelist', for example, the call to niextract-events would look like:
+```
+$ niextract-events filename=@filelist eventsout=output.evt timefile=filteredtimes.gti
+```
+Note that specifiying the filename and eventsout arguments is not required. 
+
+Finally, it is also important to note that since the timefile is optional, niextract-events can be run with the purpose of merging events files. If we had not included the timefile argument above, the output.evt would be a single event file containing all the events in input1.evt, input2.evt, input3.evt, etc. 
+
+
+
 # fltime
+
+# photonphase
 
 
 ### Notes:
