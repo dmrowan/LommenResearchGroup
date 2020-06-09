@@ -10,11 +10,22 @@ A collection of procedures designed for analysis of NICER observations. Develope
 ```
 git clone https://github.com/dmrowan/LommenResearchGroup
 ```
-3. Modify PATH and PYTHONPATH in the bashrc file. If the directory you cloned LommenResarchGroup into is <basedir>, this would look like:
+3. Modify PATH and PYTHONPATH in the bashrc file. If the directory you cloned LommenResarchGroup into is `<basedir>`, this would look like:
 ```
   export PATH=<basedir>/LommenResearchGroup:$PATH
   export PYTHONPATH=<basedir>/LommenResearchGroup/:$PYTHONPATH
 ```
+Code that is in subdirectories can be used in multiple ways. Code can be imported in python:
+```
+from pipeline import pulsar_pipe
+pulsar_pipe.allprocedures(*args, **kwargs)
+```
+For code that can be executed on the command line, the corresponding git subdirectory can be added to the .bashrc PATH variable. For example, to add LommenResearchGroup/pipeline to the PATH, include:
+```
+export PATH=<basedir>LommenResearchGroup/pipeline:$PATH
+```
+
+
 ### Prerequisites
 * Python 3
 * PINT
