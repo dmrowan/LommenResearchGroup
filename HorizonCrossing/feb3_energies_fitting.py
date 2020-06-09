@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from astropy.table import Table
 from scipy.optimize import curve_fit
 import itertools
+import math
 #########################################################################################
 
 #reading the data table
@@ -130,101 +131,77 @@ def FifthOr(x,a,b,c,d,e,f):
 def SeventhOr(x,a,b,c,d,e,f,g,h):
 	return(a*x**7+b*x**6+c*x**5+d*x**4+e*x**3+f*x**2+g*x+h)
 
-fig,ax= plt.subplots()
+
+fig,ax = plt.subplots()
 yerrLow=np.sqrt(lowRate_spike)
 yerrMid=np.sqrt(midRate_spike)
 yerrHigh=np.sqrt(highRate_spike)
 
-def paramUnc(paramIn,Popt,Pcov):
-	Popt.tolist()
-	fVal= SeventhOr(startTime,*Popt)
-	Popt[paramIn]=Popt[paramIn]+np.sqrt(abs(pcov[paramIn][paramIn]))
-	fNew=SeventhOr(startTime,*Popt)
-	frac_unc=abs(fNew-fVal)/fVal
-	return (frac_unc)**2
+#plot the trendlines and analyze error
+
+#new method to calculate uncertainty
+def paramUnc(Popt,Pcov,Xint):
+    Popt.tolist()
+    fVal = SeventhOr(startTime+Xint,*Popt)
+    frac_unc_params = []
+    added_frac_unc = 0
+
+    for paramIn in range(len(Popt)):
+      Popt[paramIn]=Popt[paramIn]+math.sqrt(abs(pcov[paramIn][paramIn]))
+      fNew = SeventhOr(startTime+Xint,*Popt)
+      frac_unc = abs(fNew-fVal)/fVal
+      frac_unc_params.append((frac_unc)**2)
+
+    for i in range(len(frac_unc_params)):
+      added_frac_unc += frac_unc_params[i]
+
+    return math.sqrt(added_frac_unc) 
 
 
-#defines the curve fit and plots the model over the data
-
+#Low energy
 popt, pcov = curve_fit(SeventhOr,lowaxis_fit,lowRate_spike)
-print("The low energy popt array is",popt)
-plt.plot(lowaxis_fit,SeventhOr(lowaxis_fit,*popt),'r-')
-chisqLow= sum(((lowRate_spike-SeventhOr(lowaxis_fit,*popt))/yerrLow)**2)
-print("The low energy chi-squared is",chisqLow)
-lowDiagonal= [pcov[i][i] for i in range(len(np.diagonal(pcov)))]
-sigmaLow=np.sqrt(sum(lowDiagonal))
-print("The overall fractional sigma is",sigmaLow)
+plt.plot(lowaxis_fit,SeventhOr(lowaxis_fit,*popt),'r')
+chisqLow = sum(((lowRate_spike-SeventhOr(lowaxis_fit,*popt))/yerrLow)**2)
+print(f'The low energy fit parameters: {popt}(highest power first)')
+print(f'Low Energy chi-squared: {chisqLow}')
+lowDiagonal = [math.sqrt(abs(pcov[i][i]))/abs(popt[i]) for i in range(len(np.diagonal(pcov)))]
+sigmaLow = math.sqrt(sum(lowDiagonal))
+print(f'The overall fractional sigma is {sigmaLow}')
+low_frac_unc = paramUnc(popt,pcov,9.57002)
+print(f'The overall fractional uncertainty is {low_frac_unc}')
+print('....')
 
-
-low_unc_a=paramUnc(0,popt,pcov)
-low_unc_b=paramUnc(1,popt,pcov)
-low_unc_c=paramUnc(2,popt,pcov)
-low_unc_d=paramUnc(3,popt,pcov)
-low_unc_e=paramUnc(4,popt,pcov)
-low_unc_f=paramUnc(5,popt,pcov)
-low_unc_g=paramUnc(6,popt,pcov)
-low_unc_h=paramUnc(7,popt,pcov)
-
-low_frac_unc=np.sqrt(low_unc_a+low_unc_b+low_unc_c+low_unc_d+low_unc_e+low_unc_f+low_unc_g+low_unc_h)
-print("The overal fractional uncertainity is", low_frac_unc)
-
-print("----------------------")
-
-
-popt, pcov= curve_fit(SeventhOr,midaxis_fit,midRate_spike)
-print("The mid energy popt array is",popt)
-plt.plot(midaxis_fit,SeventhOr(midaxis_fit,*popt),'g-')
+#Mid energy
+popt, pcov = curve_fit(SeventhOr,midaxis_fit,midRate_spike)
+plt.plot(midaxis_fit,SeventhOr(midaxis_fit,*popt),'g')
 chisqMid= sum(((midRate_spike-SeventhOr(midaxis_fit,*popt))/yerrMid)**2)
-print("The mid energy chi-squared is",chisqMid)
-midDiagonal= [pcov[i][i] for i in range(len(np.diagonal(pcov)))]
-sigmaMid=np.sqrt(sum(midDiagonal))
-print("The overall fractional sigma is",sigmaMid)
+print(f'The mid energy fit parameters: {popt}')
+print(f'Mid Energy chi-squared: {chisqMid}')
+midDiagonal = [math.sqrt(abs(pcov[i][i]))/abs(popt[i]) for i in range(len(np.diagonal(pcov)))]
+sigmaMid = math.sqrt(sum(midDiagonal))
+print(f'The overal fractional sigma is {sigmaMid}')
+mid_frac_unc = paramUnc(popt,pcov,4.54309)
+print(f'The overall fractional uncertainty is {mid_frac_unc}')
+print('....')
 
-med_unc_a=paramUnc(0,popt,pcov)
-med_unc_b=paramUnc(1,popt,pcov)
-med_unc_c=paramUnc(2,popt,pcov)
-med_unc_d=paramUnc(3,popt,pcov)
-med_unc_e=paramUnc(4,popt,pcov)
-med_unc_f=paramUnc(5,popt,pcov)
-med_unc_g=paramUnc(6,popt,pcov)
-med_unc_h=paramUnc(7,popt,pcov)
-
-med_frac_unc=np.sqrt(med_unc_a+med_unc_b+med_unc_c+med_unc_d+med_unc_e+med_unc_f+med_unc_g+med_unc_h)
-print("The overal fractional uncertainity is", med_frac_unc)
-
-print("----------------------")
-
-
-
-popt, pcov= curve_fit(SeventhOr,highaxis_fit,highRate_spike)
-print("The high energy popt array is",popt)
-plt.plot(highaxis_fit,SeventhOr(highaxis_fit,*popt),'b-')
+#High energy
+popt, pcov = curve_fit(SeventhOr,highaxis_fit,highRate_spike)
+plt.plot(highaxis_fit,SeventhOr(highaxis_fit,*popt),'b')
 chisqHigh= sum(((highRate_spike-SeventhOr(highaxis_fit,*popt))/yerrHigh)**2)
-print("The high energy chi-squared is",chisqHigh)
-highDiagonal= [np.sqrt(abs(pcov[i][i]))/abs(popt[i]) for i in range(len(np.diagonal(pcov)))]
-sigmaHigh=np.sqrt(sum(highDiagonal))
-print("The overall fractional sigma is",sigmaHigh)
-
-high_unc_a=paramUnc(0,popt,pcov)
-high_unc_b=paramUnc(1,popt,pcov)
-high_unc_c=paramUnc(2,popt,pcov)
-high_unc_d=paramUnc(3,popt,pcov)
-high_unc_e=paramUnc(4,popt,pcov)
-high_unc_f=paramUnc(5,popt,pcov)
-high_unc_g=paramUnc(6,popt,pcov)
-high_unc_h=paramUnc(7,popt,pcov)
-
-high_frac_unc=np.sqrt(high_unc_a+high_unc_b+high_unc_c+high_unc_d+high_unc_e+high_unc_f+high_unc_g+high_unc_h)
-print("The overal fractional uncertainity is", high_frac_unc)
+print(f'The high enery fit parameters: {popt}')
+print(f'High Energy chi-squared: {chisqHigh}')
+highDiagonal = [math.sqrt(abs(pcov[i][i]))/abs(popt[i]) for i in range(len(np.diagonal(pcov)))]
+sigmaHigh = math.sqrt(sum(highDiagonal))
+print(f'The overall fractional sigma is {sigmaHigh}')
+high_frac_unc = paramUnc(popt,pcov,2.13372)
+print(f'The overall fractional uncertainty is {high_frac_unc}')
+print('....')
 
 
-print("----------------------")
-
-
+#plot the data with errorbars
 ax.errorbar(lowaxis_fit,lowRate_spike,fmt='r.',yerr=yerrLow,label='{} keV-{} keV'.format(lowEn[0]/100,lowEn[1]/100))
 ax.errorbar(midaxis_fit,midRate_spike,fmt='g.',yerr=yerrMid,label='{} keV-{} keV'.format(midEn[0]/100,midEn[1]/100))
 ax.errorbar(highaxis_fit,highRate_spike,fmt='b.',yerr=yerrHigh,label='{} keV-{} keV'.format(highEn[0]/100,highEn[1]/100))
-
 
 #display
 plt.title('Counts Per Second vs Time (V464 Sagittarius, Feb 3)')
@@ -232,8 +209,6 @@ plt.xlabel('Time (s)')
 plt.ylabel('Counts Per Second')
 plt.legend()
 plt.show()
-
-
 
 
 '''
