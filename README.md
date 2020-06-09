@@ -42,8 +42,13 @@ export PATH=<basedir>LommenResearchGroup/pipeline:$PATH
 
 * **Dominick Rowan**
 * **Liam Lynch**
+* **Andrea Lommen**
 * **Zaynab Ghazi**
 * **Lauren Lugo**
+* **Nate Ruhl**
+* **Noah Schwab**
+* **Mackenzie Tygh**
+* **Sasha Levina**
 
 See also the list of [contributors](https://github.com/dmrowan/LommenResearchGroup/contributors) who participated in this project.
 
