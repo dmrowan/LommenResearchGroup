@@ -22,7 +22,7 @@ enArray_low = np.array(tab_ni['FPM_XRAY_PI_0035_0200'])
 enArray_mid = np.array(tab_ni['FPM_XRAY_PI_0800_1200'])
 
 tab_evt = Table.read('cleanfilt.evt',hdu=1)
-eventTime = np.array(tab_evt['TIME'])
+eventTime = np.array(tab_evt['TIME'][startTimeIndex:stopTimeIndex])
 enArray = np.array(tab_evt['PI'][startTimeIndex:stopTimeIndex])
 
 
@@ -31,8 +31,7 @@ enArray = np.array(tab_evt['PI'][startTimeIndex:stopTimeIndex])
 
 f = interpolate.interp1d(timeArray,elevArray,kind='linear')
 
-elev_evt = f(eventTime[startTimeIndex:stopTimeIndex])
-
+elev_evt = f(eventTime)
 
 
 ##########################################################
@@ -42,10 +41,11 @@ theta = np.arcsin(R/(R+H))
 altArray = []
 for val in elev_evt:
   altArray.append((R+H)*np.sin(theta+val*(np.pi/180))-R)
+altArray=np.array(altArray)
 
-def elevSplit(energy_level):
+def altSplit(energy_level):
   index=np.where((enArray>=energy_level[0])&(enArray<energy_level[1]))
-  return elev_evt[index[0]]
+  return altArray[index[0]]
 ##########################################################
 #function that deduces the number of counts per bin size 
 def countRate(Time,binSize):
@@ -82,12 +82,32 @@ midBinRate = countRate(midTime,binSize_all)
 highBinRate = countRate(highTime,binSize_all)
 
 #splits the elevation values into three separaate arrays for each energy band
-lowEnergyElev = elevSplit(lowEn)
-midEnergyElev = elevSplit(midEn)
-highEnergyElev = elevSplit(highEn)
+lowEnergyAlt = altSplit(lowEn)
+midEnergyAlt = altSplit(midEn)
+highEnergyAlt = altSplit(highEn)
+###############################################################################
+#interpolate the to cover the range of elevation
+lowaxis=np.arange(0,len(lowEnergyAlt),binSize_all)
+midaxis=np.arange(0,len(midEnergyAlt),binSize_all)
+highaxis=np.arange(0,len(highEnergyAlt),binSize_all)
 
+lea = interpolate.interp1d(lowaxis,lowEnergyAlt,kind='linear')
+mea = interpolate.interp1d(midaxis,midEnergyAlt,kind='linear')
+hea = interpolate.interp1d(highaxis,highEnergyAlt,kind='linear')
+
+new_lowEnergyAlt = lea(np.arange(0,len(lowBinRate),binSize_all))
+new_midEnergyAlt = mea(np.arange(0,len(midBinRate),binSize_all))
+new_highEnergyAlt = hea(np.arange(0,len(highBinRate),binSize_all))
+
+print(len(new_lowEnergyAlt))
 print(len(lowBinRate))
-print(len(lowEnergyElev))
+
+print(len(new_midEnergyAlt))
+print(len(midBinRate))
+
+print(len(new_highEnergyAlt))
+print(len(highBinRate))
+
 ################################################################################
 '''
 #indices corresponding to start and stop of crossing -- I used np.where(timeArray==starttime+Xint), np.where(timeArray==starttime+Ratemax)
@@ -104,3 +124,11 @@ plt.ylabel('Count Rate')
 plt.show()
 ##########################################################
 '''
+plt.plot(new_lowEnergyAlt,lowBinRate,'r.',label='.3-1 KeV')
+plt.plot(new_midEnergyAlt,midBinRate,'g.',label='1-2 KeV')
+plt.plot(new_highEnergyAlt,highBinRate,'b.',label='2-10 KeV')
+plt.title("Counts/Sec vs. Altitude for 3 Energy Bands (FEB 3)")
+plt.xlabel("Altitude (km)")
+plt.ylabel("X-Ray Photon Counts/Sec")
+plt.legend()
+plt.show()
