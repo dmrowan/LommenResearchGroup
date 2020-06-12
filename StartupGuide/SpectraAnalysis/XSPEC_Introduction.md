@@ -101,6 +101,22 @@ XSPEC12> cpd /xs
 The window that appears should look like this:
 ![window](assets/xspec_plot_0.png)
 
+The first thing we can do is simply plot the data:
+```
+XSPEC12> plot data
+```
+This will update the plot window and should look something like this
+![xspec_plot_1](assets/xspec_plot_1.png)
+
+Even though we've added the instrument response and ARF, we still have the channel axis on the bottom. If we want to plot the energy, we can adjust the axis with `setplot`
+```
+XSPEC12> setplot energy
+```
+We can then refresh the plot
+```
+XSPEC12> plot
+```
+This should now show an energy axis. 
 ## Background spectra
 
 ## Ignoring Channels / Energy Ranges
