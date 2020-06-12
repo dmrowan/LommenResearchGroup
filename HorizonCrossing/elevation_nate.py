@@ -90,7 +90,7 @@ highEnergyAlt = altSplit(highEn)
 lowaxis=np.arange(0,len(lowEnergyAlt),binSize_all)
 midaxis=np.arange(0,len(midEnergyAlt),binSize_all)
 highaxis=np.arange(0,len(highEnergyAlt),binSize_all)
-
+'''
 lea = interpolate.interp1d(lowaxis,lowEnergyAlt,kind='linear')
 mea = interpolate.interp1d(midaxis,midEnergyAlt,kind='linear')
 hea = interpolate.interp1d(highaxis,highEnergyAlt,kind='linear')
@@ -98,6 +98,15 @@ hea = interpolate.interp1d(highaxis,highEnergyAlt,kind='linear')
 new_lowEnergyAlt = lea(np.arange(0,len(lowBinRate),binSize_all))
 new_midEnergyAlt = mea(np.arange(0,len(midBinRate),binSize_all))
 new_highEnergyAlt = hea(np.arange(0,len(highBinRate),binSize_all))
+'''
+
+def newAlt(Axis,oldAlt,CountRate):
+  g = interpolate.interp1d(Axis,oldAlt,kind='linear')
+  return g(np.arange(0,len(CountRate),binSize_all))
+
+new_lowEnergyAlt = newAlt(lowaxis,lowEnergyAlt,lowBinRate)
+new_midEnergyAlt = newAlt(midaxis,midEnergyAlt,midBinRate)
+new_highEnergyAlt = newAlt(highaxis,highEnergyAlt,highBinRate)
 
 print(len(new_lowEnergyAlt))
 print(len(lowBinRate))
