@@ -44,14 +44,64 @@ The usage of these files is explained below in the 'Instrument Response' and 'Ba
 
 ## Loading spectra into XSPEC
 
+Launch XSPEC on the command line by typing `xspec`. This will bring up version information and a prompt `XSPEC12>`
+![xspec0](assets/xspec_0.png)
+
+Before analyzing a spectra, it is typically good to create a log file. This will save all the commands and output run during the interactive XSPEC session to a file. Later in this guide, we discuss how this can be parsed with Python. To create a log file, type `log` and the name of the logfile.
+```
+XSPEC12> log 1937_logfile.txt
+```
+We are now ready to load in our pulsar emission spectrum. XSPEC allows for multiple data sets or observations to be modeled independently, so spectra are numbered when loaded in. For our purposes, this simply means that we are assigning our spectra to the first spectrum position. To load the data, type
+```
+XSPEC12> data 1 1937spectra.pha
+```
+The output will show some information about the spectrum:
+![xspec2](assets/xspec_2.png)
+
+XSPEC gave us a warning here -- we're missing a response file. Depending on how you've generated a spectrum, this warning may or may not show up. In the next section, we go over what a response file does and how to load it into XSPEC. 
+
 ### Instrument Response
-*Mention fparkey here
 
-### Background Spectra
+Here is some text from Dom's thesis about the instrument response:
 
-### Note about Exposure Keyword
+> When we observe an X-ray source, the recorded data is the number of photons detected in each instrument channel $n$ (Arnaud, 1999). This is related to the intrinsic spectrum of the source, ![f(E)](https://render.githubusercontent.com/render/math?math=f(E)), where ![E](https://render.githubusercontent.com/render/math?math=E) is energy, and the response function of the instrument, ![R(n, E)](https://render.githubusercontent.com/render/math?math=R(n%2C%20E)), by
+> 
+> ![C(n) = \int_0^{\infty} f(E) R(n,E)\ dE](https://render.githubusercontent.com/render/math?math=C(n)%20%3D%20%5Cint_0%5E%7B%5Cinfty%7D%20f(E)%20R(n%2CE)%5C%20dE)
+> 
+> In reality, we don't have a continuous function for ![R(n, E)](https://render.githubusercontent.com/render/math?math=R(n%2C%20E)), but rather a matrix that defines a discrete function defined as
+> 
+> ![R_D(n, m) = \frac{\int_{E_{m-1}}^{E_m} R(n,E)\ dE}{E_m - E_{m-1}}](https://render.githubusercontent.com/render/math?math=R_D(n%2C%20m)%20%3D%20%5Cfrac%7B%5Cint_%7BE_%7Bm-1%7D%7D%5E%7BE_m%7D%20R(n%2CE)%5C%20dE%7D%7BE_m%20-%20E_%7Bm-1%7D%7D)
+> 
+> where ![m](https://render.githubusercontent.com/render/math?math=m) is the index of the energy range. 
+
+In other words, a response matrix allows us to relate the energy channel of the photon with the energy in units of keV. [Page, M. (2015)](https://arxiv.org/abs/1506.07015) has a good description of the relation. 
+
+Where can we find a response matrix? The NICER instrument response can be found in the calibration database (part of the HEAsoft installation). It can be found on the Haverford cluster at /packages/caldb/data/nicer/xti/cpf/rmf/nixtiref20170601v001.rmf. It is also included in this github directory. 
+
+To apply the instrument response, we ue the command `resp`. We want to apply our response file to the first spectrum in our XSPEC session. Therefore we write:
+``` 
+XSPEC12> resp 1 nixtiref20170601v001.rmf
+```
+There is also an ancillary response file. This file contains information about the effective area of the detector. This is also found in CALDB, at /packages/caldb/data/nicer/xti/cpf/arf/nixtiaveonaxis20170601v002.arf. Again, this file is also included in the github directory. We load the ARF in a way similar to the response file:
+ ```
+ XSPEC12> arf 1 nixtiaveonaxis20170601v002.arf
+ ```
+ If both of these commands were successful, we see
+ 
+ ![xspec_3](assets/xspec_3.png)
+ 
 
 ## Plotting Data
+
+XSPEC allows us to plot the spectra and in a variety of forms, both with and without a fit model. First, we have to choose a plot device. The following command will bring up a plotting window
+
+```
+XSPEC12> cpd /xs
+```
+The window that appears should look like this:
+![window](assets/xspec_plot_0.png)
+
+## Background spectra
 
 ## Ignoring Channels / Energy Ranges
 
