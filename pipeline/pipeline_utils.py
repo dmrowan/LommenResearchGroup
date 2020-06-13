@@ -5,6 +5,7 @@ from astropy import log
 from astropy.time import Time
 import argparse
 from bs4 import BeautifulSoup
+import datetime
 import numpy as np
 import pandas as pd
 import pint
@@ -230,4 +231,66 @@ def crab_par_table(par_dir='/students/pipeline/parfiles/crab/'):
     df = pd.DataFrame({'par':par_files, 'start':start, 'finish':finish})
     return df
 
+#Manages event file backups for pipeline
+def event_backup(evt, backupdir='evt_backups', message="", date='now'):
+    
+    #First do file and dir checks
+    if not os.path.isfile(evt):
+        raise FileNotFoundError("Event file not found")
 
+    if not os.path.isdir(backupdir):
+        log.warning("Backup directory doesn't exist")
+        check = input("Would you like to create backup directory [y/n] -- ")
+        if check in ['Y', 'y']:
+            os.mkdir(backupdir)
+        else:
+            log.error("Exiting")
+            return -1
+
+    #Collect date information
+    if date=='now':
+        backup_date = datetime.datetime.now()
+    elif date=='modified':
+        backup_date = datetime.datetime.fromtimestamp(os.path.getmtime(evt))
+    else:
+        raise ValueError("Invalid date mode {}".format(date))
+    #Format date
+    format_specifier = '%Y-%m-%d_%H:%M:%S'
+    backup_date = backup_date.strftime(format_specifier)
+   
+    #If the backup log doesn't exist, create and write first few lines
+    backup_log = os.path.join(backupdir, 'log.txt')
+    if not os.path.isfile(backup_log):
+        with open(backup_log, 'w') as f:
+            f.write("Event file backups\n")
+            f.write("Filename\tDate Created\tMessage\n")
+
+    #Find the most recent backup in log
+    with open(backup_log, 'r') as f:
+        lines = f.readlines()
+        last = lines[-1].split()[0]
+
+    #Set backup name
+    if last == 'Filename':
+        backup_name = os.path.join(backupdir, 'backup_0.evt')
+    else:
+        new_num = str(int(last.strip('.evt')[-1])+1)
+        backup_name = os.path.join(backupdir, 'backup_{}.evt'.format(new_num))
+    
+    if os.path.isfile(backup_name):
+        raise FileExistsError("Backup name already exists. This means that the log file and backup directory are out of sync")
+
+    #Copy evt file to backupdir
+    cmd = ['cp', evt, backup_name]
+    subprocess.call(cmd)
+
+
+    #Add info to log
+    with open(backup_log, 'a') as f:
+        f.write('\n')
+        f.write('{0}\t\t{1}\t\t{2}\t\t'.format(
+            os.path.basename(os.path.normpath(backup_name)),
+            backup_date,
+            message))
+
+    log.info("Backup event file created")

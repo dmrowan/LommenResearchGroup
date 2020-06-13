@@ -21,8 +21,8 @@ desc = """
 Pipeline for pulsar analysis
 """
 
-def crab_pipe(par_dir='/students/pipeline/parfiles/crab', outdir='./', 
-              par_date_clearance=None, par_save='par_info'):
+def crab_par_match(par_dir='/students/pipeline/parfiles/crab', outdir='./', 
+                  par_date_clearance=None, par_save='par_info'):
     
     par_df = pipeline_utils.crab_par_table(par_dir=par_dir)
 
@@ -44,7 +44,7 @@ def crab_pipe(par_dir='/students/pipeline/parfiles/crab', outdir='./',
             obsids.append(f)        
 
     #Need to read the mkfs to get date
-    mkfs = [ os.path.join(outdir, ID, f'auxil/ni{ID}.mkf')
+    mkfs = [ os.path.join(outdir, ID, 'auxil/ni{0}.mkf'.format(ID))
              for ID in obsids ]
 
     obs_dates = []
@@ -94,8 +94,10 @@ def crab_pipe(par_dir='/students/pipeline/parfiles/crab', outdir='./',
 
     log.info("Writing par date match to file")
     if par_save is not None:
-        df_obs.to_csv(par_save+'.csv')
+        df_obs.to_csv(par_save+'.csv', index=False)
         df_obs.to_latex(par_save+'.tex', index=False)
+
+    return df_obs
 
 
 def run_psrpipe(obsID, par, 
@@ -131,10 +133,10 @@ def allprocedures(obsID, par,
 				  trumpet=True, keith=True, 
 				  clobber=False):
 	
-    if ((os.path.isfile("{}_pipe/cleanfilt.evt".format(obsID))) 
+    if ((os.path.isdir("{}_pipe".format(obsID))) 
         and (not clobber)):
         return 0
-    elif ((os.path.isfile("{}_pipe/cleanfilt.evt".format(obsID)))
+    elif ((os.path.isdir("{}_pipe".format(obsID)))
             and clobber):
         log.info("Removing {}_pipe".format(obsID))
         os.rmdir("{}_pipe".format(obsID))
@@ -148,7 +150,7 @@ def allprocedures(obsID, par,
         return -1
 
     if (not pipeline_utils.check_nicerl2(obsID)) or clobber:
-        pipeline_utils.run_nicerl2(obsID, trumpet=trumpet)
+        pipeline_utils.run_nicerl2(obsID, trumpet=trumpet, clobber=clobber)
 
     pipeline_utils.run_add_kp(obsID)
 
@@ -158,26 +160,44 @@ def allprocedures(obsID, par,
     return 1
 
 def wrapper(par, emin=0.25, emax=12,
-			trumpet=True, keith=True, clobber=False):
+			trumpet=True, keith=True, clobber=False,
+            crab=False):
 
-	pool = mp.Pool(processes=mp.cpu_count()+2)
-	#pool = mp.Pool(processes=1)
-	jobs = []
-	times = []
-	for f in os.listdir("./"):
-		if (os.path.isdir(f)) and (not f.endswith('_pipe')):
-			if f != 'tmp':
-				job = pool.apply_async(allprocedures,
-									   (f, par, ),
-									   dict(emin=emin,
-										    emax=emax,
-											trumpet=trumpet,
-											keith=keith,
-											clobber=clobber))
-				jobs.append(job)
+    pool = mp.Pool(processes=mp.cpu_count()+2)
+    jobs = []
+    times = []
 
-	for job in jobs:
-		job.get()
+    if crab:
+        log.info("Processing Crab data: parsing par data")
+        df = pd.read_csv(par, keep_default_na=False)
+        par_dic = {}
+        for i in range(len(df)):
+            if df['par'][i] == '':
+                continue
+            else:
+                par_dic[str(df['obsID'][i])] = df['par'][i]
+
+    for f in os.listdir("./"):
+        if (os.path.isdir(f)) and (not f.endswith('_pipe')) and (f!='tmp'):
+
+            if crab:
+                if f not in list(par_dic.keys()):
+                    log.info("No par for {}".format(f))
+                    continue
+                else:
+                    par = par_dic[f]
+
+            job = pool.apply_async(allprocedures,
+                                   (f, par, ),
+                                   dict(emin=emin,
+                                        emax=emax,
+                                        trumpet=trumpet,
+                                        keith=keith,
+                                        clobber=clobber))
+            jobs.append(job)
+
+    for job in jobs:
+        job.get()
 
 def run_niextract(sourcename, max_date=None):
 	source_dir = os.getcwd().split('/')[-1]
@@ -224,9 +244,9 @@ def run_cr_cut(merged_evt, cut, filterbinsize):
 	
 	subprocess.call(cmd)
 
-def update(sourcename, heasarc_user, heasarc_pwd, outdir, decryptkey,
+def update(sourcename, heasarc_user, heasarc_pwd, decryptkey,
 		   par, emin=0.25, emax=12, cut=2, filterbinsize=16,
-		   trumpet=True, keith=True):
+		   trumpet=True, keith=True, crab=False):
 
     source_dir = os.getcwd().split('/')[-1]
     log.info("Checking sourcename")
@@ -236,32 +256,33 @@ def update(sourcename, heasarc_user, heasarc_pwd, outdir, decryptkey,
             return
 
     pipeline_utils.run_datadownload(sourcename, heasarc_user, 
-            heasarc_pwd, outdir, 
+            heasarc_pwd, './', 
             decryptkey, clobber=False)
 
-    for f in os.listdir(outdir):
-        if (os.path.isdir(f)) and (not f.endswith('_pipe')):
-            if not os.path.isdir(f+"_pipe"):
-                if f != 'tmp':
-                    allprocedures(f,  par, emin=emin, emax=emax,
-                                  trumpet=trumpet, keith=keith, 
-                                  clobber=False)
+    wrapper(par, emin=emin, emax=emax, trumpet=trumpet, keith=keith,
+            clobber=False, crab=crab)
 
     run_niextract(sourcename)
 
     run_cr_cut(sourcename+"_combined.evt", cut, filterbinsize)
 
+    #Create merged evt backup
+    merged_evt = sourcename+"_combined_cut.evt"
+    message='Created with pulsar_pipe.update'
+    pipeline_utils.event_backup(merged_evt, message=message)
+
 def cronjob(heasarc_user, heasarc_pwd, decryptkey):
 
-	fname = "/homes/pipeline/logs/"+datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-	with open(fname, 'w') as f:
-		f.write("Completed at " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
-		
-	### Running on PSR_B1937+21 ###
-	os.chdir("/students/pipeline/heasoft6.27/PSR_B1937+21")
-	par_1937 = "/students/pipeline/parfiles/PSR_B1937+21.par.nancaytzr"
-	update("PSR_B1937+21", heasarc_user, heasarc_pwd, './', decryptkey, 
-		   par_1937)
+    subprocess.call(['/bin/bash', '-i', '-c', 'heainit'])
+    fname = "/homes/pipeline/logs/"+datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    with open(fname, 'w') as f:
+        f.write("Completed at " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+
+    ### Running on PSR_B1937+21 ###
+    os.chdir("/students/pipeline/heasoft6.27/PSR_B1937+21")
+    par_1937 = "/students/pipeline/parfiles/PSR_B1937+21.par.nancaytzr"
+    update("PSR_B1937+21", heasarc_user, heasarc_pwd, './', decryptkey, 
+    par_1937)
 
 """
 Dom notes
@@ -284,9 +305,9 @@ if __name__ == '__main__':
 	parser.add_argument("--sourcename", help="source name for downloading",
 						default=None, type=str)
 	parser.add_argument("--user", help="heasarc username", 
-						default=None, type=str)
+						default='nicer_team', type=str)
 	parser.add_argument("--passwd", help="heasarc password", 
-						default=None, type=str)
+						default='sextant', type=str)
 	parser.add_argument("--outdir", help="output dir for download", 
 						default="./", type=str)
 	parser.add_argument("--clobber", help="overwrite download files", 
@@ -349,12 +370,13 @@ if __name__ == '__main__':
 			run_niextract(args.sourcename, max_date=dt)
 	elif args.update:
 		update(args.sourcename, args.user, args.passwd, 
-			   args.outdir, args.key, args.par, 
+			   args.key, args.par, 
 			   emin=args.emin, emax=args.emax, 
 			   cut=args.cut, 
 			   filterbinsize=args.filterbinsize, 
 			   trumpet=args.trumpet,
 			   keith=args.keith)
 	elif args.cron:
-		cronjob(args.user, args.passwd, args.key)
+		#cronjob(args.user, args.passwd, args.key)
+		cronjob('nicer_team', 'sextant', 'NeutronStarMass=1.4M_SUN')
 
