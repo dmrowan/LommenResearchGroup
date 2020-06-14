@@ -269,7 +269,8 @@ def update(sourcename, heasarc_user, heasarc_pwd, decryptkey,
     #Create merged evt backup
     merged_evt = sourcename+"_combined_cut.evt"
     message='Created with pulsar_pipe.update'
-    pipeline_utils.event_backup(merged_evt, message=message)
+    pipeline_utils.product_backup(merged_evt, backupdir='evt_backups',
+                                  message=message)
 
 def cronjob(heasarc_user, heasarc_pwd, decryptkey):
 
@@ -284,16 +285,6 @@ def cronjob(heasarc_user, heasarc_pwd, decryptkey):
     update("PSR_B1937+21", heasarc_user, heasarc_pwd, './', decryptkey, 
     par_1937)
 
-"""
-Dom notes
-
-once the mp is done running on 1937 want to check the update function
-then check cronjob function
-
-check out this link for crontab enviornmental variables:
-https://unix.stackexchange.com/questions/27289/how-can-i-run-a-cron-command-with-existing-environmental-variables
-
-"""
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description=desc)
