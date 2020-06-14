@@ -294,3 +294,84 @@ def event_backup(evt, backupdir='evt_backups', message="", date='now'):
             message))
 
     log.info("Backup event file created")
+
+#Manages product backups for evt and mkfs
+def product_backup(fname, backupdir=None, date='now', message=""):
+
+    #Are we working with evt or mkf:
+    extension = os.path.splitext(fname)[1].lstrip('.')
+    if extension == 'evt':
+        mode='event'
+    elif extension == 'mkf':
+        mode='filter'
+    else:
+        raise TypeError("input file must be evt or mkf")
+
+    #Use extension to determine backup directory
+    if backupdir is None:
+        backupdir = '{}_backups'.format(extension)
+
+    
+    #First do file and dir checks
+    if not os.path.isfile(fname):
+        raise FileNotFoundError("{} file not found".format(mode))
+
+    #Option to create backupdir if it doesn't exist
+    if not os.path.isdir(backupdir):
+        log.warning("Backup directory doesn't exist")
+        check = input("Would you like to create backup directory [y/n] -- ")
+        if check in ['Y', 'y']:
+            os.mkdir(backupdir)
+        else:
+            log.error("Exiting")
+            return -1
+
+    #Collect date information
+    if date=='now':
+        backup_date = datetime.datetime.now()
+    elif date=='modified':
+        backup_date = datetime.datetime.fromtimestamp(os.path.getmtime(fname))
+    else:
+        raise ValueError("Invalid date mode {}".format(date))
+    #Format date
+    format_specifier = '%Y-%m-%d_%H:%M:%S'
+    backup_date = backup_date.strftime(format_specifier)
+   
+    #If the backup log doesn't exist, create and write first few lines
+    backup_log = os.path.join(backupdir, 'log.txt')
+    if not os.path.isfile(backup_log):
+        with open(backup_log, 'w') as f:
+            f.write("{} file backups\n".format(mode))
+            f.write("Filename\tDate Created\tMessage\n")
+
+    #Find the most recent backup in log
+    with open(backup_log, 'r') as f:
+        lines = f.readlines()
+        last = lines[-1].split()[0]
+
+    #Set backup name
+    if last == 'Filename':
+        backup_name = os.path.join(backupdir, 'backup_0.{}'.format(extension))
+    else:
+        new_num = str(int(last.strip('.{}'.format(extension))[-1])+1)
+        backup_name = os.path.join(backupdir, 'backup_{0}.{1}'.format(
+                new_num, extension))
+    
+    if os.path.isfile(backup_name):
+        raise FileExistsError("Backup name already exists. This means that the log file and backup directory are out of sync")
+
+    #Copy evt file to backupdir
+    cmd = ['cp', fname, backup_name]
+    subprocess.call(cmd)
+
+
+    #Add info to log
+    with open(backup_log, 'a') as f:
+        f.write('\n')
+        f.write('{0}\t\t{1}\t\t{2}\t\t'.format(
+            os.path.basename(os.path.normpath(backup_name)),
+            backup_date,
+            message))
+
+    log.info("Backup {} file created".format(mode))
+
