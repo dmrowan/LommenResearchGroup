@@ -324,7 +324,7 @@ if __name__ == '__main__':
 	parser.add_argument("--combine", help="combine evt/pha", 
 						default=False, action='store_true')
 
-	parser.add_argument("--update", default=False, action='store_true',
+	parser.add_argument("--update", default=None, type=str)
 						help="Update single source with full procedure")
 	parser.add_argument("--cron", help="Run cron job", 
 						default=False, action='store_true')
@@ -337,6 +337,7 @@ if __name__ == '__main__':
 						default=None, type=str)
 	args = parser.parse_args()
 
+    #Key handling
 	if args.k_file is not None:
 		with open(args.k_file, 'r') as f:
 			args.key = f.readlines()[0].strip("\n")
@@ -348,19 +349,14 @@ if __name__ == '__main__':
 										args.user, args.passwd, 
 										args.outdir, 
 										args.key, clobber=args.clobber)
-	elif args.mp:
-		log.info("Launching wrapper")
-		wrapper(args.par, emin=args.emin, emax=args.emax,  
-				trumpet=args.trumpet, 
-				keith=args.keith)
 	elif args.combine:
 		if args.max_date is None:
 			run_niextract(args.sourcename)
 		else:
 			dt = datetime.datetime.strptime(args.max_date, '%Y-%m-%d')
 			run_niextract(args.sourcename, max_date=dt)
-	elif args.update:
-		update(args.sourcename, args.user, args.passwd, 
+	elif args.update is not None:
+		update(args.update, args.user, args.passwd, 
 			   args.key, args.par, 
 			   emin=args.emin, emax=args.emax, 
 			   cut=args.cut, 
@@ -368,6 +364,5 @@ if __name__ == '__main__':
 			   trumpet=args.trumpet,
 			   keith=args.keith)
 	elif args.cron:
-		#cronjob(args.user, args.passwd, args.key)
-		cronjob('nicer_team', 'sextant', 'NeutronStarMass=1.4M_SUN')
+		cronjob(args.user, args.passwd, args.key)
 
