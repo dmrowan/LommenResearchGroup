@@ -62,6 +62,11 @@ def enSplit(energy_level):
   index=np.where((enArray>=energy_level[0])&(enArray<energy_level[1]))
   return eventTime[index[0]]
 
+def percTrans(Alt,Rate):
+  plateau = np.where(((Alt>200)&(Alt<250)))
+  avg = np.mean(Rate[plateau[0]])
+  return (Rate/avg)*100
+
 
 class EnergyBands:
 
@@ -71,6 +76,7 @@ class EnergyBands:
     self.time = enSplit(energy_band)
     self.alt = altSplit(energy_band)
     self.rate,self.new_alt = countRate(self.time,self.alt,bin_size)
+    self.perc_trans = percTrans(self.new_alt,self.rate)
 
 
 low_en = EnergyBands(lowEn,binSize_all)
@@ -90,9 +96,9 @@ plt.legend()
 plt.show()
 
 plt.figure(2)
-plt.plot(low_en.new_alt,(low_en.rate/max(low_en.rate))*100,'r--',label=f'{lowEn[0]/100}keV-{lowEn[1]/100}keV')
-plt.plot(mid_en.new_alt,(mid_en.rate/max(mid_en.rate))*100,'g--',label=f'{midEn[0]/100}keV-{midEn[1]/100}keV')
-plt.plot(high_en.new_alt,(high_en.rate/max(high_en.rate))*100,'b--',label=f'{highEn[0]/100}keV-{highEn[1]/100}keV')
+plt.plot(low_en.new_alt,low_en.perc_trans,'r--',label=f'{lowEn[0]/100}keV-{lowEn[1]/100}keV')
+plt.plot(mid_en.new_alt,mid_en.perc_trans,'g--',label=f'{midEn[0]/100}keV-{midEn[1]/100}keV')
+plt.plot(high_en.new_alt,high_en.perc_trans,'b--',label=f'{highEn[0]/100}keV-{highEn[1]/100}keV')
 plt.title("Percent Transmittance vs. Altitude for 3 Energy Bands (FEB 3)")
 plt.xlabel("Altitude (km)")
 plt.ylabel("Percent Transmittance of X-Rays")
