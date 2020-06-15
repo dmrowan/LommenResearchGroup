@@ -48,26 +48,20 @@ def altSplit(energy_level):
   return altArray[index[0]]
 
 #function that deduces the number of counts per bin size 
-def countRate(Time,binSize):
+def countRate(Time,alt_array,binSize):
   binCounts=[]
+  altitude = []
   for i in np.arange(min(Time),max(Time)+binSize,binSize):
     desind=np.where((Time >= i) & (Time < i + binSize))
     binCounts.append(np.size(desind[0]))
-  return np.array(binCounts)
+    altitude.append(np.mean(alt_array[desind[0]]))
+  return np.array(binCounts),np.array(altitude)
 
 #function that makes a list of times corresponding to each energy range
 def enSplit(energy_level):
   index=np.where((enArray>=energy_level[0])&(enArray<energy_level[1]))
   return eventTime[index[0]]
 
-#time axis from count rate vs time plot
-def createAxis(alt_split,bin_size):
-  return np.arange(0,len(alt_split),bin_size)
-
-#interpolate the count rate to match the range of elevations
-def newAlt(Axis,oldAlt,CountRate):
-  g = interpolate.interp1d(Axis,oldAlt,kind='linear')
-  return g(np.arange(0,len(CountRate),binSize_all))
 
 class EnergyBands:
 
@@ -75,10 +69,8 @@ class EnergyBands:
     self.energy_band = energy_band
     self.bin_size = bin_size
     self.time = enSplit(energy_band)
-    self.rate = countRate(self.time,bin_size)
     self.alt = altSplit(energy_band)
-    self.axis = createAxis(self.alt,bin_size)
-    self.new_alt = newAlt(self.axis,self.alt,self.rate)
+    self.rate,self.new_alt = countRate(self.time,self.alt,bin_size)
 
 
 low_en = EnergyBands(lowEn,binSize_all)
@@ -87,7 +79,7 @@ high_en = EnergyBands(highEn,binSize_all)
 
 ################################################################################
 #plot the data
-
+plt.figure(1)
 plt.plot(low_en.new_alt,low_en.rate,'r.',label=f'{lowEn[0]/100}keV-{lowEn[1]/100}keV')
 plt.plot(mid_en.new_alt,mid_en.rate,'g.',label=f'{midEn[0]/100}keV-{midEn[1]/100}keV')
 plt.plot(high_en.new_alt,high_en.rate,'b.',label=f'{highEn[0]/100}keV-{highEn[1]/100}keV')
@@ -96,3 +88,14 @@ plt.xlabel("Altitude (km)")
 plt.ylabel("X-Ray Photon Counts/Sec")
 plt.legend()
 plt.show()
+
+plt.figure(2)
+plt.plot(low_en.new_alt,(low_en.rate/max(low_en.rate))*100,'r--',label=f'{lowEn[0]/100}keV-{lowEn[1]/100}keV')
+plt.plot(mid_en.new_alt,(mid_en.rate/max(mid_en.rate))*100,'g--',label=f'{midEn[0]/100}keV-{midEn[1]/100}keV')
+plt.plot(high_en.new_alt,(high_en.rate/max(high_en.rate))*100,'b--',label=f'{highEn[0]/100}keV-{highEn[1]/100}keV')
+plt.title("Percent Transmittance vs. Altitude for 3 Energy Bands (FEB 3)")
+plt.xlabel("Altitude (km)")
+plt.ylabel("Percent Transmittance of X-Rays")
+plt.legend()
+plt.show()
+
