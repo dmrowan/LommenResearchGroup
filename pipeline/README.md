@@ -58,12 +58,19 @@ $ pulsar_pipe.py --update PSR_B1937+21 --par <parfile> --k_file <keyfile>
 ```
 
 Additional arguments are available:
+
 `--emin`: Minimum energy to include in filtering. Default is 0.25 keV.
+
 `--emax`: Maximum energy to include in filtering. Default is 12.0 keV.
+
 `--cut`: Count rate cut in cts/sec. Default is 2.0 cts/s.
+
 `--filterbinsize`: bin size for count rate cut. Default is 16s. 
+
 `--trumpet`: Use the trumpet cut. Default is True.
+
 `--keith`: Use the standard Keith Gendreau pipeline filters. Default is True
+
 
 If you want to call the pipeline in python, it can be imported and run as:
 ```
