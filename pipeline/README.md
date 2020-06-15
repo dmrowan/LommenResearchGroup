@@ -46,9 +46,11 @@ The pulsar pipe is found in the pulsar_pipe.py file. It takes advantage of psrpi
 
 The primary command line invocation of the script looks something like this:
 ```
-$ pulsar_pipe.py --update PSR_B1937+21 --par <parfile> -k
+$ pulsar_pipe.py --update PSR_B1937+21 --par <parfile> --user <username> --passwd <passwd> -k
 ```
-The `--update` argument calls the full pulsar pipeline for the source (B1937+21, in this case). We supply the par file with `--par`. The `-k` argument is used for the decryptkey. This will pullup a password prompt for the NICER decryption key. 
+The `--update` argument calls the full pulsar pipeline for the source (B1937+21, in this case). We supply the par file with `--par`. 
+
+We need to give the username and password for the NASA archive with the `--user` and `--passwd` arguments. The `-k` argument is used for the decryptkey. This will pullup a password prompt for the NICER decryption key. 
 
 An alternative way to enter the key is by storing it in a file. The key should just be on the first line of the file. Then, the prompt can be bypassed using the argument `--k_file`:
 ```
@@ -80,6 +82,35 @@ The pipeline can also run each step separately if necessary:
 2. download all the data, but don't do any filtering
 3. merge all the event files in the current directory
 4. create a backup
+
+To run the pipeline on a single observation, specify the observation ID number with the obsID flag:
+```
+pulsar_pipe.py --obsID 3070020518 --par <parfile>
+```
+Since a count rate cut is normally done on a merged event file, this will prompt the user before performing to perform the cut. If it is selected, a new event file, '3070020518_pipe/cleanfilt_cut.evt', in this case, will be created. 
+
+The clobber argument can be included to re-run the pipeline on an observation:
+```
+pulsar_pipe.py --obsID 3070020518 --par <parfile> --clobber
+```
+
+To download all the files for a given source, without doing the filtering, use the download argument:
+```
+$ pulsar_pipe.py --download PSR_B1821-24 --user <username> --passwd <passwd> -k
+```
+By default, existing observations are not overwritten. This can be changed using the clobber argument:
+```
+$ pulsar_pipe.py --download PSR_B1821-24 --user <username> --passwd <passwd> -k --clobber
+```
+
+The data download can also be called in Python using pipeline_utils.run_datadownload. This is a wrapper of custom_data_download.py, which in turn is a modification to NICERsoft ni_data_download.py. It's confusing, I know. Here's an example of calling a data download in python:
+```
+>>> from pipeline import pipeline_utils
+>>> pipeline_utils.run_datadownload('PSR_B1821-24', <username>, <passwd>, './', <decryptkey>, clobber=False)
+```
+Note that the output directory for the downloaded observations can be changed by modifiying the outdir argument, which is set to './' in the example above. 
+
+
 
 
 ## Background Pipeline
