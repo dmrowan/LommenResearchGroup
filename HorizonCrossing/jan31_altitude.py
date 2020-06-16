@@ -92,18 +92,18 @@ high_en = EnergyBands(highEn,binSize_all)
 #plot the data
 plt.figure(1)
 plt.plot(low_en.new_alt,low_en.rate,'r.',label=f'{lowEn[0]/100}keV-{lowEn[1]/100}keV')
-plt.plot(low_en.new_alt,SeventhOr(low_en.new_alt,*low_en.popt),'r-')
+#plt.plot(low_en.new_alt,SeventhOr(low_en.new_alt,*low_en.popt),'r-')
 
 
 plt.plot(high_en.new_alt,high_en.rate,'b.',label=f'{highEn[0]/100}keV-{highEn[1]/100}keV')
-plt.plot(high_en.new_alt,SeventhOr(high_en.new_alt,*high_en.popt),'b-')
+#plt.plot(high_en.new_alt,SeventhOr(high_en.new_alt,*high_en.popt),'b-')
 
 plt.title("Counts/Sec vs. Altitude for 3 Energy Bands (FEB 3)")
 plt.xlabel("Altitude (km)")
 plt.ylabel("X-Ray Photon Counts/Sec")
 plt.legend()
 plt.show()
-
+'''
 plt.figure(2)
 
 plt.plot(low_en.new_alt,low_en.perc_trans,'r--',label=f'{lowEn[0]/100}keV-{lowEn[1]/100}keV')
@@ -119,6 +119,7 @@ plt.xlabel("Altitude (km)")
 plt.ylabel("Percent Transmittance of X-Rays")
 plt.legend()
 plt.show()
+'''
 #################################################################
 
 
