@@ -117,12 +117,66 @@ We can then refresh the plot
 XSPEC12> plot
 ```
 This should now show an energy axis. 
-## Background spectra
+![xspec_plot_2](assets/xspec_plot_2.png)
+
+Looks like somethings not right. We have a log scale on the x-axis and it appears to have struggled with the lowest energy bin. The strategy here will be to use ignore/notice to select energies channels we wish to include
 
 ## Ignoring Channels / Energy Ranges
 
+In most cases, we are only interested in a range of energies that the detector collects. For NICER, we know that events with energies less than 0.2 and greater than 18keV are detected, yet this is not the optimal range for the calibrated instrument. 
+
+We can choose what energies or channels to include in our spectral analysis using the `ignore` and `notice` commands. If we want to ignore the energies less than 1keV, we can write
+```
+XSPEC12> ignore **-1.0
+```
+Alternatively, if we were working with the channel axis (you can use `setplot channel` to get back to that plot), we could say something like
+```
+XSPEC12> ignore **-24
+```
+There is a very subtle difference in ignoring energy bins and channel bins. If we want to ignore energy ranges, we must include a decimal point. If not, it will be interpreted as a channel range. 
+
+We can also ignore energies up to a certain value and above a certain value. For example:
+```
+XSPEC12> ignore **-1.0, 10.0-**
+```
+If the command is successful, XSPEC will show you how many channels were ignored:
+![xspec_5](assets/xspec_5.png)
+
+After refreshing the plot, we see that the x-axis range has changed. Let's say that we changed our mind and we actually want to include some energies less than 1.0 keV. We can use the notice command to include channels that were previously ignored
+```
+XSPEC12> notice 0.3-1.0
+```
+Again, the use of decimal points indicates the selection is in units of keV, rather than by channel.
+
+Note that if multiple spectra are used, ignoring/noticing can be done separately for each spectrum. See the [ignore documentation](https://heasarc.gsfc.nasa.gov/xanadu/xspec/manual/node74.html) for more information. 
+
+## Background spectrum
+
+We will probably need a background spectrum to be able to distinguish the source from the background. Here, the background.pha file can be loaded in with
+```
+XSPEC12> back 1 background.pha
+```
+This analysis is an example of a difference spectra. Check out the other section of the StartupGuide for information on background spectrum generation.
+
 ## Fitting a Model
 
+We are now ready to fit a model to our data. There are a ton of models available in XSPEC, and they can be combined additively and multiplicatively. To see a list of models (and a short description) go to the [XSPEC alphabetical summary page](https://heasarc.gsfc.nasa.gov/xanadu/xspec/manual/node130.html)
+
+For PSR B1937+21, we want to use an absorbed power law model. Looking on the list of models, we see that there isn't a single model that suits our needs, so we will have to use a combination of the 'tbabs' and 'powerlaw' models.
+
+Before using the tbabs models, we have to [set the abundances](https://heasarc.gsfc.nasa.gov/xanadu/xspec/manual/node117.html)
+```
+XSPEC12> abund wilm
+```
+Now we are ready to define the model
+```
+XSPEC12> model tbabs*powerlaw
+```
+This will pull up a slightly different prompt. In this case it should look like `1:TBabs:nH>`. This is where you can enter initial values before fitting. You also have the option to leave them at default by hitting enter. For now, just hit enter
+ three times. The output in XSPEC should look something like this:
+ ![xspec_7](assets/xspec_7.png)
+ 
+ As we can see, the fit is really terrible using the default values. 
 ### Choosing a model
 
 ### Computing errors

@@ -2,8 +2,10 @@
 import numpy as np
 from astropy.table import Table
 import matplotlib.pyplot as plt
+import scipy.signal
 from scipy import interpolate
 from scipy.optimize import curve_fit
+from scipy import signal
 
 #Time range around the horizon crossing
 startTime = 390+1.92224*10**8
@@ -94,15 +96,16 @@ high_en = EnergyBands(highEn,binSize_all)
 
 ################################################################################
 #plot the data
+
 plt.figure(1)
 plt.plot(low_en.new_alt,low_en.rate,'r.',label=f'{lowEn[0]/100}keV-{lowEn[1]/100}keV')
-plt.plot(low_en.new_alt,SeventhOr(low_en.new_alt,*low_en.popt),'r-')
+#plt.plot(low_en.new_alt,SeventhOr(low_en.new_alt,*low_en.popt),'r-')
 
 plt.plot(mid_en.new_alt,mid_en.rate,'g.',label=f'{midEn[0]/100}keV-{midEn[1]/100}keV')
-plt.plot(mid_en.new_alt,SeventhOr(mid_en.new_alt,*mid_en.popt),'g-')
+#plt.plot(mid_en.new_alt,SeventhOr(mid_en.new_alt,*mid_en.popt),'g-')
 
 plt.plot(high_en.new_alt,high_en.rate,'b.',label=f'{highEn[0]/100}keV-{highEn[1]/100}keV')
-plt.plot(high_en.new_alt,SeventhOr(high_en.new_alt,*high_en.popt),'b-')
+#plt.plot(high_en.new_alt,SeventhOr(high_en.new_alt,*high_en.popt),'b-')
 
 plt.title("Counts/Sec vs. Altitude for 3 Energy Bands (FEB 3)")
 plt.xlabel("Altitude (km)")
@@ -112,16 +115,17 @@ plt.show()
 
 plt.figure(2)
 
-plt.plot(low_en.new_alt,low_en.perc_trans,'r--',label=f'{lowEn[0]/100}keV-{lowEn[1]/100}keV')
-plt.plot(low_en.new_alt,SeventhOr(low_en.new_alt,*low_en.popt_perc),'r-')
+plt.plot(low_en.new_alt,low_en.perc_trans,'r.',label=f'{lowEn[0]/100}keV-{lowEn[1]/100}keV')
+#plt.plot(low_en.new_alt,SeventhOr(low_en.new_alt,*low_en.popt_perc),'r-')
+plt.plot(low_en.new_alt,scipy.signal.savgol_filter(low_en.perc_trans,51,3),'r--')
 
+plt.plot(mid_en.new_alt,mid_en.perc_trans,'g.',label=f'{midEn[0]/100}keV-{midEn[1]/100}keV')
+#plt.plot(mid_en.new_alt,SeventhOr(mid_en.new_alt,*mid_en.popt_perc),'g-')
+plt.plot(mid_en.new_alt,scipy.signal.savgol_filter(mid_en.perc_trans,51,3),'g--')
 
-plt.plot(mid_en.new_alt,mid_en.perc_trans,'g--',label=f'{midEn[0]/100}keV-{midEn[1]/100}keV')
-plt.plot(mid_en.new_alt,SeventhOr(mid_en.new_alt,*mid_en.popt_perc),'g-')
-
-
-plt.plot(high_en.new_alt,high_en.perc_trans,'b--',label=f'{highEn[0]/100}keV-{highEn[1]/100}keV')
-plt.plot(high_en.new_alt,SeventhOr(high_en.new_alt,*high_en.popt_perc),'b-')
+plt.plot(high_en.new_alt,high_en.perc_trans,'b.',label=f'{highEn[0]/100}keV-{highEn[1]/100}keV')
+#plt.plot(high_en.new_alt,SeventhOr(high_en.new_alt,*high_en.popt_perc),'b-')
+plt.plot(high_en.new_alt,scipy.signal.savgol_filter(high_en.perc_trans,51,3),'b--')
 
 
 plt.title("Percent Transmittance vs. Altitude for 3 Energy Bands (FEB 3)")
@@ -129,6 +133,5 @@ plt.xlabel("Altitude (km)")
 plt.ylabel("Percent Transmittance of X-Rays")
 plt.legend()
 plt.show()
+
 #################################################################
-
-
