@@ -3,6 +3,7 @@ import numpy as np
 from astropy.table import Table
 import matplotlib.pyplot as plt
 from scipy import interpolate
+from scipy.optimize import curve_fit
 
 #Time range around the horizon crossing
 startTime = 390+1.92224*10**8
@@ -53,8 +54,9 @@ def countRate(Time,alt_array,binSize):
   altitude = []
   for i in np.arange(min(Time),max(Time)+binSize,binSize):
     desind=np.where((Time >= i) & (Time < i + binSize))
-    binCounts.append(np.size(desind[0]))
-    altitude.append(np.mean(alt_array[desind[0]]))
+    if len(alt_array[desind[0]]) !=0:
+      binCounts.append(np.size(desind[0]))
+      altitude.append(np.mean(alt_array[desind[0]]))
   return np.array(binCounts),np.array(altitude)
 
 #function that makes a list of times corresponding to each energy range
@@ -67,6 +69,12 @@ def percTrans(Alt,Rate):
   avg = np.mean(Rate[plateau[0]])
   return (Rate/avg)*100
 
+def SeventhOr(x,a,b,c,d,e,f,g,h):
+	return(a*x**7+b*x**6+c*x**5+d*x**4+e*x**3+f*x**2+g*x+h)
+
+def curveFit(newAlt,Rate):
+  popt,pcov = curve_fit(SeventhOr,newAlt,Rate)
+  return popt,pcov
 
 class EnergyBands:
 
@@ -77,7 +85,8 @@ class EnergyBands:
     self.alt = altSplit(energy_band)
     self.rate,self.new_alt = countRate(self.time,self.alt,bin_size)
     self.perc_trans = percTrans(self.new_alt,self.rate)
-
+    self.popt,self.pcov = curveFit(self.new_alt,self.rate)
+    self.popt_perc,self.pcov_perc = curveFit(self.new_alt,self.perc_trans)
 
 low_en = EnergyBands(lowEn,binSize_all)
 mid_en = EnergyBands(midEn,binSize_all)
@@ -87,8 +96,14 @@ high_en = EnergyBands(highEn,binSize_all)
 #plot the data
 plt.figure(1)
 plt.plot(low_en.new_alt,low_en.rate,'r.',label=f'{lowEn[0]/100}keV-{lowEn[1]/100}keV')
+plt.plot(low_en.new_alt,SeventhOr(low_en.new_alt,*low_en.popt),'r-')
+
 plt.plot(mid_en.new_alt,mid_en.rate,'g.',label=f'{midEn[0]/100}keV-{midEn[1]/100}keV')
+plt.plot(mid_en.new_alt,SeventhOr(mid_en.new_alt,*mid_en.popt),'g-')
+
 plt.plot(high_en.new_alt,high_en.rate,'b.',label=f'{highEn[0]/100}keV-{highEn[1]/100}keV')
+plt.plot(high_en.new_alt,SeventhOr(high_en.new_alt,*high_en.popt),'b-')
+
 plt.title("Counts/Sec vs. Altitude for 3 Energy Bands (FEB 3)")
 plt.xlabel("Altitude (km)")
 plt.ylabel("X-Ray Photon Counts/Sec")
@@ -96,12 +111,24 @@ plt.legend()
 plt.show()
 
 plt.figure(2)
+
 plt.plot(low_en.new_alt,low_en.perc_trans,'r--',label=f'{lowEn[0]/100}keV-{lowEn[1]/100}keV')
+plt.plot(low_en.new_alt,SeventhOr(low_en.new_alt,*low_en.popt_perc),'r-')
+
+
 plt.plot(mid_en.new_alt,mid_en.perc_trans,'g--',label=f'{midEn[0]/100}keV-{midEn[1]/100}keV')
+plt.plot(mid_en.new_alt,SeventhOr(mid_en.new_alt,*mid_en.popt_perc),'g-')
+
+
 plt.plot(high_en.new_alt,high_en.perc_trans,'b--',label=f'{highEn[0]/100}keV-{highEn[1]/100}keV')
+plt.plot(high_en.new_alt,SeventhOr(high_en.new_alt,*high_en.popt_perc),'b-')
+
+
 plt.title("Percent Transmittance vs. Altitude for 3 Energy Bands (FEB 3)")
 plt.xlabel("Altitude (km)")
 plt.ylabel("Percent Transmittance of X-Rays")
 plt.legend()
 plt.show()
+#################################################################
+
 
