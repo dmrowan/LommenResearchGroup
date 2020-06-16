@@ -58,12 +58,19 @@ $ pulsar_pipe.py --update PSR_B1937+21 --par <parfile> --k_file <keyfile>
 ```
 
 Additional arguments are available:
+
 `--emin`: Minimum energy to include in filtering. Default is 0.25 keV.
+
 `--emax`: Maximum energy to include in filtering. Default is 12.0 keV.
+
 `--cut`: Count rate cut in cts/sec. Default is 2.0 cts/s.
+
 `--filterbinsize`: bin size for count rate cut. Default is 16s. 
+
 `--trumpet`: Use the trumpet cut. Default is True.
+
 `--keith`: Use the standard Keith Gendreau pipeline filters. Default is True
+
 
 If you want to call the pipeline in python, it can be imported and run as:
 ```
@@ -110,8 +117,40 @@ The data download can also be called in Python using pipeline_utils.run_datadown
 ```
 Note that the output directory for the downloaded observations can be changed by modifiying the outdir argument, which is set to './' in the example above. 
 
+To merge all the event files currently piped, we can use the `--merge`. The most simple call would be:
+```
+$ pulsar_pipe.py --merge PSR_B1821-24
+```
+We can also choose to only merge events from observations up to a certain date. Say, for example we want our paper to only include observations taken before July 2019, we would call
+```
+$ pulsar_pipe.py --merge PSR_B1821-24 --max_date 2019-07-01
+```
+Note that the date must be formatted %Y-%m-%d. We can specify the output file with `--output`:
+```
+$ pulsar_pipe.py --merge PSR_B1821-24 --max_date 2019-07-01 --output merged_events.evt
+```
+The count rate cut is performed by default, so the --cut and --filterbinsize arguments can also be used with the merge argument. 
 
+To call a merge in python, we can use the `run_niextract` function:
+```
+>>> import datetime
+>>> from pipeline import pulsar_pipe
+>>> dt = datetime.datetime.strptime('2019-07-01', '%Y-%m-%d')
+>>> pulsar_pipe.run_niextract('PSR_B1821-24', max_date=dt, cut=2.0, filterbinsize=16.0, output='merged_events.evt')
+```
+Note that when the output file is given as an argument, the actual output will be merged_events_cut.evt because of how the count rate cut changes filenames. Someone should probably fix that, but eh, maybe later. 
 
+Finally, we can make a backup of our event file using the `--backup` flag. We also have the option to enter a message with `--message`
+```
+$ pulsar_pipe.py --backup merged_events_cut.evt --message "I made this backup because I can"
+```
+Of course, we can also do this in python
+```
+>>> from pipeline import pipeline_utils
+>>> pipeline_utils.product_backup('merged_events_cut.evt', message='remember to take out the trash before the next backup')
+```
+
+Again, even though we've shown how each of these pipeline functionalities can be called independently, either from the command line or a python session, they are all done together using the `--update` flag described at the top of the section.
 
 ## Background Pipeline
 
@@ -123,3 +162,4 @@ Note that the output directory for the downloaded observations can be changed by
 
 
 ## Uhoh it broke -- start here
+So, the pipeline broke. Don't panic, [click here](https://www.youtube.com/watch?v=dQw4w9WgXcQ) for a guide on how to fix it. 
