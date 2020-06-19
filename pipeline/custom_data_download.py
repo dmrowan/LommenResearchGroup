@@ -47,6 +47,7 @@ parser.add_argument("--mkf-only",   help="Grab the prefilter data files only", a
 parser.add_argument("--decryptkey", help="Add decryption key to run GPG after download", type=str, default=None)
 parser.add_argument("--unzip",      help="Gunzip after decrypting", action='store_true')
 parser.add_argument("--obsIDs", help="DOM: choose specific obsids", nargs='+', type=str, default=None)
+parser.add_argument("--silent_curl", help='DOM: silence curl progress meter',                     default=False, action='store_true')
 args = parser.parse_args()
 
 # ----------------------------------------------------------------------
@@ -117,7 +118,6 @@ def untar(obsid,outdir):
 
 def decrypt(passwd,obsid_dir,gpg_v):
     cmd = "find {} -name '*.gpg' -exec {} --batch --yes --passphrase '{}'  {{}} \; -delete".format(obsid_dir, gpg_v, passwd)
-    print(cmd)
     try:
         os.remove("{}/ni-gpg-call.log".format(obsid_dir))
     except OSError:
@@ -258,20 +258,25 @@ for n,[no, row] in enumerate(source.iterrows()):
                     "--ftp-ssl", "-k", "--create-dirs", 
                     "-o", "{0}".format(target)]
              log.info("{:3d} / {:3d} :: Trying: curl obsid {}.tar".format(n+1, len(source), obsid))
+
+             if args.silent_curl:
+                cmd.append("-s")
+
              r0 = subprocess.call(cmd)
-             print(cmd)
              if r0 != 0:
                 cmd_base_team = ["curl", "--retry", "10", 
                                  "{0}{1}".format(base_team, target), 
                                  "--ftp-ssl", "-k", "--create-dirs", 
                                  "-o", "{0}".format(target)]
+                if args.silent_curl:
+                    cmd_base_team.append("-s")
 
                 r1 = subprocess.call(cmd_base_team)
 
-             if r1 != 0:
-                log.info("Both curls failed. Attempting split download")
-                log.info("Using public archive url")
-                pipeline_utils.download_parts(obsid, "{0}{1}".format(base, target))
+                if r1 != 0:
+                    log.info("Both curls failed. Attempting split download")
+                    log.info("Using public archive url")
+                    pipeline_utils.download_parts(obsid, "{0}{1}".format(base, target), silent=args.silent_curl)
 
              # File management
              log.info("{:3d} / {:3d} :: Un-archiving obsid {}.tar".format(n+1, len(source), obsid))
