@@ -4,7 +4,7 @@ from astropy import log
 import numpy as np
 import pandas as pd
 
-desc="""
+"""
 Creates bins of "good times" of an arbitrary length (as determined by the user)
 """
 def main(): 
@@ -12,10 +12,12 @@ def main():
     fname = '1937_events.evt'
     log.info('Read in text file')
     timetab = Table.read('1937_events.evt', hdu=2) 
-    tab = Table.read('1937_events.evt', hdu=1)
+#    tab = Table.read('1937_events.evt', hdu=1)
     timetab = timetab.to_pandas()
     timewidth = int(input("What time interval?"))
     phases = []
+    starttimes = []
+    endtimes =[]
     totaltime = 0
     counter = 0
     diff = 0
@@ -28,9 +30,11 @@ def main():
             counter += 1  
             if (counter == len(timetab)-1):
                 endtime = timetab['STOP'][counter]
-                rows = np.where((tab['TIME'] >= starttime) & (tab['TIME'] <= endtime))
-                phase = tab['PULSE_PHASE'][rows[0]]
-                phases.append(list(phase))
+                starttimes.append(starttime)
+                endtimes.append(endtime)
+          #      rows = np.where((tab['TIME'] >= starttime) & (tab['TIME'] <= endtime))
+          #      phase = tab['PULSE_PHASE'][rows[0]]
+          #      phases.append(list(phase))
                 break
         if (totaltime < timewidth):
             if (counter == len(timetab)-1): break
@@ -38,15 +42,18 @@ def main():
             diff = timewidth - totaltime
             totaltime += diff
             endtime = timetab['STOP'][counter] + diff
-            rows = np.where((tab['TIME'] >= starttime) & (tab['TIME'] <= endtime))
-            phase = tab['PULSE_PHASE'][rows[0]]
-            phases.append(list(phase))
+            starttimes.append(starttime)
+            endtimes.append(endtime)
+         #   rows = np.where((tab['TIME'] >= starttime) & (tab['TIME'] <= endtime))
+         #   phase = tab['PULSE_PHASE'][rows[0]]
+         #   phases.append(list(phase))
             starttime = endtime
             totaltime = 0
 
     print(counter)
-    print("The number of profiles is", len(phases))  
-
+#    print("The number of profiles is", len(phases))  
+    print(starttimes)
+    print(endtimes)
 
 if __name__ == '__main__':
     main()
