@@ -190,7 +190,7 @@ def wrapper(par, emin=0.25, emax=12,
 
     #Find observations to pipe
     for f in os.listdir("./"):
-        if (os.path.isdir(f)) and (not f.endswith('_pipe')) and (f!='tmp'):
+        if (os.path.isdir(f)) and (f.isnumeric()):
 
             #par check for crab
             if crab:
@@ -284,7 +284,7 @@ def run_cr_cut(merged_evt, cut, filterbinsize):
 #Update directory to download/pipe new data
 def update(sourcename, heasarc_user, heasarc_pwd, decryptkey,
 		   par, emin=0.25, emax=12, cut=2, filterbinsize=16,
-		   trumpet=True, keith=True, crab=False):
+		   trumpet=True, keith=True, crab=False, silent_curl=False):
 
     #Check the directory is correct
     source_dir = os.getcwd().split('/')[-1]
@@ -366,6 +366,10 @@ if __name__ == '__main__':
     parser.add_argument("--output", help="Output name for merge",
                         default=None, type=str)
 
+    #Option to silence curl progress bar
+    parser.add_argument("--silent_curl", help="no curl progress bar",
+                        default=False, action='store_true')
+
     args = parser.parse_args()
 
     #Key handling
@@ -381,7 +385,8 @@ if __name__ == '__main__':
                cut=args.cut, 
                filterbinsize=args.filterbinsize, 
                trumpet=args.trumpet,
-               keith=args.keith)
+               keith=args.keith,
+               silent_curl=args.silent_curl)
 
     #Option to call pipeline on a single observation
     elif args.obsID is not None:
@@ -403,7 +408,8 @@ if __name__ == '__main__':
         pipeline_utils.run_datadownload(args.download,
                                         args.user, args.passwd, 
                                         args.outdir, 
-                                        args.key, clobber=args.clobber)
+                                        args.key, clobber=args.clobber,
+                                        silent_curl=args.silent_curl)
     #Option to just merge
     #Optional arguments to merge up to specific date and give output name
     elif args.merge is not None:

@@ -126,33 +126,36 @@ def outdircheck(sourcename):
 		return False
 
 def run_datadownload(sourcename, heasarc_user, heasarc_pwd, outdir,
-					 decryptkey, clobber=False, obsIDs=None):
+					 decryptkey, clobber=False, obsIDs=None,
+                     silent_curl=False):
 
-	if outdir == "./":
-		if not os.getcwd().endswith(sourcename):
-			if not outdircheck(sourcename):
-				return 0
-	else:
-		if not (outdir.endswith(sourcename or sourcename+"/")):
-			if not outdircheck(soucename):
-				return 0
+    if outdir == "./":
+        if not os.getcwd().endswith(sourcename):
+            if not outdircheck(sourcename):
+                return 0
+    else:
+        if not (outdir.endswith(sourcename or sourcename+"/")):
+            if not outdircheck(soucename):
+                return 0
 
-	cmd = ['custom_data_download.py', sourcename,
-		   heasarc_user, heasarc_pwd, '--outdir', outdir,
-		   '--decryptkey', decryptkey, '--unzip']
+    cmd = ['custom_data_download.py', sourcename,
+           heasarc_user, heasarc_pwd, '--outdir', outdir,
+           '--decryptkey', decryptkey, '--unzip']
 
-	if clobber:
-		cmd.append('--clobber')
+    if clobber:
+        cmd.append('--clobber')
 
-	if obsIDs is not None:
-		cmd.append('--obsIDs')
-		cmd.extend(obsIDs)
+    if obsIDs is not None:
+        cmd.append('--obsIDs')
+        cmd.extend(obsIDs)
+    if silent_curl:
+        cmd.append("--silent_curl")
 
-	subprocess.call(cmd)
+    subprocess.call(cmd)
 
 #For large files the curl fail3
 #This breaks the download into chunks
-def download_parts(obsid, url, cleanup=False):
+def download_parts(obsid, url, cleanup=False, silent=False):
     
     log.info("Attempting to curl {0} in parts".format(obsid))
 
@@ -165,6 +168,9 @@ def download_parts(obsid, url, cleanup=False):
            '--create-dirs', '-o', fname, '--range',
            '{0}-{1}'.format(str(byte_range[0]), str(byte_range[1]))]
 
+    if silent:
+        cmd.append("-s")
+
     subprocess.call(cmd)
 
     while os.path.getsize(fname) == 1e9:
@@ -173,7 +179,11 @@ def download_parts(obsid, url, cleanup=False):
         fname = '{0}.tar.part{1}'.format(obsid, fname_i)
         cmd = ['curl', '--retry', '10', url, '--ftp-ssl', '-k', 
                '--create-dirs', '-o', fname, '--range',
-               '{0}-{1}'.format(str(int(byte_range[0])), str(int(byte_range[1])))]
+               '{0}-{1}'.format(str(int(byte_range[0])), 
+                                str(int(byte_range[1])))]
+
+        if silent:
+            cmd.append("-s")
 
         subprocess.call(cmd)
 
