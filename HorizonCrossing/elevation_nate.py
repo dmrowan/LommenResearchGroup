@@ -35,9 +35,10 @@ enArray = np.array(tab_evt['PI'][startTimeIndex:stopTimeIndex])
 
 # bin size and energy band cutoffs
 binSize_all = 1
-lowEn = [30, 100]
-midEn = [100, 200]
-highEn = [200, 1000]
+lowEn = [0, 125]
+midEn = [125, 200]
+highEn = [200, 600]
+allEn = [0, 600]
 
 
 # interpolate the times.evt to go over the range of elevations.mkf
@@ -100,33 +101,36 @@ def curveFit(newAlt, Rate):
 L = 8.5
 z0 = 80
 rho0 = 0.0012*np.exp(-z0/L)
-dtot = 2*np.sqrt((R+H)**2-(R+altArray)**2)
+
+
+def Dtot(Alt):
+    return 2*np.sqrt((R+H)**2-(R+Alt)**2)
 
 
 def Sigma(energy):
     c = np.float(-3)
-    return 3.38*(energy/100)**c
+    return 3.38*(np.mean(energy)/100)**c
 
 
 # i is the index in altArray
-def Z(x, i, newAlt):
-    return np.sqrt(x**2+(R+newAlt[i])**2)-R
+def Z(x, i, Alt):
+    return np.sqrt(x**2+(R+Alt[i])**2)-R
 
 
-def Rho(x, i, newAlt):
-    return rho0*np.exp(-(Z(x, i, newAlt)-z0)/L)
+def Rho(x, i, Alt):
+    return rho0*np.exp(-(Z(x, i, Alt)-z0)/L)
 
 
-def Transmit(newAlt,  sigma):
-    elem = 500
+def Transmit(Alt, sigma, dist):
+    elem = 100
     tau = []
-    for hi in range(len(newAlt)):
+    for hi in range(len(Alt)):
         g = 0
-        x2 = (dtot[hi]*10**5)/2
+        x2 = (dist[hi]*10**5)/2
         X = np.linspace(0, x2, elem)
         for n in X:
             dx = x2/elem
-            g += Rho(n, hi, newAlt)*dx
+            g += Rho(n, hi, Alt)*dx
         tau.append(-2*sigma*g)
     tau = np.array(tau)
     trans = 100*np.exp(tau)
@@ -143,7 +147,8 @@ class EnergyBands:
         self.alt = altSplit(energy_band)
         self.rate, self.new_alt = countRate(self.time, self.alt, bin_size)
         self.perc_trans = percTrans(self.new_alt, self.rate)
-        self.trans_model = Transmit(self.new_alt, self.sigmaN)
+        self.dtot = Dtot(self.alt)
+        self.trans_model = Transmit(self.alt, self.sigmaN, self.dtot)
         self.popt, self.pcov = curveFit(self.new_alt, self.rate)
         self.popt_perc, self.pcov_perc = curveFit(self.new_alt, self.perc_trans)
 
@@ -151,15 +156,22 @@ class EnergyBands:
 low_en = EnergyBands(lowEn, binSize_all)
 mid_en = EnergyBands(midEn, binSize_all)
 high_en = EnergyBands(highEn, binSize_all)
+all_en = EnergyBands(allEn, binSize_all)
 
+print(len(low_en.alt))
+print(len(mid_en.alt))
+print(len(high_en.alt))
+tot_length = len(low_en.alt) + len(mid_en.alt) + len(high_en.alt)
+print(f'Does {tot_length} = {len(all_en.alt)}?')
 
-plt.plot(low_en.new_alt, low_en.trans_model, 'r.', markersize='5')
-plt.plot(mid_en.new_alt, mid_en.trans_model, 'g.', markersize='5')
-plt.plot(high_en.new_alt, high_en.trans_model, 'b.', markersize='5')
-plt.title('Percent Tansmission vs Altitude -- Local Exponential Model')
+plt.plot(low_en.alt, low_en.trans_model, 'r--', markersize='5', label=f'{lowEn[0]/100}keV-{lowEn[1]/100}keV')
+plt.plot(mid_en.alt, mid_en.trans_model, 'g--', markersize='5', label=f'{midEn[0]/100}keV-{midEn[1]/100}keV')
+plt.plot(high_en.alt, high_en.trans_model, 'b--', markersize='5', label=f'{highEn[0]/100}keV-{highEn[1]/100}keV')
+plt.title('Percent Transmission vs Altitude -- Local Exponential Model')
 plt.ylabel('Percent Transmission (%)')
 plt.xlabel('Tangential Altitude')
 plt.grid()
+plt.legend()
 plt.show()
 
 ##############################################################################
