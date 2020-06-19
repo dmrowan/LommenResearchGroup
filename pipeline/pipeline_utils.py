@@ -6,6 +6,7 @@ from astropy.time import Time
 import argparse
 from bs4 import BeautifulSoup
 import datetime
+import getpass
 import numpy as np
 import pandas as pd
 import pint
@@ -79,6 +80,7 @@ def run_nicerl2(obsID, clobber=False, br_filter=True, horizon_filter=False,
         log.warning("Creating pfile dir for "+obsID)
         os.mkdir("tmp/"+obsID+"_pfiles")
 
+    #Set environmental variables for pfiles
     abspath = os.path.abspath("tmp/"+obsID+"_pfiles")
     os.environ['PFILES'] = ( abspath +
         ';/packages/heasoft-6.27.2/x86_64-pc-linux-gnu-libc2.23/syspfiles')
@@ -124,30 +126,83 @@ def outdircheck(sourcename):
 		return False
 
 def run_datadownload(sourcename, heasarc_user, heasarc_pwd, outdir,
-					 decryptkey, clobber=False, obsIDs=None):
+					 decryptkey, clobber=False, obsIDs=None,
+                     silent_curl=False):
 
-	if outdir == "./":
-		if not os.getcwd().endswith(sourcename):
-			if not outdircheck(sourcename):
-				return 0
-	else:
-		if not (outdir.endswith(sourcename or sourcename+"/")):
-			if not outdircheck(soucename):
-				return 0
+    if outdir == "./":
+        if not os.getcwd().endswith(sourcename):
+            if not outdircheck(sourcename):
+                return 0
+    else:
+        if not (outdir.endswith(sourcename or sourcename+"/")):
+            if not outdircheck(soucename):
+                return 0
 
-	cmd = ['custom_data_download.py', sourcename,
-		   heasarc_user, heasarc_pwd, '--outdir', outdir,
-		   '--decryptkey', decryptkey, '--unzip']
+    cmd = ['custom_data_download.py', sourcename,
+           heasarc_user, heasarc_pwd, '--outdir', outdir,
+           '--decryptkey', decryptkey, '--unzip']
 
-	if clobber:
-		cmd.append('--clobber')
+    if clobber:
+        cmd.append('--clobber')
 
-	if obsIDs is not None:
-		cmd.append('--obsIDs')
-		cmd.extend(obsIDs)
+    if obsIDs is not None:
+        cmd.append('--obsIDs')
+        cmd.extend(obsIDs)
+    if silent_curl:
+        cmd.append("--silent_curl")
 
-	subprocess.call(cmd)
+    subprocess.call(cmd)
 
+#For large files the curl fail3
+#This breaks the download into chunks
+def download_parts(obsid, url, cleanup=False, silent=False):
+    
+    log.info("Attempting to curl {0} in parts".format(obsid))
+
+    #Initial byte range
+    byte_range = [0, 999999999]
+    fname_i = 0
+    fname = '{0}.tar.part{1}'.format(obsid, fname_i)
+
+    cmd = ['curl', '--retry', '10', url, '--ftp-ssl', '-k', 
+           '--create-dirs', '-o', fname, '--range',
+           '{0}-{1}'.format(str(byte_range[0]), str(byte_range[1]))]
+
+    if silent:
+        cmd.append("-s")
+
+    subprocess.call(cmd)
+
+    while os.path.getsize(fname) == 1e9:
+        byte_range = [ b+1e9 for b in byte_range ]
+        fname_i += 1
+        fname = '{0}.tar.part{1}'.format(obsid, fname_i)
+        cmd = ['curl', '--retry', '10', url, '--ftp-ssl', '-k', 
+               '--create-dirs', '-o', fname, '--range',
+               '{0}-{1}'.format(str(int(byte_range[0])), 
+                                str(int(byte_range[1])))]
+
+        if silent:
+            cmd.append("-s")
+
+        subprocess.call(cmd)
+
+    log.info("Data downloaded in {} parts".format(fname_i+1))
+
+    #Merge into 1 tar file
+    #subprocess.call isn't working here so I'm using os.system
+    cmd = 'cat {0}.tar.part* > {0}.tar'.format(obsid)
+    os.system(cmd)
+
+    assert(os.path.isfile('{0}.tar'.format(obsid)))
+    log.info('tar merged for {0}'.format(obsid))
+
+    if cleanup:
+        log.info('cleaning partial tars')
+        for i in range(fname_i+1):
+            os.remove('{0}.tar.part{1}'.format(obsid, i))
+
+    return 0 
 
 def version_check():
 	print("Heasoft version: ", 
