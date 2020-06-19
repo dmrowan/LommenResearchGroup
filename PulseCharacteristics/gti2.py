@@ -12,31 +12,36 @@ def main():
     fname = '1937_events.evt'
     log.info('Read in text file')
     timetab = Table.read('1937_events.evt', hdu=2) 
-    tab = Table.read('1937_events.evt', hdu=1)
+#    tab = Table.read('1937_events.evt', hdu=1)
     timetab = timetab.to_pandas()
     timewidth = int(input("What time interval?"))
     phases = []
+    starttimes =[]
+    endtimes = []
     totaltime = 0
+    diff = 0
     timetab['timedif']= timetab['STOP'] - timetab['START']
-    totaltime=0
-    startime = timetab['START']
-    for counter in range(np.size(timetab[0])):
+    starttime = timetab['START'][0]
+    for counter in range(len(timetab)):
+        totaltime += diff
+        diff = 0
         totaltime += timetab['timedif'][counter]
         if (totaltime >= timewidth):
             diff = totaltime-timewidth
             totaltime -= diff
             endtime = timetab['STOP'][counter] - diff
-            # make profiles
-            goodtimes = np.where(time>startime && time < endtime)
-            make the profile
-            fit it
-            write it to a file
-            startime=endtime
+            starttimes.append(starttime)
+            endtimes.append(endtime)
+  #          rows = np.where((tab['TIME'] >= starttime) & (tab['TIME'] <= endtime))
+  #          phase = tab['PULSE_PHASE'][rows[0]]
+  #          phases.append(list(phase))
+            starttime=endtime
             totaltime=0
 
-    print(timetab)
     print(counter)
-    print(totaltime)
+  #  print(len(phase))
+    print(starttimes)
+    print(endtimes)
 
 if __name__ == '__main__':
     main()
