@@ -100,6 +100,7 @@ def crab_par_match(par_dir='/students/pipeline/parfiles/crab', outdir='./',
     return df_obs
 
 
+#nicersoft psrpipe wrapper
 def run_psrpipe(obsID, par, 
 				emin=0.25, emax=12,
 				min_sun=60,
@@ -116,6 +117,7 @@ def run_psrpipe(obsID, par,
 		   '--emax', str(emax),
 		   '--minsun', str(min_sun)]
 
+    #Add par file if it is given
 	if par is not None:
 		cmd.extend(['--par', par])
 	else:
@@ -128,11 +130,13 @@ def run_psrpipe(obsID, par,
 
 	subprocess.call(cmd)
 
+#runs full pipe on single observation
 def allprocedures(obsID, par, 
 				  emin=0.25, emax=12,
 				  trumpet=True, keith=True, 
 				  clobber=False):
 	
+    #Various clobber and path checks
     if ((os.path.isdir("{}_pipe".format(obsID))) 
         and (not clobber)):
         return 0
@@ -145,28 +149,35 @@ def allprocedures(obsID, par,
         log.error("obsID not found")
         return -1
 
+    #Some observations are missing event cl directory
+    #Exit here if that's the case
     if not os.path.isdir(obsID+'/xti/event_cl'):
         log.error("no event cl dir for {}".format(obsID))
         return -1
 
+    #Run nicerl2
     if (not pipeline_utils.check_nicerl2(obsID)) or clobber:
         pipeline_utils.run_nicerl2(obsID, trumpet=trumpet, clobber=clobber)
 
+    #Add KP info
     pipeline_utils.run_add_kp(obsID)
 
+    #Run psrpipe
     run_psrpipe(obsID, par,
                 emin=emin, emax=emax,
                 keith=keith)
     return 1
 
+#Multiprocessing wrapper
 def wrapper(par, emin=0.25, emax=12,
 			trumpet=True, keith=True, clobber=False,
             crab=False):
 
+    #Create pool
     pool = mp.Pool(processes=mp.cpu_count()+2)
     jobs = []
-    times = []
 
+    #We have to find par files for crab
     if crab:
         log.info("Processing Crab data: parsing par data")
         df = pd.read_csv(par, keep_default_na=False)
@@ -177,9 +188,11 @@ def wrapper(par, emin=0.25, emax=12,
             else:
                 par_dic[str(df['obsID'][i])] = df['par'][i]
 
+    #Find observations to pipe
     for f in os.listdir("./"):
         if (os.path.isdir(f)) and (not f.endswith('_pipe')) and (f!='tmp'):
 
+            #par check for crab
             if crab:
                 if f not in list(par_dic.keys()):
                     log.info("No par for {}".format(f))
@@ -187,6 +200,7 @@ def wrapper(par, emin=0.25, emax=12,
                 else:
                     par = par_dic[f]
 
+            #Add job to pool
             job = pool.apply_async(allprocedures,
                                    (f, par, ),
                                    dict(emin=emin,
@@ -196,9 +210,12 @@ def wrapper(par, emin=0.25, emax=12,
                                         clobber=clobber))
             jobs.append(job)
 
+    #Run all jobs in parallel
     for job in jobs:
         job.get()
 
+#niextract merge event file
+#count rate cut applied in this step
 def run_niextract(sourcename, max_date=None, output=None, 
                   cut=2.0, filterbinsize=16):
 
@@ -210,6 +227,7 @@ def run_niextract(sourcename, max_date=None, output=None,
         if check == -1:
             return
 
+    #Build list of files to merge
     filenames = []
     invalid_columns = []
     for f in os.listdir("./"):
@@ -217,15 +235,18 @@ def run_niextract(sourcename, max_date=None, output=None,
             tab = Table.read(f+"/cleanfilt.evt", hdu=1)
             date = datetime.datetime.strptime(
                     tab.meta['DATE-OBS'], '%Y-%m-%dT%H:%M:%S')
+            #Date check for merge
             if max_date is not None:
                 if date > max_date:
                     print("Excluding "+f+" from "+str(date))
                     continue
+            #Some evts are missing columns...remember to look into this later
             if len(tab.columns) == 15:
                 filenames.append(f+"/cleanfilt.evt")
             else:
                 invalid_columns.append(f)
 
+    #Write event file list
     with open(sourcename+"_evtlist", 'w') as f1:
         for fn in filenames:
             f1.write(fn+"\n")
@@ -233,10 +254,13 @@ def run_niextract(sourcename, max_date=None, output=None,
     #Default output
     if output is None:
         output = sourcename+"_combined.evt"
+
+    #Call niextract-events to merge files
     cmd = ['niextract-events', 'filename=@{}_evtlist'.format(sourcename),
            'eventsout={}'.format(output), 'clobber=yes']
     subprocess.call(cmd)
 
+    #Save invalid column info
     with open('invalid_columns.txt', 'w') as f2:
         for fn in invalid_columns:
             f2.write(fn+"\n")
@@ -245,6 +269,7 @@ def run_niextract(sourcename, max_date=None, output=None,
     if cut is not None:
         run_cr_cut(output, cut, filterbinsize)
 
+#Perform count rate cut
 def run_cr_cut(merged_evt, cut, filterbinsize):
 	log.info("Running cr_cut cut={0} filterbinsize={1}".format(
                     str(cut), str(filterbinsize)))
@@ -256,10 +281,12 @@ def run_cr_cut(merged_evt, cut, filterbinsize):
 	
 	subprocess.call(cmd)
 
+#Update directory to download/pipe new data
 def update(sourcename, heasarc_user, heasarc_pwd, decryptkey,
 		   par, emin=0.25, emax=12, cut=2, filterbinsize=16,
 		   trumpet=True, keith=True, crab=False):
 
+    #Check the directory is correct
     source_dir = os.getcwd().split('/')[-1]
     log.info("Checking sourcename")
     if sourcename != source_dir:
@@ -267,13 +294,16 @@ def update(sourcename, heasarc_user, heasarc_pwd, decryptkey,
         if not check:
             return
 
+    #Download new data
     pipeline_utils.run_datadownload(sourcename, heasarc_user, 
             heasarc_pwd, './', 
             decryptkey, clobber=False)
 
+    #Launch multiprocessing wrapper for pip
     wrapper(par, emin=emin, emax=emax, trumpet=trumpet, keith=keith,
             clobber=False, crab=crab)
 
+    #Merge and perform count rate cut
     run_niextract(sourcename, cut=cut, filterbinsize=filterbinsize)
 
     #Create merged evt backup
@@ -281,20 +311,6 @@ def update(sourcename, heasarc_user, heasarc_pwd, decryptkey,
     message='Created with pulsar_pipe.update'
     pipeline_utils.product_backup(merged_evt, backupdir='evt_backups',
                                   message=message)
-
-def cronjob(heasarc_user, heasarc_pwd, decryptkey):
-
-    subprocess.call(['/bin/bash', '-i', '-c', 'heainit'])
-    fname = "/homes/pipeline/logs/"+datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    with open(fname, 'w') as f:
-        f.write("Completed at " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
-
-    ### Running on PSR_B1937+21 ###
-    os.chdir("/students/pipeline/heasoft6.27/PSR_B1937+21")
-    par_1937 = "/students/pipeline/parfiles/PSR_B1937+21.par.nancaytzr"
-    update("PSR_B1937+21", heasarc_user, heasarc_pwd, './', decryptkey, 
-    par_1937)
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=desc)
@@ -336,23 +352,19 @@ if __name__ == '__main__':
                         help="Update single source with full procedure")
     parser.add_argument("--obsID", help="ObsID for single psrpipe call", 
                         default=None, type=str)
-    parser.add_argument("--download", help="Run ni_datadownload for source", 
+    parser.add_argument("--download", help="Run data download for source", 
                         default=None, type=str)
     parser.add_argument("--backup", help="Create EVT backup for file",
                         default=None, type=str)
     parser.add_argument("--message", help="Log message for evt backup",
                         default="", type=str)
     #Two additional arguments for merge call
-    parser.add_argument("--merge", help="combine evt/pha", 
+    parser.add_argument("--merge", help="combine evt with niextract-events", 
                         default=None, type=str)
     parser.add_argument("--max_date", help="Max date to merge",
                         default=None, type=str)
     parser.add_argument("--output", help="Output name for merge",
                         default=None, type=str)
-
-    #Argument for calling the cron job
-    parser.add_argument("--cron", help="Run cron job", 
-                        default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -409,9 +421,6 @@ if __name__ == '__main__':
     elif args.backup is not None:
         pipeline_utils.product_backup(args.backup, backupdir='evt_backups',
                                       message=args.message)
-
-    elif args.cron:
-        cronjob(args.user, args.passwd, args.key)
 
     else:
         log.warning("No method selected! Try 'pulsar_pipe.py --help'")

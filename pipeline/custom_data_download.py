@@ -15,6 +15,9 @@ import fnmatch
 
 import subprocess
 
+#LommenResearchGroup imports
+import pipeline_utils
+
 
 # ----------------------------------------------------------------------
 #   command line interface
@@ -114,6 +117,7 @@ def untar(obsid,outdir):
 
 def decrypt(passwd,obsid_dir,gpg_v):
     cmd = "find {} -name '*.gpg' -exec {} --batch --yes --passphrase '{}'  {{}} \; -delete".format(obsid_dir, gpg_v, passwd)
+    print(cmd)
     try:
         os.remove("{}/ni-gpg-call.log".format(obsid_dir))
     except OSError:
@@ -252,16 +256,22 @@ for n,[no, row] in enumerate(source.iterrows()):
              # Build the download command
              cmd = ["curl", "--retry", "10", "{0}{1}".format(base, target), 
                     "--ftp-ssl", "-k", "--create-dirs", 
-                    "-o" "{0}".format(target)]
+                    "-o", "{0}".format(target)]
              log.info("{:3d} / {:3d} :: Trying: curl obsid {}.tar".format(n+1, len(source), obsid))
              r0 = subprocess.call(cmd)
+             print(cmd)
              if r0 != 0:
                 cmd_base_team = ["curl", "--retry", "10", 
                                  "{0}{1}".format(base_team, target), 
                                  "--ftp-ssl", "-k", "--create-dirs", 
                                  "-o", "{0}".format(target)]
 
-                subprocess.call(cmd_base_team)
+                r1 = subprocess.call(cmd_base_team)
+
+             if r1 != 0:
+                log.info("Both curls failed. Attempting split download")
+                log.info("Using public archive url")
+                pipeline_utils.download_parts(obsid, "{0}{1}".format(base, target))
 
              # File management
              log.info("{:3d} / {:3d} :: Un-archiving obsid {}.tar".format(n+1, len(source), obsid))
