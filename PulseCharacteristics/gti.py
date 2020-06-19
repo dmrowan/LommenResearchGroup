@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 desc="""
-Creates bins of "good times" of an arbitrary length N (as determined by the user)
+Creates bins of "good times" of an arbitrary length (as determined by the user)
 """
 def main(): 
 
@@ -18,52 +18,35 @@ def main():
     phases = []
     totaltime = 0
     counter = 0
+    diff = 0
     starttime = timetab['START'][0] 
     timetab['timedif'] = timetab['STOP'] - timetab['START'] 
-    while ((totaltime + timetab['timedif'][counter]) < timewidth):
-        totaltime += timetab['timedif'][counter]
-        counter += 1    
-    if (totaltime < timewidth):
-        counter += 1
-        diff = timewidth - totaltime
-        totaltime += diff
-        endtime = timetab['STOP'][counter] + diff
-        rows = np.where((tab['TIME'] >= starttime) & (tab['TIME'] <= endtime))
-        phase = tab['PULSE_PHASE'][rows[0]]
-        phases.append(list(phase))
-        starttime = endtime
-        totaltime = 0
-    print(timetab)
-    print(counter)
-    print(phases)
-  
-    """
-    ranges = []
-    rowcount = 0
-    rangecount = 0
-    shift = 0
-    while rowcount <= len(timetab):
-        for i in timetab['timedif']:
-            while (totaltime + i  < (timewidth*rangecount)):
-                totaltime += i
-                counter += 1
-        if totaltime < timewidth:
+    while (counter <= len(timetab)):
+        while ((totaltime + timetab['timedif'][counter]) < timewidth):
+            totaltime += (timetab['timedif'][counter] - diff)
+            diff = 0
+            counter += 1  
+            if (counter == len(timetab)-1):
+                endtime = timetab['STOP'][counter]
+                rows = np.where((tab['TIME'] >= starttime) & (tab['TIME'] <= endtime))
+                phase = tab['PULSE_PHASE'][rows[0]]
+                phases.append(list(phase))
+                break
+        if (totaltime < timewidth):
+            if (counter == len(timetab)-1): break
             counter += 1
             diff = timewidth - totaltime
             totaltime += diff
-            ranges.append(totaltime)
-            shift = timetab['timedif'][counter] - diff
-            totaltime = shift
-        rowcount += counter
-        rangecount +=1 
-      
+            endtime = timetab['STOP'][counter] + diff
+            rows = np.where((tab['TIME'] >= starttime) & (tab['TIME'] <= endtime))
+            phase = tab['PULSE_PHASE'][rows[0]]
+            phases.append(list(phase))
+            starttime = endtime
+            totaltime = 0
+
     print(counter)
-    print(totaltime)
-    print(ranges)
-    print(rowcount)"""
-#   log.info("Limit data")
-#   ranges = np.arange(tab[0], tab[length], tab[length])
-         
+    print("The number of profiles is", len(phases))  
+
 
 if __name__ == '__main__':
     main()
