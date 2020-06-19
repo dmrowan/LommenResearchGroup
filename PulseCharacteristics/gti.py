@@ -15,9 +15,10 @@ def main():
     tab = Table.read('1937_events.evt', hdu=1)
     timetab = timetab.to_pandas()
     timewidth = int(input("What time interval?"))
+    phases = []
     totaltime = 0
     counter = 0
-    starttime = timetab['START'] 
+    starttime = timetab['START'][0] 
     timetab['timedif'] = timetab['STOP'] - timetab['START'] 
     while ((totaltime + timetab['timedif'][counter]) < timewidth):
         totaltime += timetab['timedif'][counter]
@@ -27,12 +28,14 @@ def main():
         diff = timewidth - totaltime
         totaltime += diff
         endtime = timetab['STOP'][counter] + diff
-        # this is where we create the profile
+        rows = np.where((tab['TIME'] >= starttime) & (tab['TIME'] <= endtime))
+        phase = tab['PULSE_PHASE'][rows[0]]
+        phases.append(list(phase))
         starttime = endtime
         totaltime = 0
     print(timetab)
     print(counter)
-    print(totaltime)
+    print(phases)
   
     """
     ranges = []
