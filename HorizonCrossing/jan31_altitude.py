@@ -4,6 +4,7 @@ from astropy.table import Table
 import matplotlib.pyplot as plt
 from scipy import interpolate
 from scipy.optimize import curve_fit
+import itertools
 
 #Time range around the horizon crossing
 startTime = 7950+1.9196*10**8
@@ -17,6 +18,7 @@ stopTimeIndex = 252382
 tab_ni = Table.read('ni2200300101.mkf',hdu=1)
 timeArray = np.array(tab_ni['TIME'])
 elevArray = np.array(tab_ni['ELV'])
+azArray = np.array(tab_ni['ATT_ANG_AZ'])
 
 tab_evt = Table.read('cleanfilt.evt',hdu=1)
 eventTime = np.array(tab_evt['TIME'][startTimeIndex:stopTimeIndex])
@@ -31,13 +33,17 @@ highEn = [200,800]
 f = interpolate.interp1d(timeArray,elevArray,kind='linear')
 elev_evt = f(eventTime)
 
+s = interpolate.interp1d(timeArray,azArray,kind='linear')
+az_evt = s(eventTime)
+
 #calculate altitude based on elevation angle
 R = 6378
 H = 410
 theta = np.arcsin(R/(R+H))
 altArray = []
 for val in elev_evt:
-  altArray.append((R+H)*np.sin(theta+val*(np.pi/180))-R)
+  h=(R+H)*np.sin(theta+val*(np.pi/180))-R
+  altArray.append(h)
 altArray=np.array(altArray)
 
 #function that splits the altitudes based on energy bands
