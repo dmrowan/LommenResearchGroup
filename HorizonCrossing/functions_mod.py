@@ -2,7 +2,6 @@
 from astropy.table import Table
 import numpy as np
 from scipy import interpolate
-# import scipy.signal
 from scipy.optimize import curve_fit
 # from scipy.integrate import quad
 
@@ -10,11 +9,11 @@ from scipy.optimize import curve_fit
 startTime = 390+1.92224*10**8
 stopTime = 500+1.92224*10**8
 
+# indices for the event file
 startTimeIndex = 311883
 stopTimeIndex = 352360
 
 # read in the data files
-
 tab_ni = Table.read('ni2200300102.mkf', hdu=1)
 timeArray = np.array(tab_ni['TIME'])
 elevArray = np.array(tab_ni['ELV'])
@@ -32,8 +31,8 @@ enArray = np.array(tab_evt['PI'][startTimeIndex:stopTimeIndex])
 
 # bin size and energy band cutoffs
 binSize_all = 1
-lowEn = [0, 125]
-midEn = [125, 200]
+lowEn = [30, 100]
+midEn = [100, 200]
 highEn = [200, 600]
 allEn = [0, 600]
 
@@ -46,6 +45,7 @@ class EnergyBands:
         self.time, self.energies = enSplit(energy_band)
         self.alt = altSplit(energy_band)
         self.rate, self.new_alt = countRate(self.time, self.alt, bin_size)
+        self.time_axis = Axis(self.rate, bin_size)
         self.perc_trans = percTrans(self.new_alt, self.rate)
         self.dtot = Dtot(self.alt)
         self.sigmaN = Sigma(self.energies)
@@ -68,6 +68,11 @@ for val in elev_evt:
     h = ((R+H)*np.sin(theta+val*(np.pi/180)))-R
     altArray.append(h)
 altArray = np.array(altArray)
+
+
+# Time axis
+def Axis(Rate, binSize):
+    return np.arange(0, len(Rate), binSize)
 
 
 # function that splits the altitudes based on energy bands
@@ -104,8 +109,8 @@ def SeventhOr(x, a, b, c, d, e, f, g, h):
     return(a*x**7+b*x**6+c*x**5+d*x**4+e*x**3+f*x**2+g*x+h)
 
 
-def curveFit(newAlt, Rate):
-    popt, pcov = curve_fit(SeventhOr, newAlt, Rate)
+def curveFit(X, Y):
+    popt, pcov = curve_fit(SeventhOr, X, Y)
     return popt, pcov
 
 
@@ -134,6 +139,7 @@ def Rho(x, i, Alt):
     return rho0*np.exp(-(Z(x, i, Alt)-z0)/L)
 
 
+# numerical integration
 def Transmit(Alt, sigma, dist):
     elem = 100
     tau = []
@@ -148,3 +154,22 @@ def Transmit(Alt, sigma, dist):
     tau = np.array(tau)
     trans = 100*np.exp(tau)
     return trans
+
+
+# calculating fit uncertrainty based on parameter uncertainties at the point with x=X
+def paramUnc(Popt, Pcov, X):
+    Popt.tolist()
+    fVal = SeventhOr(startTime + X, *Popt)
+    frac_unc_params = []
+    added_frac_unc = 0
+
+    for paramIn in range(len(Popt)):
+        Popt[paramIn] = Popt[paramIn] + np.sqrt(abs(Pcov[paramIn][paramIn]))
+        fNew = SeventhOr(startTime + X, *Popt)
+        frac_unc = abs(fNew-fVal)/fVal
+        frac_unc_params.append((frac_unc)**2)
+
+    for i in range(len(frac_unc_params)):
+        added_frac_unc += frac_unc_params[i]
+
+    return np.sqrt(added_frac_unc)
