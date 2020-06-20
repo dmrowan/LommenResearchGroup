@@ -109,6 +109,8 @@ By default, existing observations are not overwritten. This can be changed using
 ```
 $ pulsar_pipe.py --download PSR_B1821-24 --user <username> --passwd <passwd> -k --clobber
 ```
+There is another argument `--silent_curl`, that removes the progress bar from the download. This is useful for when the output is redirected to a file, like we do in the crontab (see that section towards the bottom). 
+
 
 The data download can also be called in Python using pipeline_utils.run_datadownload. This is a wrapper of custom_data_download.py, which in turn is a modification to NICERsoft ni_data_download.py. It's confusing, I know. Here's an example of calling a data download in python:
 ```
@@ -157,6 +159,98 @@ Again, even though we've shown how each of these pipeline functionalities can be
 ## V4641 Pipeline
 
 ## Cron job setup
+
+Our pipeline code allows us to easily update a dataset when new data is available. If we want to automatically update a dataset, we can use the linux utility `cron` to schedule updates at given frequencies
+
+We choose what scripts we want to run, and when to run them, using the crontab file. To edit, type `crontab -e`. The basic format of a cronjob is:
+
+![cron_format](https://www.ostechnix.com/wp-content/uploads/2018/05/cron-job-format-1.png)
+
+So, if we wanted to run 'myscript.py' every day at 1am, we would add the following line:
+```
+0 1 * * * <path_to_script>/myscript.py
+```
+(this assumes that the she-bang is at the top of the python script)
+
+[Crontab.guru](https://crontab.guru/) is a great tool to help with the time information. 
+
+Unfortunately, we can't add our pipeline scripts to the crontab the same way. Our pipeline scripts take advantage of HEAsoft, CALDB, PINT. In our bashrc, we have the following lines to specify all that info:
+```
+export HEADAS=/packages/heasoft-6.27.2/x86_64-pc-linux-gnu-libc2.23
+alias heainit=". $HEADAS/headas-init.sh"
+heainit
+
+CALDB=/packages/heasoft-6.27.2/caldb; export CALDB
+CALDBCONFIG=$CALDB/software/tools/caldb.config; export CALDBCONFIG
+CALDBALIAS=$CALDB/software/tools/alias_config.fits; export CALDBALIAS
+export TEMPO2=/packages/tempo2/T2runtime
+```
+A cron job doesn't use the environmental variables of the user that defined it. We must specify these again in the crontab file. There are a handful of ways to do this. What worked best for me was to be as explicit as possible and re-define the environmental variables. At the top of the file we can define the environmental variables:
+```
+HEADAS=/packages/heasoft-6.27.2/x86_64-pc-linux-gnu-libc2.23
+CALDB=/packages/heasoft-6.27.2/caldb
+CALDBCONFIG=/packages/heasoft-6.27.2/caldb/software/tools/caldb.config
+CALDBALIAS=/packages/heasoft-6.27.2/caldb/software/tools/alias_config.fits
+TEMPO2=/packages/tempo2/T2runtime
+```
+I had some trouble getting `export` to work, so I just did everything explicitly here.
+
+Our pipeline code also takes advantage of other scripts in the LommenResearchGroup and nicersoft repositories. We need to add that relevant information to the PATH and PYTHON_PATH. We also need to define LD_LIBRARY_PATH to define the library information. I found it was easier just to print each on the command line (e.g. `echo $PATH`) and copy them into the crontab. 
+
+We also need to define two new environmental variables to make HEAsoft work with non-interactive shells. Add the following two lines to the crontab file:
+```
+HEADASNOQUERY=""
+HEADASPROMPT=/dev/null
+```
+We should also specify that we are using bash:
+```
+SHELL=\bin\bash
+```
+
+At this point we've defined all the environmental variables to be the same as our bashrc. You might have noticed that we're missing one thing from the bashrc snippet, though. We use an alias `heainit` to intialize all the HEASoft environmental variables. We can't use the alias defined in the bashrc, so we have to remember to do this explicitly when we call our pipeline script. 
+
+Let's take the pulsar PSR_B1821-24 as an example. We want to do a dataset update every Monday at midnight. In cron language, this is `0 0 * * 1`. 
+
+We need to do a few things when this job is called:
+1. Initialize heasoft (like we do in the bashrc)
+2. cd to the PSR_B1821-24 directory
+3. call pulsar_pipeline.py
+4. (optional) write a log that the update was completed
+
+We can either do all these steps explicitly in the crontab file (joining them with &&), or write a shell script and just call that. I think the second method is a bit easier. In the LommenResearchGroup/pipeline/cron_scripts directory there is a short script 'update1821':
+```
+#!/bin/bash
+
+. /packages/heasoft-6.27.2/x86_64-pc-linux-gnu-libc2.23/headas-init.sh
+
+cd /students/pipeline/heasoft6.27/PSR_B1821-24
+
+/packages/python3.6.8/bin/python /homes/pipeline/scripts/LommenResearchGroup/pipeline/pulsar_pipe.py --update PSR_B1821-24 --user nicer_team --passwd sextant --k_file ~/decrypt_key --par /students/pipeline/parfiles/J1824-2452-frozen-dmx.par.nicerrefit --silent_curl
+
+echo -n 'Completed PSR_B1821-24 ' >> ~/cron_log.txt
+date >> ~/cron_log.txt
+```
+
+This is equivalent to the four steps listed above. A few notes: 
+* All the paths are full absolute paths (not relative)
+* We explicitly state which python we want to call for calling pulsar_pipe.py
+* We use the --silent_curl argument to get rid of the curl progress bar. There would be a mess in /var/mail/pipeline if we don't
+
+We can now add the following line in our crontab file:
+```
+0 0 * * 1 /homes/pipeline/scripts/LommenResearchGroup/pipeline/cron_scripts/update1821
+```
+
+### How to add another cron job
+The PSR_B1821-24 example above can be replicated for any source. Here are the steps:
+1. Identify the python command
+2. Create a shell script that includes the four steps listed in the previous section
+3. Define your cron time field
+4. Add the shell script to the crontab file
+
+How do we know if it works? On the Haverford cluster cron is setup so that every time a job is run, whether it fails or completes, it is entered into /var/mail/<user> file. Going all the way to the bottom of that will show information about the last job that ran. 
+  
+__Note that cron jobs are machine specific. If you create a job on dave.astro.haverford.edu it won't show up on frank.astro.haverford.edu, even for the same user__ (all the cron jobs in summer 2020 will be on Dave)
 
 ## Backup system
 
