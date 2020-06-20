@@ -207,7 +207,7 @@ We should also specify that we are using bash:
 SHELL=\bin\bash
 ```
 
-At this point we've defined all the environmental variables to be the same as our bashrc. You might have noticed that we're missing one thing from the bashrc snippet, though. We use an alias `heainit` to intialize all the HEASoft environmental variables. We can't use the alias defined in the bashrc, so we have to remember to do this explicitly when we call our pipeline script. 
+At this point we've defined all the environmental variables to be the same as our bashrc. You might have noticed that we're missing one thing from the bashrc snippet. We use an alias `heainit` to intialize all the HEASoft environmental variables. We can't use the alias defined in the bashrc, so we have to remember to do this explicitly when we call our pipeline script. 
 
 Let's take the pulsar PSR_B1821-24 as an example. We want to do a dataset update every Monday at midnight. In cron language, this is `0 0 * * 1`. 
 
