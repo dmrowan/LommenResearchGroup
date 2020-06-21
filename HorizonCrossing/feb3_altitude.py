@@ -13,13 +13,13 @@ all_en = f.EnergyBands(f.allEn, f.binSize_all)
 plt.figure(1)
 
 plt.plot(low_en.new_alt, low_en.rate, 'r.', label=f'{f.lowEn[0]/100}keV-{f.lowEn[1]/100}keV')
-# plt.plot(low_en.new_alt, f.SeventhOr(low_en.new_alt, f.*low_en.popt), 'r-')
+# plt.plot(low_en.new_alt, f.SeventhOr(low_en.new_alt, f.*low_en.popt_rateAlt), 'r-')
 
 plt.plot(mid_en.new_alt, mid_en.rate, 'g.', label=f'{f.midEn[0]/100}keV-{f.midEn[1]/100}keV')
-# plt.plot(mid_en.new_alt, f.SeventhOr(mid_en.new_alt, f.*mid_en.popt), 'g-')
+# plt.plot(mid_en.new_alt, f.SeventhOr(mid_en.new_alt, f.*mid_en.popt_rateAlt), 'g-')
 
 plt.plot(high_en.new_alt, high_en.rate, 'b.', label=f'{f.highEn[0]/100}keV-{f.highEn[1]/100}keV')
-# plt.plot(high_en.new_alt, f.SeventhOr(high_en.new_alt, f.*high_en.popt), 'b-')
+# plt.plot(high_en.new_alt, f.SeventhOr(high_en.new_alt, f.*high_en.popt_rateAlt), 'b-')
 
 plt.title("Counts/Sec vs. Altitude for 3 Energy Bands (FEB 3)")
 plt.xlabel("Altitude (km)")

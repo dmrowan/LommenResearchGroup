@@ -9,51 +9,39 @@ mid_en = f.EnergyBands(f.midEn, f.binSize_all)
 high_en = f.EnergyBands(f.highEn, f.binSize_all)
 all_en = f.EnergyBands(f.allEn, f.binSize_all)
 
-
-# plot the trendlines and analyze error
-
-fig, ax = plt.subplots()
+# Poisson error bins
 yerrLow = np.sqrt(low_en.rate)
 yerrMid = np.sqrt(mid_en.rate)
 yerrHigh = np.sqrt(high_en.rate)
 
+# plot the data with errorbars
+fig, ax = plt.subplots()
+ax.errorbar(low_en.time_axis, low_en.rate, fmt='r.', yerr=yerrLow, label=f'{f.lowEn[0]/100}keV-{f.lowEn[1]/100}keV')
+ax.errorbar(mid_en.time_axis, mid_en.rate, fmt='g.', yerr=yerrMid, label=f'{f.midEn[0]/100}keV-{f.midEn[1]/100}keV')
+ax.errorbar(high_en.time_axis, high_en.rate, fmt='b.', yerr=yerrHigh, label=f'{f.highEn[0]/100}keV-{f.highEn[1]/100}keV')
 
-# Low energy
-popt, pcov = f.curveFit(low_en.time_axis, low_en.rate)
-plt.plot(low_en.time_axis, f.SeventhOr(low_en.time_axis, *popt), 'r')
-chisqLow = sum(((low_en.rate - f.SeventhOr(low_en.time_axis, *popt)) / yerrLow)**2)
-print(f'The low energy fit parameters: {popt}(highest power first)')
+
+# Low energy - trendline
+plt.plot(low_en.time_axis, f.SeventhOr(low_en.time_axis, *low_en.popt_rateTime), 'r')
+chisqLow = f.chiSq(low_en.rate, low_en.time_axis, low_en.popt_rateTime, yerrLow)
 print(f'Low Energy chi-squared: {chisqLow}')
-lowDiagonal = [np.sqrt(abs(pcov[i][i]))/abs(popt[i]) for i in range(len(np.diagonal(pcov)))]
-sigmaLow = np.sqrt(sum(lowDiagonal))
-print(f'The overall fractional sigma is {sigmaLow}')
-low_frac_unc = f.paramUnc(popt, pcov, 9.57002)
+low_frac_unc = f.paramUnc(low_en.popt_rateTime, low_en.pcov_rateTime, 9.57002)
 print(f'The overall fractional uncertainty is {low_frac_unc}')
 print('....')
 
-# Mid energy
-popt, pcov = f.curveFit(mid_en.time_axis, mid_en.rate)
-plt.plot(mid_en.time_axis, f.SeventhOr(mid_en.time_axis, *popt), 'g')
-chisqMid = sum(((mid_en.rate-f.SeventhOr(mid_en.time_axis, *popt))/yerrMid)**2)
-print(f'The mid energy fit parameters: {popt}')
-print(f'Mid Energy chi-squared: {chisqMid}')
-midDiagonal = [np.sqrt(abs(pcov[i][i]))/abs(popt[i]) for i in range(len(np.diagonal(pcov)))]
-sigmaMid = np.sqrt(sum(midDiagonal))
-print(f'The overal fractional sigma is {sigmaMid}')
-mid_frac_unc = f.paramUnc(popt, pcov, 4.54309)
+# Mid energy - trendline
+plt.plot(mid_en.time_axis, f.SeventhOr(mid_en.time_axis, *mid_en.popt_rateTime), 'g')
+chisqMid = f.chiSq(mid_en.rate, mid_en.time_axis, mid_en.popt_rateTime, yerrMid)
+print(f'Low Energy chi-squared: {chisqMid}')
+mid_frac_unc = f.paramUnc(mid_en.popt_rateTime, mid_en.pcov_rateTime, 4.54309)
 print(f'The overall fractional uncertainty is {mid_frac_unc}')
 print('....')
 
-# High energy
-popt, pcov = f.curveFit(high_en.time_axis, high_en.rate)
-plt.plot(high_en.time_axis, f.SeventhOr(high_en.time_axis, *popt), 'b')
-chisqHigh = sum(((high_en.rate - f.SeventhOr(high_en.time_axis, *popt)) / yerrHigh)**2)
-print(f'The high enery fit parameters: {popt}')
-print(f'High Energy chi-squared: {chisqHigh}')
-highDiagonal = [np.sqrt(abs(pcov[i][i]))/abs(popt[i]) for i in range(len(np.diagonal(pcov)))]
-sigmaHigh = np.sqrt(sum(highDiagonal))
-print(f'The overall fractional sigma is {sigmaHigh}')
-high_frac_unc = f.paramUnc(popt, pcov, 2.13372)
+# High energy - trendline
+plt.plot(high_en.time_axis, f.SeventhOr(high_en.time_axis, *high_en.popt_rateTime), 'r')
+chisqHigh = f.chiSq(high_en.rate, high_en.time_axis, high_en.popt_rateTime, yerrHigh)
+print(f'Low Energy chi-squared: {chisqHigh}')
+high_frac_unc = f.paramUnc(high_en.popt_rateTime, high_en.pcov_rateTime, 2.13372)
 print(f'The overall fractional uncertainty is {high_frac_unc}')
 print('....')
 
@@ -63,11 +51,6 @@ plt.ylabel('Counts Per Second')
 plt.legend()
 plt.show()
 
-
-# plot the data with errorbars
-# ax.errorbar(low_en.time_axis, low_en.rate, fmt='r.', yerr=yerrLow, label=f'{f.lowEn[0]/100}keV-{f.lowEn[1]/100}keV')
-# ax.errorbar(mid_en.time_axis, mid_en.rate, fmt='g.', yerr=yerrMid, label=f'{f.midEn[0]/100}keV-{f.midEn[1]/100}keV')
-# ax.errorbar(high_en.time_axis, high_en.rate, fmt='b.', yerr=yerrHigh, label=f'{f.highEn[0]/100}keV-{f.highEn[1]/100}keV')
 
 '''
 def poptArray(i,sigma):
