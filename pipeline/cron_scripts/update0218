@@ -1,0 +1,11 @@
+#!/bin/bash
+
+. /packages/heasoft-6.27.2/x86_64-pc-linux-gnu-libc2.23/headas-init.sh
+
+cd /students/pipeline/heasoft6.27/J0218+4232
+
+/packages/python3.6.8/bin/python /homes/pipeline/scripts/LommenResearchGroup/pipeline/pulsar_pipe.py --update PSR_J0218+4232 --user nicer_team --passwd sextant --k_file ~/decrypt_key --par /students/pipeline/parfiles/J0218+4232-frozen-dmx.par.nicerrefit --silent_curl
+
+echo -n 'Completed PSR_J0218+4232 ' >> ~/cron_log.txt
+date >> ~/cron_log.txt
+
