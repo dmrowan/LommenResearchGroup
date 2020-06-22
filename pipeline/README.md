@@ -257,3 +257,22 @@ __Note that cron jobs are machine specific. If you create a job on dave.astro.ha
 
 ## Uhoh it broke -- start here
 So, the pipeline broke. Don't panic, [click here](https://www.youtube.com/watch?v=dQw4w9WgXcQ) for a guide on how to fix it. 
+
+### How can I tell if the pipeline is working?
+There are a few things you can do:
+* read the last entry in mail at /var/mail/pipeline. This shows the full output of the pipeline and is the best way to check for errors and warnings. It also shows the timestamp.
+* see if there are any recent changes in the data set directory. Example: `ls -ltr /students/pipeline/heasoft6.27/PSR_B1821-24`
+* read the backup log for event files. This can be found within each dataset directory. Example: `vim /students/pipeline/heasoft6.27/PSR_B1821-24/evt_backups/log.txt`. The final step of the pipeline is creating a backup which will show up in the log with a time stamp. 
+
+Even if the directory is updated and there is a new event file in the log, there might still be problems hiding. If something breaks new observations might not be downloaded/processed correctly. The best way to catch this is to use the pipeline.pipeline_utils.check_recent_obs function. Here's an example of using that function:
+
+
+### EOFError: EOF when reading a line
+
+### gzip unexpected end of file
+
+### invalid columns
+
+### curl response reading failed
+
+### no event cl dir for obsID
