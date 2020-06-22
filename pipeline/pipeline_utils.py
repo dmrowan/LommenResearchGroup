@@ -3,6 +3,7 @@
 from __future__ import print_function, division
 from astropy import log
 from astropy.time import Time
+from astropy.table import Table
 import argparse
 from bs4 import BeautifulSoup
 import datetime
@@ -173,6 +174,11 @@ def download_parts(obsid, url, cleanup=False, silent=False):
 
     subprocess.call(cmd)
 
+    if not os.path.isfile(fname):
+        log.error("Download in parts with for {0} from {1} failed".format(
+                obsid, url))
+        return -1
+
     while os.path.getsize(fname) == 1e9:
         byte_range = [ b+1e9 for b in byte_range ]
         fname_i += 1
@@ -215,6 +221,26 @@ def version_check():
 
 	print("pint version: ", pint.__version__)
 
+def check_invalid_columns(evt_path):
+    required_columns = ['TIME', 'RAWX', 'RAWY', 'PHA', 'PHA_FAST', 
+                        'DET_ID', 'DEADTIME', 'EVENT_FLAGS', 'TICK',
+                        'MPU_A_TEMP', 'MPU_UNDER_COUNT', 'PI_FAST',
+                        'PI', 'PI_RATIO', 'PULSE_PHASE']
+
+    tab = Table.read(evt_path, hdu=1)
+
+    existing_columns = tab.colnames
+
+    missing_columns = [ c for c in required_columns 
+                        if c not in existing_columns ]
+
+    if len(missing_columns) != 0:
+        if len(tab) == 0:
+            log.info(
+                    "No events left after filtering so no pulse phase column")
+        else:
+            log.warning("{0} is missing {1} column(s): {2}".format(
+                    evt_path, len(missing_columns), missing_columns))
 
 #Code from ni_data_download
 #Can't do an import because code is written as executable for some reason...

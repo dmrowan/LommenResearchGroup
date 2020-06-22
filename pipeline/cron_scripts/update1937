@@ -4,7 +4,7 @@
 
 cd /students/pipeline/heasoft6.27/PSR_B1937+21
 
-/packages/python3.6.8/bin/python /homes/pipeline/scripts/LommenResearchGroup/pipeline/pulsar_pipe.py --update PSR_1937+21 --user nicer_team --passwd sextant --k_file ~/decrypt_key --par /students/pipeline/parfiles/PSR_B1937+21.par.nancaytzr --silent_curl
+/packages/python3.6.8/bin/python /homes/pipeline/scripts/LommenResearchGroup/pipeline/pulsar_pipe.py --update PSR_B1937+21 --user nicer_team --passwd sextant --k_file ~/decrypt_key --par /students/pipeline/parfiles/PSR_B1937+21.par.nancaytzr --silent_curl
 
 echo -n 'Completed PSR_B1937+21 ' >> ~/cron_log.txt
 date >> ~/cron_log.txt
