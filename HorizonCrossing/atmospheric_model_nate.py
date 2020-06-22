@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-import matplotlib.pyplot as plt
 import functions_mod as f
+import matplotlib.pyplot as plt
 
 
 low_en = f.EnergyBands(f.lowEn, f.binSize_all)

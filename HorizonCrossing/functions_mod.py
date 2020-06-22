@@ -20,7 +20,7 @@ elevArray = np.array(tab_ni['ELV'])
 enArray_low = np.array(tab_ni['FPM_XRAY_PI_0035_0200'])
 enArray_mid = np.array(tab_ni['FPM_XRAY_PI_0800_1200'])
 
-# print(elevArray)
+print(elevArray)
 # print(tab_ni['ATT_ANG_EL'])
 # print(tab_ni['ATT_ANG_AZ'])
 
@@ -50,8 +50,10 @@ class EnergyBands:
         self.dtot = Dtot(self.alt)
         self.sigmaN = Sigma(self.energies)
         self.trans_model = Transmit(self.alt, self.sigmaN, self.dtot)
-        self.popt, self.pcov = curveFit(self.new_alt, self.rate)
-        self.popt_perc, self.pcov_perc = curveFit(self.new_alt, self.perc_trans)
+        self.popt_rateTime, self.pcov_rateTime = curveFit(self.time_axis, self.rate)
+        # no fit yet for perc vs time
+        self.popt_rateAlt, self.pcov_rateAlt = curveFit(self.new_alt, self.rate)
+        self.popt_percAlt, self.pcov_percAlt = curveFit(self.new_alt, self.perc_trans)
 
 
 # interpolate the times.evt to go over the range of elevations.mkf
@@ -103,15 +105,6 @@ def percTrans(Alt, Rate):
     plateau = np.where(((Alt > 200) & (Alt < 250)))
     avg = np.mean(Rate[plateau[0]])
     return (Rate/avg)*100
-
-
-def SeventhOr(x, a, b, c, d, e, f, g, h):
-    return(a*x**7+b*x**6+c*x**5+d*x**4+e*x**3+f*x**2+g*x+h)
-
-
-def curveFit(X, Y):
-    popt, pcov = curve_fit(SeventhOr, X, Y)
-    return popt, pcov
 
 
 # functions to make the atmospheric model
@@ -173,3 +166,18 @@ def paramUnc(Popt, Pcov, X):
         added_frac_unc += frac_unc_params[i]
 
     return np.sqrt(added_frac_unc)
+
+
+# best fit polynomialsand scipy.curve_fit
+def SeventhOr(x, a, b, c, d, e, f, g, h):
+    return(a*x**7+b*x**6+c*x**5+d*x**4+e*x**3+f*x**2+g*x+h)
+
+
+def curveFit(X, Y):
+    popt, pcov = curve_fit(SeventhOr, X, Y)
+    return popt, pcov
+
+
+# Error analysis
+def chiSq(Y, X, Popt, Yerr):
+    return sum(((Y - SeventhOr(X, *Popt)) / Yerr)**2)
