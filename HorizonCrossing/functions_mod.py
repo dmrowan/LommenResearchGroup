@@ -20,7 +20,7 @@ elevArray = np.array(tab_ni['ELV'])
 enArray_low = np.array(tab_ni['FPM_XRAY_PI_0035_0200'])
 enArray_mid = np.array(tab_ni['FPM_XRAY_PI_0800_1200'])
 
-print(elevArray)
+#print(elevArray)
 # print(tab_ni['ATT_ANG_EL'])
 # print(tab_ni['ATT_ANG_AZ'])
 
@@ -47,9 +47,8 @@ class EnergyBands:
         self.rate, self.new_alt = countRate(self.time, self.alt, bin_size)
         self.time_axis = Axis(self.rate, bin_size)
         self.perc_trans = percTrans(self.new_alt, self.rate)
-        self.dtot = Dtot(self.alt)
         self.sigmaN = Sigma(self.energies)
-        self.trans_model = Transmit(self.alt, self.sigmaN, self.dtot)
+        self.trans_model = Transmit(self.alt, self.sigmaN, rho0, L)
         self.popt_rateTime, self.pcov_rateTime = curveFit(self.time_axis, self.rate)
         # no fit yet for perc vs time
         self.popt_rateAlt, self.pcov_rateAlt = curveFit(self.new_alt, self.rate)
@@ -109,13 +108,15 @@ def percTrans(Alt, Rate):
 
 # functions to make the atmospheric model
 # altArray=h in mathematica
-L = 12.5
+k = 1.38064852*10**-23
+T = 500
+mu = 28
+mp = 1.6726219*10**-27
+g = 9.8
+L = (k*T)/(1000*mu*mp*g)
 z0 = 80
 rho0 = 0.0012*np.exp(-z0/L)
 
-
-def Dtot(Alt):
-    return 2*np.sqrt((R+H)**2-(R+Alt)**2)
 
 
 def Sigma(energy):
@@ -128,25 +129,27 @@ def Z(x, i, Alt):
     return np.sqrt(x**2+(R+Alt[i])**2)-R
 
 
-def Rho(x, i, Alt):
-    return rho0*np.exp(-(Z(x, i, Alt)-z0)/L)
+def Rho(x, i, Alt, p0, l):
+    return p0*np.exp(-(Z(x, i, Alt)-z0)/l)
 
 
 # numerical integration
-def Transmit(Alt, sigma, dist):
+def Transmit(Alt, sigma, p0, l):
     elem = 100
     tau = []
+    dist = 2*np.sqrt((R+H)**2-(R+Alt)**2)
     for hi in range(len(Alt)):
         g = 0
         x2 = (dist[hi]*10**5)/2
         X = np.linspace(0, x2, elem)
         for n in X:
             dx = x2/elem
-            g += Rho(n, hi, Alt)*dx
+            g += Rho(n, hi, Alt, p0, l)*dx
         tau.append(-2*sigma*g)
     tau = np.array(tau)
-    trans = 100*np.exp(tau)
+    trans = 100*np.exp(tau,dtype=np.float64)
     return trans
+
 
 
 # calculating fit uncertrainty based on parameter uncertainties at the point with x=X
