@@ -33,7 +33,7 @@ def crab_par_match(par_dir='/students/pipeline/parfiles/crab', outdir='./',
     source_dir = pre_split.split('/')[-1]
     log.info("Checking sourcename and directory match")
     if 'PSR_B0531+21' != source_dir:
-        check = outdircheck('PSR_B0531+21')
+        check = pipeline_utils.outdircheck('PSR_B0531+21')
         if not check:
             return
     
@@ -223,7 +223,7 @@ def run_niextract(sourcename, max_date=None, output=None,
 
     source_dir = os.getcwd().split('/')[-1]
     if sourcename != source_dir:
-        check = outdircheck(sourcename)
+        check = pipeline_utils.outdircheck(sourcename)
         if check == -1:
             return
 
@@ -290,14 +290,15 @@ def update(sourcename, heasarc_user, heasarc_pwd, decryptkey,
     source_dir = os.getcwd().split('/')[-1]
     log.info("Checking sourcename")
     if sourcename != source_dir:
-        check = outdircheck(sourcename)
+        check = pipeline_utils.outdircheck(sourcename)
         if not check:
             return
 
     #Download new data
     pipeline_utils.run_datadownload(sourcename, heasarc_user, 
             heasarc_pwd, './', 
-            decryptkey, clobber=False)
+            decryptkey, clobber=False, 
+            silent_curl=silent_curl)
 
     #Launch multiprocessing wrapper for pip
     wrapper(par, emin=emin, emax=emax, trumpet=trumpet, keith=keith,
