@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from scipy.optimize import curve_fit
 import functions_mod as f
 import matplotlib.pyplot as plt
 
@@ -16,6 +17,15 @@ plt.plot(low_en.new_alt, low_en.perc_trans, 'b.', label=f'{f.lowEn[0]/100}keV-{f
 plt.title(f'Percent Transmission vs Altitude (Scale Height ={f.L}km)')
 plt.ylabel('Percent Transmission (%)')
 plt.xlabel('Tangential Altitude')
+
+
+#plt.show()
+
+#curvefit for percent transmittance
+popt, pcov = curve_fit(f.Transmit, low_en.new_alt, low_en.perc_trans)
+
+plt.plot(low_en.new_alt,f.Transmit(low_en.new_alt,*popt),'g--', label='Atmospheric Model fiited to Data')
+
 plt.grid()
 plt.legend()
 plt.show()
