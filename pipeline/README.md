@@ -266,6 +266,27 @@ There are a few things you can do:
 
 Even if the directory is updated and there is a new event file in the log, there might still be problems hiding. If something breaks new observations might not be downloaded/processed correctly. The best way to catch this is to use the pipeline.pipeline_utils.check_recent_obs function. Here's an example of using that function:
 
+```
+from pipeline import pipeline_utils
+
+#This example is being called in the PSR_B1821-24 directory
+# (/students/pipeline/heasoft6.27/PSR_B1821-24)
+
+df_out = pipeline_utils.check_recent_obs('PSR_B1821-24', <username>, <passwd>, ncheck=5)
+```
+where <username> and <passwd> are the login credentials for the NASA target summary page. This will return a dataframe that says if the observation directory, pipe directory, event file exist. It also gives the length of the event file:
+```
+           obsdir pipedir evt  len(evt)
+3070010331      ✓       ✓   ✓         0
+3070010329      ✓       ✓   ✓      2720
+3070010332      ✓       ✓   ✓      8685
+3070010330      ✓       ✓   ✓      9890
+3070010328      ✓       ✓   ✓      4619
+```
+(It will also print out this information)
+  
+ 
+So, if this showed that none of the recent observations had pipedir or event files, that would be cause for concern. It would also be worriesome if all the observations have zero length evts. 
 
 ### EOFError: EOF when reading a line
 
