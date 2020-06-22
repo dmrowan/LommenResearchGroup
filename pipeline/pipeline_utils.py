@@ -154,7 +154,7 @@ def run_datadownload(sourcename, heasarc_user, heasarc_pwd, outdir,
 
     subprocess.call(cmd)
 
-#For large files the curl fail3
+#For large files the curl fails
 #This breaks the download into chunks
 def download_parts(obsid, url, cleanup=False, silent=False):
     
@@ -221,6 +221,8 @@ def version_check():
 
 	print("pint version: ", pint.__version__)
 
+#Some evts don't have 15 columns
+#This checks which columns are missing and says if it's cause for concern
 def check_invalid_columns(evt_path):
     required_columns = ['TIME', 'RAWX', 'RAWY', 'PHA', 'PHA_FAST', 
                         'DET_ID', 'DEADTIME', 'EVENT_FLAGS', 'TICK',
@@ -237,12 +239,12 @@ def check_invalid_columns(evt_path):
     if len(missing_columns) != 0:
         if len(tab) == 0:
             log.info(
-                    "No events left after filtering so no pulse phase column")
+                    "Missing columns because no events left after filtering")
         else:
             log.warning("{0} is missing {1} column(s): {2}".format(
                     evt_path, len(missing_columns), missing_columns))
 
-#Code from ni_data_download
+#paul's code from ni_data_download
 #Can't do an import because code is written as executable for some reason...
 def print_nicer_segment(url = 'https://heasarc.gsfc.nasa.gov/docs/nicer/team_schedule/nicer_seg_team.html',
                         username = None, password=None):
@@ -268,8 +270,8 @@ def print_nicer_segment(url = 'https://heasarc.gsfc.nasa.gov/docs/nicer/team_sch
     return df[0]
 
 
-def get_exposure(sources):
-	df = print_nicer_segment(username='nicer_team', password='sextant')
+def get_exposure(sources, user, passwd):
+	df = print_nicer_segment(username=user, password=passwd)
 
 	if not niutils.check_iter(sources):
 		sources = [sources]
@@ -285,6 +287,56 @@ def get_exposure(sources):
 
 	return exp_list, n_obsIDs
 
+def check_recent_obs(source, user, passwd, expected_dir='./', ncheck=5):
+
+    #Get full target summary
+    df_full = print_nicer_segment(username=user, password=passwd)
+
+    #Grab the source of interest
+    df_source = df_full[df_full['Target Name']==source]
+
+    #reset df index
+    df_source = df_source.reset_index(drop=True)
+
+    dt_objects = [ datetime.datetime.strptime(d, '%Y-%m-%dT%H:%M:%S')
+                   for d in df_source['Start TimeUTC'] ]
+    now = datetime.datetime.now()
+    days_ago = np.array([ (now-d).days for d in dt_objects ])
+
+    #This is a nice way to pull the minimum ncheck values
+    idx = np.argpartition(days_ago, ncheck)
+
+    obs_list = []
+    results_list = []
+    for i in idx[:ncheck]:
+        obsID = str(df_source['Observation ID'][i])
+        date = df_source['Start TimeUTC'][i]
+
+        obsdir = os.path.join(expected_dir, obsID)
+        pipedir = os.path.join(expected_dir, obsID+'_pipe')
+        evt_path = os.path.join(pipedir, 'cleanfilt.evt')
+
+        #[observation dir exists, pipe dir exists, evt exists, evt length]
+        results = ['X', 'X', 'X', 0]
+
+        if os.path.isdir(obsdir):
+            results[0] = u'\u2713'
+            if os.path.isdir(pipedir):
+                results[1] = u'\u2713'
+                if os.path.isfile(evt_path):
+                    results[2] = u'\u2713'
+                    tab = Table.read(evt_path, hdu=1)
+                    results[3] = len(tab)
+
+        print("Observation {0} from {1}:\n\t\tObservation directory: {2}\n\t\tPipe directory: {3}\n\t\tEvent file exists: {4} w/ length {5}".format(
+                obsID, date, *results))
+
+        obs_list.append(obsID)
+        results_list.append(results)
+
+    df_out = pd.DataFrame(results_list, index=obs_list, 
+                          columns=['obsdir', 'pipedir', 'evt', 'len(evt)'])
+    return df_out
 
 def crab_par_table(par_dir='/students/pipeline/parfiles/crab/'):
     
