@@ -3,6 +3,7 @@
 from __future__ import print_function, division
 from astropy import log
 from astropy.time import Time
+from astropy.table import Table
 import argparse
 from bs4 import BeautifulSoup
 import datetime
@@ -153,7 +154,7 @@ def run_datadownload(sourcename, heasarc_user, heasarc_pwd, outdir,
 
     subprocess.call(cmd)
 
-#For large files the curl fail3
+#For large files the curl fails
 #This breaks the download into chunks
 def download_parts(obsid, url, cleanup=False, silent=False):
     
@@ -172,6 +173,11 @@ def download_parts(obsid, url, cleanup=False, silent=False):
         cmd.append("-s")
 
     subprocess.call(cmd)
+
+    if not os.path.isfile(fname):
+        log.error("Download in parts with for {0} from {1} failed".format(
+                obsid, url))
+        return -1
 
     while os.path.getsize(fname) == 1e9:
         byte_range = [ b+1e9 for b in byte_range ]
@@ -215,8 +221,30 @@ def version_check():
 
 	print("pint version: ", pint.__version__)
 
+#Some evts don't have 15 columns
+#This checks which columns are missing and says if it's cause for concern
+def check_invalid_columns(evt_path):
+    required_columns = ['TIME', 'RAWX', 'RAWY', 'PHA', 'PHA_FAST', 
+                        'DET_ID', 'DEADTIME', 'EVENT_FLAGS', 'TICK',
+                        'MPU_A_TEMP', 'MPU_UNDER_COUNT', 'PI_FAST',
+                        'PI', 'PI_RATIO', 'PULSE_PHASE']
 
-#Code from ni_data_download
+    tab = Table.read(evt_path, hdu=1)
+
+    existing_columns = tab.colnames
+
+    missing_columns = [ c for c in required_columns 
+                        if c not in existing_columns ]
+
+    if len(missing_columns) != 0:
+        if len(tab) == 0:
+            log.info(
+                    "Missing columns because no events left after filtering")
+        else:
+            log.warning("{0} is missing {1} column(s): {2}".format(
+                    evt_path, len(missing_columns), missing_columns))
+
+#paul's code from ni_data_download
 #Can't do an import because code is written as executable for some reason...
 def print_nicer_segment(url = 'https://heasarc.gsfc.nasa.gov/docs/nicer/team_schedule/nicer_seg_team.html',
                         username = None, password=None):
@@ -242,8 +270,8 @@ def print_nicer_segment(url = 'https://heasarc.gsfc.nasa.gov/docs/nicer/team_sch
     return df[0]
 
 
-def get_exposure(sources):
-	df = print_nicer_segment(username='nicer_team', password='sextant')
+def get_exposure(sources, user, passwd):
+	df = print_nicer_segment(username=user, password=passwd)
 
 	if not niutils.check_iter(sources):
 		sources = [sources]
@@ -259,32 +287,56 @@ def get_exposure(sources):
 
 	return exp_list, n_obsIDs
 
+def check_recent_obs(source, user, passwd, expected_dir='./', ncheck=5):
 
-def crab_par_table(par_dir='/students/pipeline/parfiles/crab/'):
-    
-    par_files = os.listdir(par_dir)
-    par_files = [ os.path.join(par_dir, p) for p in par_files ]
-    
-    start = []
-    finish = []
-    for par in par_files:
-        with open(par, 'r') as f:
-            lines = f.readlines()
+    #Get full target summary
+    df_full = print_nicer_segment(username=user, password=passwd)
 
-        for l in lines:
-            if l.split()[0] == 'START':
-                startval = float(l.split()[1].strip('\n'))
-                start_dt = Time(startval, format='mjd').utc.datetime
-                start.append(start_dt)
-            elif l.split()[0] == 'FINISH':
-                finishval = float(l.split()[1].strip('\n'))
-                finish_dt = Time(finishval, format='mjd').utc.datetime
-                finish.append(finish_dt)
-            else:
-                continue
-		
-    df = pd.DataFrame({'par':par_files, 'start':start, 'finish':finish})
-    return df
+    #Grab the source of interest
+    df_source = df_full[df_full['Target Name']==source]
+
+    #reset df index
+    df_source = df_source.reset_index(drop=True)
+
+    dt_objects = [ datetime.datetime.strptime(d, '%Y-%m-%dT%H:%M:%S')
+                   for d in df_source['Start TimeUTC'] ]
+    now = datetime.datetime.now()
+    days_ago = np.array([ (now-d).days for d in dt_objects ])
+
+    #This is a nice way to pull the minimum ncheck values
+    idx = np.argpartition(days_ago, ncheck)
+
+    obs_list = []
+    results_list = []
+    for i in idx[:ncheck]:
+        obsID = str(df_source['Observation ID'][i])
+        date = df_source['Start TimeUTC'][i]
+
+        obsdir = os.path.join(expected_dir, obsID)
+        pipedir = os.path.join(expected_dir, obsID+'_pipe')
+        evt_path = os.path.join(pipedir, 'cleanfilt.evt')
+
+        #[observation dir exists, pipe dir exists, evt exists, evt length]
+        results = ['X', 'X', 'X', 0]
+
+        if os.path.isdir(obsdir):
+            results[0] = u'\u2713'
+            if os.path.isdir(pipedir):
+                results[1] = u'\u2713'
+                if os.path.isfile(evt_path):
+                    results[2] = u'\u2713'
+                    tab = Table.read(evt_path, hdu=1)
+                    results[3] = len(tab)
+
+        print("Observation {0} from {1}:\n\t\tObservation directory: {2}\n\t\tPipe directory: {3}\n\t\tEvent file exists: {4} w/ length {5}".format(
+                obsID, date, *results))
+
+        obs_list.append(obsID)
+        results_list.append(results)
+
+    df_out = pd.DataFrame(results_list, index=obs_list, 
+                          columns=['obsdir', 'pipedir', 'evt', 'len(evt)'])
+    return df_out
 
 #Manages product backups for evt and mkfs
 def product_backup(fname, backupdir=None, date='now', message=""):
@@ -366,3 +418,19 @@ def product_backup(fname, backupdir=None, date='now', message=""):
 
     log.info("Backup {} file created".format(mode))
 
+
+def run_photonphase(evt, orbfile, par, ephem='DE421'):
+
+    if not os.path.isfile(evt):
+        raise FileNotFoundError("event file not found")
+
+    if not os.path.isfile(orbfile):
+        raise FileNotFoundError("orbit file not found")
+
+    if not os.path.isfile(par):
+        raise FileNotFoundError("par file not found")
+
+    cmd = ['photonphase', '--ephem', ephem, '--orb', orbfile,
+           '--addphase', evt, par]
+
+    subprocess.call(cmd)

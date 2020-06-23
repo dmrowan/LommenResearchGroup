@@ -254,6 +254,8 @@ for n,[no, row] in enumerate(source.iterrows()):
          
          if not matchedfiles or args.clobber:
              # Build the download command
+
+             #First try curl from archive
              cmd = ["curl", "--retry", "10", "{0}{1}".format(base, target), 
                     "--ftp-ssl", "-k", "--create-dirs", 
                     "-o", "{0}".format(target)]
@@ -263,7 +265,9 @@ for n,[no, row] in enumerate(source.iterrows()):
                 cmd.append("-s")
 
              r0 = subprocess.call(cmd)
+
              if r0 != 0:
+                #next try curl from obs2validate
                 cmd_base_team = ["curl", "--retry", "10", 
                                  "{0}{1}".format(base_team, target), 
                                  "--ftp-ssl", "-k", "--create-dirs", 
@@ -273,10 +277,19 @@ for n,[no, row] in enumerate(source.iterrows()):
 
                 r1 = subprocess.call(cmd_base_team)
 
+                #If that fails, try split with public archive url
                 if r1 != 0:
                     log.info("Both curls failed. Attempting split download")
                     log.info("Using public archive url")
-                    pipeline_utils.download_parts(obsid, "{0}{1}".format(base, target), silent=args.silent_curl)
+                    r2 = pipeline_utils.download_parts(
+                            obsid, "{0}{1}".format(base, target), 
+                            silent=args.silent_curl)
+
+                    #finally, try split with obs2validate
+                    if r2==-1:
+                        r3 = pipeline_utils.download_parts(
+                                obsid, "{0}{1}".format(base_team, target),
+                                silent=args.silent_curl)
 
              # File management
              log.info("{:3d} / {:3d} :: Un-archiving obsid {}.tar".format(n+1, len(source), obsid))

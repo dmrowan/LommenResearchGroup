@@ -27,39 +27,57 @@ def main():
 
     log.info("Limit data")
     phases = []
+    starttimes =[]
+    endtimes = []
     totaltime = 0
-    counter = 0
-    diff = 0
     starttime = timetab['START'][0]
-    timetab['timedif'] = timetab['STOP'] - timetab['START']
-    while (counter <= len(timetab)):
-        while ((totaltime + timetab['timedif'][counter]) < timewidth):
-            totaltime += (timetab['timedif'][counter] - diff)
-            diff = 0
-            counter += 1
-            if (counter == len(timetab)-1):
-                endtime = timetab['STOP'][counter]
-                rows = np.where((tab['TIME'] >= starttime) & (tab['TIME'] <= endtime))
-                phase = tab['PULSE_PHASE'][rows[0]]
-                phases.append(list(phase))
-                break
-        if (totaltime < timewidth):
-            if (counter == len(timetab)-1): break
-            counter += 1
-            diff = timewidth - totaltime
-            totaltime += diff
-            endtime = timetab['STOP'][counter] + diff
-            rows = np.where((tab['TIME'] >= starttime) & (tab['TIME'] <= endtime))
-            phase = tab['PULSE_PHASE'][rows[0]]
-            phases.append(list(phase))
+    starttimes.append(starttime)
+    for i in range(len(timetab)):
+        if (i==4503): break
+        interval = timetab['STOP'][i] - starttime
+        if (timewidth < interval):
+            number = int(interval/timewidth)
+            for n in range(number):
+                endtime = starttime + timewidth
+                endtimes.append(endtime)
+                starttime = endtime
+                starttimes.append(starttime)
+            difference = timetab['STOP'][i] - starttime
+            gaptime = timetab['START'][i+1] - timetab['STOP'][i]
+            endtime = starttime + timewidth + gaptime
+            endtimes.append(endtime)
             starttime = endtime
-            totaltime = 0
-     
+            starttimes.append(starttime)
+        if (timewidth == interval):
+            endtime = starttime + timewidth
+            endtimes.append(endtime)
+            starttime = endtime
+            starttimes.append(starttime)
+        if (timewidth > interval):
+            totaltime += interval
+            if (totaltime >= timewidth):
+                diff = totaltime - timewidth
+                endtime = timetab['STOP'][i] - diff
+                endtimes.append(endtime)
+                starttime = endtime
+                starttimes.append(starttime)
+                totaltime = diff
+            starttime = timetab['START'][i+1]
+    
+    for i in range(len(starttimes)-1):
+        rows = np.where((tab['TIME'] >= starttimes[i]) & (tab['TIME'] <= endtimes[i]))
+        phase = tab['PULSE_PHASE'][rows[0]]
+        phases.append(list(phase))
+  
     sections = len(phases)
     print("The number of time intervals is", sections)
-    row = int(input("How many rows of subplots?"))
-    col = int(input("How many columns of subplots?"))
-
+    plotnumber = input("Plot all profiles or first 84? (all/84)")
+    if (plotnumber == 'all'):
+        row = int(input("How many rows of subplots?"))
+        col = int(input("How many columns of subplots?"))
+    if (plotnumber == '84'):
+        row = 12
+        col = 7
 
     # Plots histograms of the profiles 
     log.info("Making Pulse Profile")
@@ -67,13 +85,23 @@ def main():
     fig, ax = plt.subplots(row, col, sharex = 'col')
     i = 0
     j = 0
-    for n in range(len(phases)):
-        if (j > (col-1)):
-            j = 0
-            i += 1
-        ax[i, j].hist(phases[n], bins = 255)
-        j += 1    
-     
+    if (plotnumber == 'all'):
+        for n in range(len(phases)):
+            if (j > (col-1)):
+                j = 0
+                i += 1
+            ax[i, j].hist(phases[n], bins = 255)
+            j += 1    
+  
+    if (plotnumber == '84'):  
+        for n in range(84):
+            if (j > (col-1)):
+                j = 0
+                i += 1
+            ax[i, j].hist(phases[n], bins = 255)
+            j += 1
+  
+  
     for axs in ax.flat:
         axs.label_outer() # hides x labels and ticks for top plots and y ticks for plots on right
 
