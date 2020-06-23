@@ -71,9 +71,13 @@ def main():
   
     sections = len(phases)
     print("The number of time intervals is", sections)
-    row = int(input("How many rows of subplots?"))
-    col = int(input("How many columns of subplots?"))
-
+    plotnumber = input("Plot all profiles or first 84? (all/84)")
+    if (plotnumber == 'all'):
+        row = int(input("How many rows of subplots?"))
+        col = int(input("How many columns of subplots?"))
+    if (plotnumber == '84'):
+        row = 12
+        col = 7
 
     # Plots histograms of the profiles 
     log.info("Making Pulse Profile")
@@ -81,13 +85,23 @@ def main():
     fig, ax = plt.subplots(row, col, sharex = 'col')
     i = 0
     j = 0
-    for n in range(len(phases)):
-        if (j > (col-1)):
-            j = 0
-            i += 1
-        ax[i, j].hist(phases[n], bins = 255)
-        j += 1    
-     
+    if (plotnumber == 'all'):
+        for n in range(len(phases)):
+            if (j > (col-1)):
+                j = 0
+                i += 1
+            ax[i, j].hist(phases[n], bins = 255)
+            j += 1    
+  
+    if (plotnumber == '84'):  
+        for n in range(84):
+            if (j > (col-1)):
+                j = 0
+                i += 1
+            ax[i, j].hist(phases[n], bins = 255)
+            j += 1
+  
+  
     for axs in ax.flat:
         axs.label_outer() # hides x labels and ticks for top plots and y ticks for plots on right
 
