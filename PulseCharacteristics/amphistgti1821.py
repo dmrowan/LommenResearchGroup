@@ -72,8 +72,11 @@ def main():
         phase = tab['PULSE_PHASE'][rows[0]]
         phases.append(list(phase))
 
+    totalphases = len(phases)
+    phases = [x for x in phases if x != []]
     sections = len(phases)
-    print("The number of time intervals is", sections)
+    emptyremoved = totalphases - sections
+    print("The number of time intervals is", totalphases)
     plotnumber = input("Use all profiles or first 84? (all/84)")    
 
     # Makes a list of amplitude of peak in each profile
@@ -102,9 +105,11 @@ def main():
         maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
 
          # Does a gaussian curve fit to the histogram
-        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
-       # plt.plot(xvals, gauss(xvals, *popt))
-
+        try:
+            popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
+        except RuntimeError:
+            removed.append(n)
+            continue
 
         # Amplitude of fitted curve
         amp = popt[0]  # finds amplitude of fitted curve (the first parameter of curve fit)
@@ -114,7 +119,7 @@ def main():
             removed.append(n)
  
     log.info("Amplitude histogram")
-    print("The number of profiles removed due to insufficient data is", len(removed))
+    print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
     plt.hist(amplitudes, bins = int(len(amplitudes)/2)) # makes histogram of amplitudes
     plt.xlabel('Amplitude of Peak')
     plt.ylabel('Counts')
