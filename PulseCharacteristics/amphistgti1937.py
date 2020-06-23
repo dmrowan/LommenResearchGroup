@@ -74,12 +74,18 @@ def main():
 
     sections = len(phases)
     print("The number of time intervals is", sections)
+    plotnumber = input("Use all profiles or first 84? (all/84)")
     
 
     # Makes a list of amplitude of peak in each profile
     log.info("Make list of amplitudes")
+    removed = []
     amplitudes = []
-    for n in range(len(phases)):
+    if (plotnumber == 'all'):
+        number = len(phases)
+    if (plotnumber == '84'):
+        number = 84
+    for n in range(number):
  
         # Makes a line plot from the histogram
         phase = np.array(phases[n])  # uses pulse phases in nth profile
@@ -105,8 +111,11 @@ def main():
         amp = popt[0]  # finds amplitude of fitted curve (the first parameter of curve fit)
         if (popt[1] <= 0.2):
             amplitudes.append(amp) # appends amplitude of peak into list of amplitudes
+        else:
+            removed.append(n)           
    
     log.info("Amplitude histogram")
+    print("The number of profiles removed due to insufficient data is", len(removed))
     plt.hist(amplitudes, bins = int(len(amplitudes)/2)) # makes histogram of amplitudes
     plt.xlabel('Amplitude of Peak')
     plt.ylabel('Counts')
