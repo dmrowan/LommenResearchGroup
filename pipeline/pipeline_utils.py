@@ -338,32 +338,6 @@ def check_recent_obs(source, user, passwd, expected_dir='./', ncheck=5):
                           columns=['obsdir', 'pipedir', 'evt', 'len(evt)'])
     return df_out
 
-def crab_par_table(par_dir='/students/pipeline/parfiles/crab/'):
-    
-    par_files = os.listdir(par_dir)
-    par_files = [ os.path.join(par_dir, p) for p in par_files ]
-    
-    start = []
-    finish = []
-    for par in par_files:
-        with open(par, 'r') as f:
-            lines = f.readlines()
-
-        for l in lines:
-            if l.split()[0] == 'START':
-                startval = float(l.split()[1].strip('\n'))
-                start_dt = Time(startval, format='mjd').utc.datetime
-                start.append(start_dt)
-            elif l.split()[0] == 'FINISH':
-                finishval = float(l.split()[1].strip('\n'))
-                finish_dt = Time(finishval, format='mjd').utc.datetime
-                finish.append(finish_dt)
-            else:
-                continue
-		
-    df = pd.DataFrame({'par':par_files, 'start':start, 'finish':finish})
-    return df
-
 #Manages product backups for evt and mkfs
 def product_backup(fname, backupdir=None, date='now', message=""):
 
@@ -444,3 +418,19 @@ def product_backup(fname, backupdir=None, date='now', message=""):
 
     log.info("Backup {} file created".format(mode))
 
+
+def run_photonphase(evt, orbfile, par, ephem='DE421'):
+
+    if not os.path.isfile(evt):
+        raise FileNotFoundError("event file not found")
+
+    if not os.path.isfile(orbfile):
+        raise FileNotFoundError("orbit file not found")
+
+    if not os.path.isfile(par):
+        raise FileNotFoundError("par file not found")
+
+    cmd = ['photonphase', '--ephem', ephem, '--orb', orbfile,
+           '--addphase', evt, par]
+
+    subprocess.call(cmd)
