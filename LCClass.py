@@ -49,9 +49,12 @@ class LightCurve:
             with open(pulsar_pickle, 'rb') as f:
                 pulsar_names = pickle.load(f)
             self.name = process.extract(evtfile, 
-                                        pulsar_names, limit=1)[0][0])
+                                        pulsar_names, limit=1)[0][0]
         else:
             self.name=""
+
+
+        self.name = self.name.replace('_', ' ')
  
         self.filters = {
                         'energy':[],
@@ -221,10 +224,10 @@ class LightCurve:
 
     # Give a name to include in plots
     def set_name(self, name):
-        self.name = name
+        self.name = name.replace('_', ' ')
 
     #Generate count/phasebin information
-    def generate(self, n_phase=2, nbins=100):
+    def old_generate(self, n_phase=2, nbins=100):
         assert(n_phase > 0)
         self.nbins = nbins
         self.n_phase = n_phase
@@ -241,6 +244,30 @@ class LightCurve:
         self.counts = self.counts[:-1]
         self.phasebins = self.phasebins[:-1]
 
+
+        #If n_phase is greater than 1 need to extend both axes
+        self.counts_extended = np.array([])
+        for i in range(n_phase):
+            self.counts_extended = np.append(
+                    self.counts_extended, self.counts)
+
+        self.phasebins_extended = np.array([])
+        for i in range(n_phase):
+            self.phasebins_extended = np.append(
+                    self.phasebins_extended, self.phasebins + i)
+
+    def generate(self, n_phase=2, nbins=100):
+        if (n_phase <= 0) or (type(n_phase) != int):
+            raise ValueError('n_phase must be positive non-zero int')
+
+        self.nbins = nbins
+        self.n_phase = n_phase
+        self.counts, self.phasebins, patches = plt.hist(self.ph, bins=nbins)
+        plt.close()
+
+        #matplotlib hist call adds extra element for right
+        # edge of last bin
+        self.phasebins = self.phasebins[:-1]
 
         #If n_phase is greater than 1 need to extend both axes
         self.counts_extended = np.array([])
