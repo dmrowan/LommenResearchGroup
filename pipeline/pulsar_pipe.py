@@ -98,9 +98,6 @@ def wrapper(par, emin=0.25, emax=12,
 			trumpet=True, keith=True, clobber=False,
             crab=False):
 
-    #Create pool
-    pool = mp.Pool(processes=mp.cpu_count()+2)
-    jobs = []
 
     #if we supply table of par info
     if par.endswith('.csv'):
@@ -134,6 +131,9 @@ def wrapper(par, emin=0.25, emax=12,
                               clobber=clobber, crab=crab)
 
     else: #setup multiprocessing pool
+        #Create pool
+        pool = mp.Pool(processes=mp.cpu_count()+2)
+        jobs = []
 
         #Find observations to pipe
         for f in os.listdir("./"):
