@@ -346,7 +346,8 @@ if __name__ == '__main__':
                       args.emin, args.emax, 
                       trumpet=args.trumpet, 
                       keith=args.keith,
-                      clobber=args.clobber)
+                      clobber=args.clobber,
+                      crab=args.crab)
         if os.path.isfile(os.path.join(args.obsID+'_pipe', 'cleanfilt.evt')):
             check = input("Would you like to run count rate cut [y/n] -- ")
             if check in ['y', 'Y']:
