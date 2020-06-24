@@ -120,7 +120,8 @@ def main():
    
     log.info("Amplitude histogram")
     print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
-    plt.hist(amplitudes, bins = int(len(amplitudes)/2)) # makes histogram of amplitudes
+    binwidths = list(np.arange(50))
+    plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
     plt.xlabel('Amplitude of Peak')
     plt.ylabel('Counts')
     plt.title('Amplitudes of Pulse Profiles')
