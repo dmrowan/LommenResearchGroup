@@ -4,7 +4,7 @@
 
 cd /students/pipeline/heasoft6.27/BKGD_RXTE
 
-/packages/python3.6.8/bin/python /homes/pipeline/scripts/LommenResearchGroup/pipeline/background_pipe.py --update --user nicer_team --passwd sextant --k_file ~/decrypt_key --par --silent_curl
+/packages/python3.6.8/bin/python /homes/pipeline/scripts/LommenResearchGroup/pipeline/background_pipe.py --update --user $1 --passwd $2 --k_file ~/decrypt_key --par --silent_curl
 
 echo -n 'Completed BKGD_RXTE ' >> ~/cron_log.txt
 date >> ~/cron_log.txt

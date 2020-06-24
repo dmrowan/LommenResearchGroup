@@ -4,7 +4,7 @@
 
 cd /students/pipeline/heasoft6.27/PSR_B1821-24
 
-/packages/python3.6.8/bin/python /homes/pipeline/scripts/LommenResearchGroup/pipeline/pulsar_pipe.py --update PSR_B1821-24 --user nicer_team --passwd sextant --k_file ~/decrypt_key --par /students/pipeline/parfiles/J1824-2452-frozen-dmx.par.nicerrefit --silent_curl
+/packages/python3.6.8/bin/python /homes/pipeline/scripts/LommenResearchGroup/pipeline/pulsar_pipe.py --update PSR_B1821-24 --user $1 --passwd $2 --k_file ~/decrypt_key --par /students/pipeline/parfiles/J1824-2452-frozen-dmx.par.nicerrefit --silent_curl
 
 echo -n 'Completed PSR_B1821-24 ' >> ~/cron_log.txt
 date >> ~/cron_log.txt
