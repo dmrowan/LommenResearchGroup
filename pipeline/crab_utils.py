@@ -2,6 +2,7 @@
 
 from astropy.table import Table
 from astropy import log
+import datetime
 import glob
 import multiprocessing as mp
 import numpy as np
@@ -134,91 +135,3 @@ def crab_par_match(par_dir='/students/pipeline/parfiles/crab', outdir='./',
         df_obs.to_latex(par_save+'.tex', index=False)
 
     return df_obs
-
-
-def crab_photonphase(evt, orbfile, par, split_len=1000000):
-
-    log.info("Running Crab photonphase routine")
-
-    #Read in full table and get length
-    full_table = Table.read(evt, hdu=1)
-    total_length = len(full_table)
-
-    #Split files and get names
-    if total_length <= split_len:
-        fnames = [evt]
-    else:
-        fnames = split_evt(evt, split_len)
-
-    #Set up multiprocessing pool
-    pool = mp.Pool(processes=mp.cpu_count()+2)
-    jobs = []
-
-    #Add each split evt to pool
-    for f in fnames:
-        job = pool.apply_async(
-                pipeline_utils.run_photonphase,
-                (f, orbfile, par,))
-        jobs.append(job)
-
-    #run jobs
-    for job in jobs:
-        job.get()
-
-    #Write file list for merge
-    with open('split_evt_list', 'w') as f:
-        for x in fnames:
-            f.write(x+'\n')
-    
-    log.info("Merging with niextract-events")
-    #Call niextract to merge
-    cmd = ['niextract-events', 'filename=@split_evt_list',
-           'eventsout={0}'.format(evt.replace('.evt', '_phase.evt')),
-           'clobber=YES']
-
-
-def row_expression(row_range):
-    return "#row >= {0} && #row <= {1}".format(*row_range)
-
-def split_evt(evt, split_len, clobber=True, cleanup=False):
-    
-    log.info("splitting {} into parts".format(evt))
-
-    #Check path
-    if not os.path.isfile(evt):
-        raise FileNotFoundError("Event file not found")
-
-    #Replace existing partial event files
-    existing_files = glob.glob(evt.replace('.evt', '_split*.evt'))
-
-    if len(existing_files) != 0:
-        log.warning("removing existing split files")
-        for f in existing_files:
-            os.remove(f)
-
-    row_range = [1, split_len]
-    evt_number = 0
-    evt_split = evt.replace('.evt', '_split{0}.evt'.format(evt_number))
-
-    cmd = ['fselect', evt, evt_split, row_expression(row_range)]
-    subprocess.call(cmd)
-
-    tab = Table.read(evt_split, hdu=1)
-
-    #Save all the filenames
-    fnames = [evt_split]
-
-    while len(tab) == split_len:
-        row_range = [v+split_len for v in row_range]
-        evt_number += 1
-        evt_split = evt.replace('.evt', '_split{0}.evt'.format(evt_number))
-        fnames.append(evt_split)
-        cmd = ['fselect', evt, evt_split, row_expression(row_range)]
-        subprocess.call(cmd)
-        tab = Table.read(evt_split, hdu=1)
-
-    log.info("{0} split into {1} parts".format(evt, len(fnames)))
-
-    return fnames
-
-
