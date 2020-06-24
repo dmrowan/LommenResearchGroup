@@ -17,12 +17,9 @@ stopTimeIndex = 352360
 tab_ni = Table.read('ni2200300102.mkf', hdu=1)
 timeArray = np.array(tab_ni['TIME'])
 elevArray = np.array(tab_ni['ELV'])
+azArray = np.array(tab_ni['RAM_ANGLE'])
 enArray_low = np.array(tab_ni['FPM_XRAY_PI_0035_0200'])
 enArray_mid = np.array(tab_ni['FPM_XRAY_PI_0800_1200'])
-
-#print(elevArray)
-# print(tab_ni['ATT_ANG_EL'])
-# print(tab_ni['ATT_ANG_AZ'])
 
 tab_evt = Table.read('cleanfilt.evt', hdu=1)
 eventTime = np.array(tab_evt['TIME'][startTimeIndex:stopTimeIndex])
@@ -49,16 +46,14 @@ class EnergyBands:
         self.perc_trans = percTrans(self.new_alt, self.rate)
         self.sigmaN = Sigma(self.energies)
         self.trans_model = Transmit(self.alt, self.sigmaN, rho0, L)
-        self.popt_rateTime, self.pcov_rateTime = curveFit(self.time_axis, self.rate)
-        # no fit yet for perc vs time
-        self.popt_rateAlt, self.pcov_rateAlt = curveFit(self.new_alt, self.rate)
-        self.popt_percAlt, self.pcov_percAlt = curveFit(self.new_alt, self.perc_trans)
 
 
 # interpolate the times.evt to go over the range of elevations.mkf
 f = interpolate.interp1d(timeArray, elevArray, kind='linear')
 elev_evt = f(eventTime)
 
+# g = interpolate.interp1d(timeArray, azArray, kind='linear')
+# az_evt = g(eventTime)
 
 # calculate altitude based on elevation angle
 R = 6378
@@ -114,14 +109,13 @@ mu = 28
 mp = 1.6726219*10**-27
 g = 9.8
 L = (k*T)/(1000*mu*mp*g)
-z0 = 80
+z0 = 135
 rho0 = 0.0012*np.exp(-z0/L)
-
 
 
 def Sigma(energy):
     c = np.float(-3)
-    return 3.38*(np.mean(energy)/100)**c
+    return 3.31*(np.mean(energy)/100)**c
 
 
 # i is the index in altArray
@@ -147,9 +141,8 @@ def Transmit(Alt, sigma, p0, l):
             g += Rho(n, hi, Alt, p0, l)*dx
         tau.append(-2*sigma*g)
     tau = np.array(tau)
-    trans = 100*np.exp(tau,dtype=np.float64)
+    trans = 100*np.exp(tau)
     return trans
-
 
 
 # calculating fit uncertrainty based on parameter uncertainties at the point with x=X
@@ -171,7 +164,7 @@ def paramUnc(Popt, Pcov, X):
     return np.sqrt(added_frac_unc)
 
 
-# best fit polynomialsand scipy.curve_fit
+# best fit polynomials and scipy.curve_fit
 def SeventhOr(x, a, b, c, d, e, f, g, h):
     return(a*x**7+b*x**6+c*x**5+d*x**4+e*x**3+f*x**2+g*x+h)
 
