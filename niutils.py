@@ -1,12 +1,50 @@
 #!/usr/bin/env python
 
+import datetime
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import exp
 import matplotlib.patches as patches
+import pickle
 
-#Set colors for all plots
+#LommenResearchGroup imports
+from pipeline import pipeline_utils
+
+#Dom Rowan 2020
+
+desc="""
+Utility functions for NICER data analysis
+"""
+
+#Pull pulsar names from NICER target summary
+def save_pulsar_names(user, passwd, out=None):
+    
+    #scrape table from nasa site
+    df = pipeline_utils.print_nicer_segment(username=user, password=passwd)
+
+    #make list of targets
+    targets = list(set(df['Target Name']))
+
+    #find pulsars
+    pulsars = [ t for t in targets if t.startswith('PSR_') ]
+
+    if out is not None:
+        with open(out, 'wb') as f:
+            pickle.dump(pulsars, f)
+    
+    return pulsars
+
+
+#Time conversion routine
+def convert_time(time):
+    timezero = datetime.datetime(year=2014, month=1,
+                                 day=1, hour=0, minute=0, second=0)
+    new_time = timezero+datetime.timedelta(seconds=time)
+
+    return new_time
+
+#Set colors for all br_earth plots
 def get_colors():
     d = {'br_colors': ['#ffa600', '#ff6361', '#bc5090',  
                        '#58508d',  '#003f5c'],
@@ -17,7 +55,7 @@ def get_colors():
                        
     return d
 
-#Map colors to ranges
+#Map colors to ranges (br_earth project)
 def map_colors(ranges=['--40', '40--60', '60--80', '80--180', '180--'],
                dark=False):
     if dark:
