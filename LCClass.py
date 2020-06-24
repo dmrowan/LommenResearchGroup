@@ -17,6 +17,7 @@ from scipy.optimize import curve_fit
 from scipy.stats import chisquare
 from scipy import exp
 import niutils
+import pickle
 
 #Dom Rowan and Lauren Lugo 2019
 
@@ -25,6 +26,8 @@ Class for pulsar profiles and light curves
 """
 
 rc('text', usetex=True)
+
+pulsar_pickle = '/students/pipeline/pulsar_names.pickle'
 
 class LightCurve:
     def __init__(self, evtfile):
@@ -38,10 +41,17 @@ class LightCurve:
         self.ph = self.tab['PULSE_PHASE']
         self.piratio = self.tab['PI_RATIO']
         self.counts = None # Initialize counts to none
-        self.name = process.extract(evtfile, 
-                                    ['PSR B1821-24', 'PSR B1937+21', 
-                                     'PSR J0218+4232'],
-                                    limit=1)[0][0]
+
+
+        if 'PSR' in evtfile:
+            if not os.path.isfile(pulsar_pickle):
+                log.error("pulsar name pickle not found. try using niutils.save_pulsar_names")
+            with open(pulsar_pickle, 'rb') as f:
+                pulsar_names = pickle.load(f)
+            self.name = process.extract(evtfile, 
+                                        pulsar_names, limit=1)[0][0])
+        else:
+            self.name=""
  
         self.filters = {
                         'energy':[],
