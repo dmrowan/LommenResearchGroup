@@ -25,7 +25,7 @@ Pipeline for pulsar analysis
 def run_psrpipe(obsID, par, 
 				emin=0.25, emax=12,
 				min_sun=60,
-				keith=True):
+				keith=True, crab=False):
 
 	log.info("Running pspipe with par " + par)
 
@@ -47,6 +47,10 @@ def run_psrpipe(obsID, par,
 	if keith:
 		cmd.append('--keith')
 
+    #Use this argument to do photonphase with multiprocessing
+    if crab:
+        cmd.append('--crab')
+
 	cmd.append(obsID)
 
 	subprocess.call(cmd)
@@ -55,7 +59,7 @@ def run_psrpipe(obsID, par,
 def allprocedures(obsID, par, 
 				  emin=0.25, emax=12,
 				  trumpet=True, keith=True, 
-				  clobber=False):
+				  clobber=False, crab=False):
 	
     #Various clobber and path checks
     if ((os.path.isdir("{}_pipe".format(obsID))) 
@@ -86,7 +90,7 @@ def allprocedures(obsID, par,
     #Run psrpipe
     run_psrpipe(obsID, par,
                 emin=emin, emax=emax,
-                keith=keith)
+                keith=keith, crab=crab)
     return 1
 
 #Multiprocessing wrapper
@@ -98,9 +102,10 @@ def wrapper(par, emin=0.25, emax=12,
     pool = mp.Pool(processes=mp.cpu_count()+2)
     jobs = []
 
-    #We have to find par files for crab
-    if crab:
-        log.info("Processing Crab data: parsing par data")
+    #if we supply table of par info
+    if par.endswith('.csv'):
+        multiple_pars = True
+        log.info("Reading par information from csv")
         df = pd.read_csv(par, keep_default_na=False)
         par_dic = {}
         for i in range(len(df)):
@@ -108,32 +113,53 @@ def wrapper(par, emin=0.25, emax=12,
                 continue
             else:
                 par_dic[str(df['obsID'][i])] = df['par'][i]
+    else:
+        multiple_pars = False
 
-    #Find observations to pipe
-    for f in os.listdir("./"):
-        if (os.path.isdir(f)) and (f.isnumeric()):
+    #If we are doing crab we don't want to setup pool here
+    if crab:
+        #Find observations to pipe
+        for f in os.listdir('./'):
+            if (os.path.isdir(f)) and (f.isnumeric()):
+                #par matching
+                if multiple_pars:
+                    if f not in list(par_dic.keys()):
+                        log.info("No par for {}".format(f))
+                        continue
+                    else:
+                        par = par_dic[f]
 
-            #par check for crab
-            if crab:
-                if f not in list(par_dic.keys()):
-                    log.info("No par for {}".format(f))
-                    continue
-                else:
-                    par = par_dic[f]
+                allprocedures(f, par, emin=emin, emax=emax, 
+                              trumpet=trumpet, keith=keith, 
+                              clobber=clobber, crab=crab)
 
-            #Add job to pool
-            job = pool.apply_async(allprocedures,
-                                   (f, par, ),
-                                   dict(emin=emin,
-                                        emax=emax,
-                                        trumpet=trumpet,
-                                        keith=keith,
-                                        clobber=clobber))
-            jobs.append(job)
+    else: #setup multiprocessing pool
 
-    #Run all jobs in parallel
-    for job in jobs:
-        job.get()
+        #Find observations to pipe
+        for f in os.listdir("./"):
+            if (os.path.isdir(f)) and (f.isnumeric()):
+
+                #par check for crab
+                if multiple_pars:
+                    if f not in list(par_dic.keys()):
+                        log.info("No par for {}".format(f))
+                        continue
+                    else:
+                        par = par_dic[f]
+
+                #Add job to pool
+                job = pool.apply_async(allprocedures,
+                                       (f, par, ),
+                                       dict(emin=emin,
+                                            emax=emax,
+                                            trumpet=trumpet,
+                                            keith=keith,
+                                            clobber=clobber))
+                jobs.append(job)
+
+        #Run all jobs in parallel
+        for job in jobs:
+            job.get()
 
 #niextract merge event file
 #count rate cut applied in this step
@@ -290,6 +316,10 @@ if __name__ == '__main__':
 
     #Option to silence curl progress bar
     parser.add_argument("--silent_curl", help="no curl progress bar",
+                        default=False, action='store_true')
+
+    #option to use crab multiprocessing setup
+    parser.add_argument("--crab", help="run crab multiprocessing setup",
                         default=False, action='store_true')
 
     args = parser.parse_args()

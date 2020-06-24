@@ -434,3 +434,166 @@ def run_photonphase(evt, orbfile, par, ephem='DE421'):
            '--addphase', evt, par]
 
     subprocess.call(cmd)
+
+    return 0
+
+
+def split_photonphase(evt, orbfile, par, split_len=100000, mp=False):
+
+    log.info("Running split photonphase routine")
+
+    if not os.path.isfile(evt):
+        raise FileNotFoundError("event file not found")
+
+    if not os.path.isfile(orbfile):
+        raise FileNotFoundError("orbit file not found")
+
+    if not os.path.isfile(par):
+        raise FileNotFoundError("par file not found")
+
+    #Read in full table and get length
+    full_table = Table.read(evt, hdu=1)
+    total_length = len(full_table)
+
+    #Split files and get names
+    if total_length <= split_len:
+        run_photonphase(evt, orbfile, par)
+        return 0
+    else:
+        #make a copy of the evt
+        log.info("Copying {0} to {1}".format(
+                evt, evt.replace('.evt', '_nophase.evt')))
+        cmd = ['cp', evt, evt.replace('.evt', '_nophase.evt')]
+        subprocess.call(cmd)
+        fnames = split_evt(evt, split_len)
+
+    #Check that the split completed successfully
+    if not check_split(evt, fnames):
+        log.error("fselect split for {0}, exiting".format(evt))
+        return -1
+
+    #Option for multiprocessing
+    # we dont want to do this in the pipe wrapper 
+    if mp:
+        #Set up multiprocessing pool
+        pool = mp.Pool(processes=mp.cpu_count()+2)
+        jobs = []
+
+        #Add each split evt to pool
+        for f in fnames:
+            job = pool.apply_async(
+                    run_photonphase,
+                    (f, orbfile, par,))
+            jobs.append(job)
+
+        #run jobs
+        for job in jobs:
+            job.get()
+
+    else: #no multiprocessing
+        for f in fnames:
+            run_photonphase(f, orbfile, par)
+
+    #Check that all the files have phase columns
+    for f in fnames:
+        tab = Table.read(f, hdu=1)
+        if 'PULSE_PHASE' not in list(tab.columns):
+            log.error("no pulse phase for split evt {0}, exiting".format(f))
+            return -1
+
+    #Write file list for merge
+    split_file_list = os.path.join(os.path.split(evt)[0], 'split_evt_list')
+    with open(split_file_list, 'w') as f:
+        for x in fnames:
+            f.write(x+'\n')
+    
+    log.info("Merging with niextract-events")
+    #Call niextract to merge
+    cmd = ['niextract-events', 'filename=@split_evt_list',
+           'eventsout={0}'.format(evt.replace('.evt', '_phase.evt')),
+           'clobber=YES']
+
+    subprocess.call(cmd)
+
+    log.info("Copying {0} to {1}".format(evt.replace('.evt', '_nophase.evt'),
+                                         evt))
+    cmd = ['cp', evt.replace('.evt', '_nophase.evt'), evt]
+    subprocess.call(cmd)
+
+def row_expression(row_range):
+    return "#row >= {0} && #row <= {1}".format(*row_range)
+
+def split_evt(evt, split_len, clobber=True, cleanup=False):
+    
+    log.info("splitting {} into parts".format(evt))
+
+    #Check path
+    if not os.path.isfile(evt):
+        raise FileNotFoundError("Event file not found")
+
+    #Make dir for split evt files
+    pipe_dir_path = os.path.split(evt)[0]
+    split_evts_dir_path = os.path.join(pipe_dir_path, 'split_evts')
+
+    if os.path.isdir(split_evts_dir_path):
+        log.warning("split_evts dir already exists, removing")
+        shutil.rmtree(split_evts_dir_path)
+
+    log.info("Creating dir for split evts")
+    os.mkdir(split_evts_dir_path)
+            
+    row_range = [1, split_len]
+
+    #Get split evt file name
+    evt_number = 0
+    evt_base = os.path.split(evt)[1]
+    evt_split = os.path.join(
+            split_evts_dir_path, 
+            evt_base.replace('.evt', '_split{0}.evt'.format(evt_number)))
+
+    cmd = ['fselect', evt, evt_split, row_expression(row_range)]
+    subprocess.call(cmd)
+
+    tab = Table.read(evt_split, hdu=1)
+
+    #Save all the filenames
+    fnames = [evt_split]
+
+    while len(tab) == split_len:
+        row_range = [v+split_len for v in row_range]
+        evt_number += 1
+        evt_split = os.path.join(
+                split_evts_dir_path, 
+                evt_base.replace('.evt', '_split{0}.evt'.format(evt_number)))
+
+        fnames.append(evt_split)
+        cmd = ['fselect', evt, evt_split, row_expression(row_range)]
+        subprocess.call(cmd)
+        tab = Table.read(evt_split, hdu=1)
+
+    log.info("{0} split into {1} parts".format(evt, len(fnames)))
+
+    return fnames
+
+#Function to check if split completed
+def check_split(evt, fnames):
+    
+    if not os.path.isfile(evt):
+        raise FileNotFoundError("Event file not found")
+
+    if not niutils.check_iter(fnames):
+        raise TypeError("fnames must be iterable")
+
+    for f in fnames:
+        if not os.path.isfile(f):
+            raise FileNotFoundError("{0} not found".format(f))
+
+    full_tab = Table.read(evt, hdu=1)
+    total_length = len(full_tab)
+
+    summed = 0
+    for split_evt in fnames:
+        tab = Table.read(split_evt, hdu=1)
+        summed += len(tab)
+
+    return summed == total_length
