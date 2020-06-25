@@ -36,7 +36,7 @@ Within each source directory, a 'tmp' subdirectory is required. This is used for
 
 ## Pulsar parameter files
 
-We will need parameter files to add phases to the pulsar events. These are kept in the /students/pipeline/parfiles directory. Note that the crab pulsar requires multiple par files, and thus is a subdirectory. 
+We will need parameter files to add phases to the pulsar events. These are kept in the /students/pipeline/parfiles directory. Note that the crab pulsar requires multiple par files, and thus is a subdirectory. See the section on the Crab for more info on working with multiple par files. 
 
 The path to the par file is given as an input to the pulsar pipeline.
 
@@ -44,7 +44,7 @@ The path to the par file is given as an input to the pulsar pipeline.
 
 The pulsar pipe is found in the pulsar_pipe.py file. It takes advantage of psrpipe.py in step #4 of the steps listed above. Therefore, environmental variables must be set as described in the NICERsoft readme.md. 
 
-The primary command line invocation of the script looks something like this:
+For downloading & processing bulk data, the primary command line invocation of the script looks something like this:
 ```
 $ pulsar_pipe.py --update PSR_B1937+21 --par <parfile> --user <username> --passwd <passwd> -k
 ```
@@ -109,6 +109,12 @@ By default, existing observations are not overwritten. This can be changed using
 ```
 $ pulsar_pipe.py --download PSR_B1821-24 --user <username> --passwd <passwd> -k --clobber
 ```
+To download a single observation use `--obsID`. Note that this __does not__ process the observation, just downloads it. You would have to do a call with `--obsID`, like above, to process it after downloading. (working with single observations this way isn't really the intended use of pulsar_pipe, so the command line calls are a bit convoluted)
+
+```
+$ pulsar_pipe.py --download PSR_B0531+21 --obsID 1013010127 --user nicer_team --passwd -k
+```
+
 There is another argument `--silent_curl`, that removes the progress bar from the download. This is useful for when the output is redirected to a file, like we do in the crontab (see that section towards the bottom). 
 
 
@@ -117,7 +123,7 @@ The data download can also be called in Python using pipeline_utils.run_datadown
 >>> from pipeline import pipeline_utils
 >>> pipeline_utils.run_datadownload('PSR_B1821-24', <username>, <passwd>, './', <decryptkey>, clobber=False)
 ```
-Note that the output directory for the downloaded observations can be changed by modifiying the outdir argument, which is set to './' in the example above. 
+Note that the output directory for the downloaded observations can be changed by modifiying the outdir argument, which is set to './' in the example above. You can specify which observations to download using the optional argument `obsIDs=['1013010121', '1013010127']`, for example. 
 
 To merge all the event files currently piped, we can use the `--merge`. The most simple call would be:
 ```
@@ -158,18 +164,26 @@ Again, even though we've shown how each of these pipeline functionalities can be
 
 The Crab is run as part of the pulsar_pipeline but there are some differences in file handling worth mentioning. 
 
-There are multiple parameter files generated from the M&M Crab paper table. These are stored in /students/pipeline/parfiles/crab. We have to match observations to par files. We do this with the `crab_utils.crab_par_march` function. This function identifies which observations have a par file and saves the info in a CSV. 
+There are multiple parameter files generated from the M&M Crab paper table. These are stored in /students/pipeline/parfiles/crab. We have to match observations to par files. We do this with the `crab_utils.crab_par_match` function. This function identifies which observations have a par file and saves the info in a CSV. 
 
 ```
 from pipeline import crab_utils
-import os
 
 par_dir='/students/pipeline/parfiles/crab'
 obs_dir='/students/pipeline/heasoft6.27/PSR_B0531+21'
 
 crab_utils.crab_par_match(par_dir=par_dir, obs_dir=obs_dir)
 ```
-This will write a csv and tex file (in the current directory) that shows which observations correspond to which par files. 
+This will write a csv and tex file (in the current directory) that shows which observations correspond to which par files. There is also an option to have some leway in the date range -- for example if you have an observation on May 15th but your par file only goes to May 10th, you can use `par_date_clearance=5` in `crab_par_match` to include it. By default this is turned off, so the clearance column in the CSV is all zeros. 
+
+We can use this CSV to see what par files correspond to which obsID. For example, the Crab observation 1013010127 corresponds to 'march_2018_1.par'. We can call pulsar_pipe for a single obsID (that has already been downloaded): 
+
+```
+pulsar_pipe.py --obsID 1013010127 --par /students/pipeline/parfiles/march_2018_1.par --crab
+```
+Notice that there is an additional `--crab` argument that we didn't have above. The Crab observations have way more events so this argument changes the way multiprocessing is handled. For pulsars like PSR_B1937+21 pulsar_pipe is setup to run multiple observations at a time using multiple CPUs. When we use the `--crab` argument we use multiple CPUs for the photonphase processing step.
+
+(in theory we could use --crab for any pulsar, it just wouldn't be useful unless the individual observations contained large (i.e. >100,000) events after filtering)
 
 
 ## Background Pipeline
