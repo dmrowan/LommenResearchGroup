@@ -94,7 +94,7 @@ To run the pipeline on a single observation, specify the observation ID number w
 ```
 pulsar_pipe.py --obsID 3070020518 --par <parfile>
 ```
-Since a count rate cut is normally done on a merged event file, this will prompt the user before performing to perform the cut. If it is selected, a new event file, '3070020518_pipe/cleanfilt_cut.evt', in this case, will be created. 
+Since a count rate cut is normally done on a merged event file, this will prompt the user before performing to perform the cut. If it is selected, a new event file, '3070020518_pipe/cleanfilt_cut.evt', in this case, will be created. The count rate cut and filterbin size can be changed with `--cut` and `--filterbinsize`, as mentioned above.
 
 The clobber argument can be included to re-run the pipeline on an observation:
 ```
