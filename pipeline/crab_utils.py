@@ -2,6 +2,7 @@
 
 from astropy.table import Table
 from astropy import log
+from astropy.time import Time
 import datetime
 import glob
 import multiprocessing as mp
@@ -35,7 +36,9 @@ def crab_par_table(par_dir='/students/pipeline/parfiles/crab/'):
 
         #Find start and end, do date conversion
         for l in lines:
-            if l.split()[0] == 'START':
+            if l.isspace():
+                continue
+            elif l.split()[0] == 'START':
                 startval = float(l.split()[1].strip('\n'))
                 start_dt = Time(startval, format='mjd').utc.datetime
                 start.append(start_dt)
@@ -51,17 +54,17 @@ def crab_par_table(par_dir='/students/pipeline/parfiles/crab/'):
     return df
 
 #Match par files to obsIDs
-def crab_par_match(par_dir='/students/pipeline/parfiles/crab', outdir='./', 
-                  par_date_clearance=None, par_save='par_info'):
+def crab_par_match(par_dir='/students/pipeline/parfiles/crab', obs_dir='./', 
+                   par_date_clearance=None, par_save='par_info'):
     
     #Get all par information
-    par_df = pipeline_utils.crab_par_table(par_dir=par_dir)
+    par_df = crab_par_table(par_dir=par_dir)
 
-    #Handling directory of observation
-    if outdir == './':
+    #Handling directory of observation (checks that you're matching w/ Crab)
+    if obs_dir == './':
         pre_split = os.getcwd()
     else:
-        pre_split = outdir
+        pre_split = obs_dir
     source_dir = pre_split.split('/')[-1]
     log.info("Checking sourcename and directory match")
     if 'PSR_B0531+21' != source_dir:
@@ -71,12 +74,12 @@ def crab_par_match(par_dir='/students/pipeline/parfiles/crab', outdir='./',
     
     #Next get all crab obsIDs
     obsids = []
-    for f in os.listdir(outdir):
-        if (os.path.isdir(f)) and (not f.endswith('_pipe')) and (f!='tmp'):
+    for f in os.listdir(obs_dir):
+        if f.isnumeric():
             obsids.append(f)        
 
     #Need to read the mkfs to get date
-    mkfs = [ os.path.join(outdir, ID, 'auxil/ni{0}.mkf'.format(ID))
+    mkfs = [ os.path.join(obs_dir, ID, 'auxil/ni{0}.mkf'.format(ID))
              for ID in obsids ]
 
     obs_dates = []
