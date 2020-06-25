@@ -130,7 +130,7 @@ def fit(pulsarname, timewidth):
    
     log.info("Amplitude histogram")
   #  print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
-    binwidths = list(np.arange(0,0.015 , 0.00001))
+    binwidths = list(np.arange(0,0.015 , 0.0001))
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
   
     # Makes a line plot from the histogram
@@ -168,9 +168,15 @@ def fit(pulsarname, timewidth):
 amp = []
 width = []
 timewidth=[]
-for twidth in range(1800, 7200, 1800):
+for twidth in range(1800, 9000, 1800):
     a, w = fit('1937', twidth)
     amp.append(a)
     width.append(w)
     timewidth.append(twidth)
 plt.plot(timewidth, width)
+plt.title("Widths of Amplitude Histograms")
+plt.xlabel("Timewidth (seconds)")
+plt.ylabel("FWHM (counts/second)")
+plt.show()
+
+
