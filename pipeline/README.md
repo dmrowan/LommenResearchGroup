@@ -112,7 +112,7 @@ $ pulsar_pipe.py --download PSR_B1821-24 --user <username> --passwd <passwd> -k 
 To download a single observation use `--obsID`. Note that this __does not__ process the observation, just downloads it. You would have to do a call with `--obsID`, like above, to process it after downloading. (working with single observations this way isn't really the intended use of pulsar_pipe, so the command line calls are a bit convoluted)
 
 ```
-$ pulsar_pipe.py --download PSR_B0531+21 --obsID 1013010127 --user nicer_team --passwd -k
+$ pulsar_pipe.py --download PSR_B0531+21 --obsID 1013010127 --user <username> --passwd <passwd> -k
 ```
 
 There is another argument `--silent_curl`, that removes the progress bar from the download. This is useful for when the output is redirected to a file, like we do in the crontab (see that section towards the bottom). 
