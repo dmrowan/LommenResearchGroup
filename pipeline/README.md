@@ -36,7 +36,7 @@ Within each source directory, a 'tmp' subdirectory is required. This is used for
 
 ## Pulsar parameter files
 
-We will need parameter files to add phases to the pulsar events. These are kept in the /students/pipeline/parfiles directory. Note that the crab pulsar requires multiple par files, and thus is a subdirectory. See the section on the Crab for more info on working with multiple par files. 
+We will need parameter files to add phases to the pulsar events. These are kept in the /students/pipeline/parfiles directory. Note that the crab pulsar requires multiple par files, and thus is a subdirectory. See the section on the Crab for more info on working with multiple par files and matching par files to observations.
 
 The path to the par file is given as an input to the pulsar pipeline.
 
