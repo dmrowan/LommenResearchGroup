@@ -154,6 +154,24 @@ Of course, we can also do this in python
 
 Again, even though we've shown how each of these pipeline functionalities can be called independently, either from the command line or a python session, they are all done together using the `--update` flag described at the top of the section.
 
+### Crab Pipeline
+
+The Crab is run as part of the pulsar_pipeline but there are some differences in file handling worth mentioning. 
+
+There are multiple parameter files generated from the M&M Crab paper table. These are stored in /students/pipeline/parfiles/crab. We have to match observations to par files. We do this with the `crab_utils.crab_par_march` function. This function identifies which observations have a par file and saves the info in a CSV. 
+
+```
+from pipeline import crab_utils
+import os
+
+par_dir='/students/pipeline/parfiles/crab'
+obs_dir='/students/pipeline/heasoft6.27/PSR_B0531+21'
+
+crab_utils.crab_par_match(par_dir=par_dir, obs_dir=obs_dir)
+```
+This will write a csv and tex file (in the current directory) that shows which observations correspond to which par files. 
+
+
 ## Background Pipeline
 
 ## V4641 Pipeline
