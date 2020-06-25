@@ -183,7 +183,7 @@ pulsar_pipe.py --obsID 1013010127 --par /students/pipeline/parfiles/march_2018_1
 ```
 Notice that there is an additional `--crab` argument that we didn't have above. The Crab observations have way more events so this argument changes the way multiprocessing is handled. For pulsars like PSR_B1937+21 pulsar_pipe is setup to run multiple observations at a time using multiple CPUs. When we use the `--crab` argument we use multiple CPUs for the photonphase processing step.
 
-(in theory we could use --crab for any pulsar, it just wouldn't be useful unless the individual observations contained large (i.e. >100,000) events after filtering)
+(in theory we could use --crab for any pulsar, it just wouldn't be useful unless the individual observations contained large (>100,000) events after filtering)
 
 
 ## Background Pipeline
