@@ -112,7 +112,7 @@ def main():
             continue
 
         # Amplitude of fitted curve
-        amp = popt[0]  # finds amplitude of fitted curve (the first parameter of curve fit)
+        amp = popt[0]/timewidth  # finds amplitude of fitted curve (the first parameter of curve fit)
         if (popt[1] <= 0.2):
             amplitudes.append(amp) # appends amplitude of peak into list of amplitudes
         else:
@@ -120,8 +120,8 @@ def main():
    
     log.info("Amplitude histogram")
     print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
-    binwidths = list(np.arange(50))
-    plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
+  #  binwidths = list(np.arange(0, 50, 0.5))
+    plt.hist(amplitudes) # makes histogram of amplitudes
     plt.xlabel('Amplitude of Peak')
     plt.ylabel('Counts')
     plt.title('Amplitudes of Pulse Profiles')
