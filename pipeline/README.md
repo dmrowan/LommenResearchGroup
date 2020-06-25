@@ -287,6 +287,12 @@ __Note that cron jobs are machine specific. If you create a job on dave.astro.ha
 ## Backup system
 
 
+## Miscellaneous Notes
+
+__Why did I get an error about a missing 'tmp' directory?__
+When we call nicerl2 with multiprocessing, we need to be explicit about environmental variables used within HEASoft. If we don't do this, some processes won't be able to use the heasoft tools like nicerl2 correctly. The pipeline creates a path in the tmp directory for each observation. The PFILES variable is set before running nicerl2. To see explicitly where this is done in the python code, go to [LommenResearchGroup/pipeline/pipeline_utils.py](https://github.com/dmrowan/LommenResearchGroup/blob/master/pipeline/pipeline_utils.py) under the `run_nicerl2` function. To read more about why we need to do this, go to the [batch processing help page](https://heasarc.gsfc.nasa.gov/lheasoft/scripting.html)
+
+
 ## Uhoh it broke -- start here
 So, the pipeline broke. Don't panic, [click here](https://www.youtube.com/watch?v=dQw4w9WgXcQ) for a guide on how to fix it. 
 
