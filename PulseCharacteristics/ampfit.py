@@ -24,7 +24,7 @@ def fit(pulsarname, timewidth):
         fname = '1937_events.evt'
     if (pulsarname == '1821'):
         fname = 'PSR_B1821-24_combined.evt'
-    log.info('Read in table')
+    log.info('Starting new timewidth')
     tab = Table.read(fname, hdu=1)
     timetab = Table.read(fname, hdu=2)
  
@@ -33,7 +33,6 @@ def fit(pulsarname, timewidth):
 
 
     # Splits pulse phase data into profiles based on time intervals
-    log.info("Limit data")
     phases = []
     starttimes =[]
     endtimes = []
@@ -85,7 +84,6 @@ def fit(pulsarname, timewidth):
   #  plotnumber = input("Use all profiles or first 84? (all/84)")
 
     # Makes a list of amplitude of peak in each profile
-    log.info("Make list of amplitudes")
     removed = []
     amplitudes = []
     number = len(phases)
@@ -128,7 +126,6 @@ def fit(pulsarname, timewidth):
                 removed.append(n)
    
    
-    log.info("Amplitude histogram")
   #  print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
     binwidths = list(np.arange(0,0.015 , 0.0001))
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
@@ -148,7 +145,7 @@ def fit(pulsarname, timewidth):
     m = np.max(convo) # finds peak value of convolution
     maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
         
-    popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 0.005, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
+    popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 0.005, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
     width = 2*np.sqrt(2*(math.log(2)))*(popt[2])
  #   print("The width is", width)
     plt.plot(xvals, gauss(xvals,*popt))
@@ -161,14 +158,14 @@ def fit(pulsarname, timewidth):
     print("amplitude = ", popt[0], file=f)
     print("center = ", popt[1], file=f)
     f.close()
-    plt.savefig('%s.png' % timewidth)
+    plt.savefig('1937_%s.png' % timewidth)
     plt.clf()
     return(popt[0], width)
 
 amp = []
 width = []
 timewidth=[]
-for twidth in range(1800, 9000, 1800):
+for twidth in range(1800, 9000, 900):
     a, w = fit('1937', twidth)
     amp.append(a)
     width.append(w)
