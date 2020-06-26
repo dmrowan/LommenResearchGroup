@@ -36,7 +36,7 @@ Within each source directory, a 'tmp' subdirectory is required. This is used for
 
 ## Pulsar parameter files
 
-We will need parameter files to add phases to the pulsar events. These are kept in the /students/pipeline/parfiles directory. Note that the crab pulsar requires multiple par files, and thus is a subdirectory. 
+We will need parameter files to add phases to the pulsar events. These are kept in the /students/pipeline/parfiles directory. Note that the crab pulsar requires multiple par files, and thus is a subdirectory. See the section on the Crab for more info on working with multiple par files and matching par files to observations.
 
 The path to the par file is given as an input to the pulsar pipeline.
 
@@ -44,7 +44,7 @@ The path to the par file is given as an input to the pulsar pipeline.
 
 The pulsar pipe is found in the pulsar_pipe.py file. It takes advantage of psrpipe.py in step #4 of the steps listed above. Therefore, environmental variables must be set as described in the NICERsoft readme.md. 
 
-The primary command line invocation of the script looks something like this:
+For downloading & processing bulk data, the primary command line invocation of the script looks something like this:
 ```
 $ pulsar_pipe.py --update PSR_B1937+21 --par <parfile> --user <username> --passwd <passwd> -k
 ```
@@ -94,7 +94,7 @@ To run the pipeline on a single observation, specify the observation ID number w
 ```
 pulsar_pipe.py --obsID 3070020518 --par <parfile>
 ```
-Since a count rate cut is normally done on a merged event file, this will prompt the user before performing to perform the cut. If it is selected, a new event file, '3070020518_pipe/cleanfilt_cut.evt', in this case, will be created. 
+Since a count rate cut is normally done on a merged event file, this will prompt the user before performing to perform the cut. If it is selected, a new event file, '3070020518_pipe/cleanfilt_cut.evt', in this case, will be created. The count rate cut and filterbin size can be changed with `--cut` and `--filterbinsize`, as mentioned above.
 
 The clobber argument can be included to re-run the pipeline on an observation:
 ```
@@ -109,6 +109,12 @@ By default, existing observations are not overwritten. This can be changed using
 ```
 $ pulsar_pipe.py --download PSR_B1821-24 --user <username> --passwd <passwd> -k --clobber
 ```
+To download a single observation use `--obsID`. Note that this __does not__ process the observation, just downloads it. You would have to do a call with `--obsID`, like above, to process it after downloading. (working with single observations this way isn't really the intended use of pulsar_pipe, so the command line calls are a bit convoluted)
+
+```
+$ pulsar_pipe.py --download PSR_B0531+21 --obsID 1013010127 --user <username> --passwd <passwd> -k
+```
+
 There is another argument `--silent_curl`, that removes the progress bar from the download. This is useful for when the output is redirected to a file, like we do in the crontab (see that section towards the bottom). 
 
 
@@ -117,7 +123,7 @@ The data download can also be called in Python using pipeline_utils.run_datadown
 >>> from pipeline import pipeline_utils
 >>> pipeline_utils.run_datadownload('PSR_B1821-24', <username>, <passwd>, './', <decryptkey>, clobber=False)
 ```
-Note that the output directory for the downloaded observations can be changed by modifiying the outdir argument, which is set to './' in the example above. 
+Note that the output directory for the downloaded observations can be changed by modifiying the outdir argument, which is set to './' in the example above. You can specify which observations to download using the optional argument `obsIDs=['1013010121', '1013010127']`, for example. 
 
 To merge all the event files currently piped, we can use the `--merge`. The most simple call would be:
 ```
@@ -153,6 +159,33 @@ Of course, we can also do this in python
 ```
 
 Again, even though we've shown how each of these pipeline functionalities can be called independently, either from the command line or a python session, they are all done together using the `--update` flag described at the top of the section.
+
+### Crab Pipeline
+
+The Crab is run as part of the pulsar_pipeline but there are some differences in file handling worth mentioning. 
+
+There are multiple parameter files generated from the M&M Crab paper table. These are stored in /students/pipeline/parfiles/crab. We have to match observations to par files. We do this with the `crab_utils.crab_par_match` function. This function identifies which observations have a par file and saves the info in a CSV.
+
+```
+from pipeline import crab_utils
+
+par_dir='/students/pipeline/parfiles/crab'
+username = <nasa site username>
+passwd = <nasa site passwd>
+
+crab_utils.crab_par_match(username, passwd, par_dir=par_dir)
+```
+This will write a csv and tex file (in the current directory) that shows which observations correspond to which par files. There is also an option to have some leway in the date range -- for example if you have an observation on May 15th but your par file only goes to May 10th, you can use `par_date_clearance=5` in `crab_par_match` to include it. By default this is turned off, so the clearance column in the CSV is all zeros. 
+
+We can use this CSV to see what par files correspond to which obsID. For example, the Crab observation 1013010127 corresponds to 'march_2018_1.par'. We can call pulsar_pipe for a single obsID (that has already been downloaded): 
+
+```
+pulsar_pipe.py --obsID 1013010127 --par /students/pipeline/parfiles/march_2018_1.par --crab
+```
+Notice that there is an additional `--crab` argument that we didn't have above. The Crab observations have way more events so this argument changes the way multiprocessing is handled. For pulsars like PSR_B1937+21 pulsar_pipe is setup to run multiple observations at a time using multiple CPUs. When we use the `--crab` argument we use multiple CPUs for the photonphase processing step.
+
+(in theory we could use --crab for any pulsar, it just wouldn't be useful unless the individual observations contained large (>100,000) events after filtering)
+
 
 ## Background Pipeline
 
@@ -253,6 +286,12 @@ How do we know if it works? On the Haverford cluster cron is setup so that every
 __Note that cron jobs are machine specific. If you create a job on dave.astro.haverford.edu it won't show up on frank.astro.haverford.edu, even for the same user__ (all the cron jobs in summer 2020 will be on Dave)
 
 ## Backup system
+
+
+## Miscellaneous Notes
+
+__Why did I get an error about a missing 'tmp' directory?__
+When we call nicerl2 with multiprocessing, we need to be explicit about environmental variables used within HEASoft. If we don't do this, some processes won't be able to use the heasoft tools like nicerl2 correctly. The pipeline creates a path in the tmp directory for each observation. The PFILES variable is set before running nicerl2. To see explicitly where this is done in the python code, go to [LommenResearchGroup/pipeline/pipeline_utils.py](https://github.com/dmrowan/LommenResearchGroup/blob/master/pipeline/pipeline_utils.py) under the `run_nicerl2` function. To read more about why we need to do this, go to the [batch processing help page](https://heasarc.gsfc.nasa.gov/lheasoft/scripting.html)
 
 
 ## Uhoh it broke -- start here

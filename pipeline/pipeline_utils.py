@@ -2,12 +2,12 @@
 
 from __future__ import print_function, division
 from astropy import log
-from astropy.time import Time
 from astropy.table import Table
 import argparse
 from bs4 import BeautifulSoup
 import datetime
 import getpass
+import multiprocessing as mp
 import numpy as np
 import pandas as pd
 import pint
@@ -147,6 +147,10 @@ def run_datadownload(sourcename, heasarc_user, heasarc_pwd, outdir,
         cmd.append('--clobber')
 
     if obsIDs is not None:
+        
+        if not niutils.check_iter(obsIDs):
+            obsIDs = [obsIDs]
+
         cmd.append('--obsIDs')
         cmd.extend(obsIDs)
     if silent_curl:
@@ -438,7 +442,7 @@ def run_photonphase(evt, orbfile, par, ephem='DE421'):
     return 0
 
 
-def split_photonphase(evt, orbfile, par, split_len=100000, mp=False):
+def split_photonphase(evt, orbfile, par, split_len=100000, use_mp=False):
 
     log.info("Running split photonphase routine")
 
@@ -474,8 +478,9 @@ def split_photonphase(evt, orbfile, par, split_len=100000, mp=False):
 
     #Option for multiprocessing
     # we dont want to do this in the pipe wrapper 
-    if mp:
+    if use_mp:
         #Set up multiprocessing pool
+        log.info("Using multiprocessing for photonphase")
         pool = mp.Pool(processes=mp.cpu_count()+2)
         jobs = []
 
@@ -509,15 +514,15 @@ def split_photonphase(evt, orbfile, par, split_len=100000, mp=False):
     
     log.info("Merging with niextract-events")
     #Call niextract to merge
-    cmd = ['niextract-events', 'filename=@split_evt_list',
+    cmd = ['niextract-events', 'filename=@{0}'.format(split_file_list),
            'eventsout={0}'.format(evt.replace('.evt', '_phase.evt')),
            'clobber=YES']
 
     subprocess.call(cmd)
 
-    log.info("Copying {0} to {1}".format(evt.replace('.evt', '_nophase.evt'),
+    log.info("Copying {0} to {1}".format(evt.replace('.evt', '_phase.evt'),
                                          evt))
-    cmd = ['cp', evt.replace('.evt', '_nophase.evt'), evt]
+    cmd = ['cp', evt.replace('.evt', '_phase.evt'), evt]
     subprocess.call(cmd)
 
 def row_expression(row_range):

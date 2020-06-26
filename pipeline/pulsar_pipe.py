@@ -27,33 +27,33 @@ def run_psrpipe(obsID, par,
 				min_sun=60,
 				keith=True, crab=False):
 
-	log.info("Running pspipe with par " + par)
+    log.info("Running pspipe with par " + par)
 
-	if not os.path.isdir(obsID):
-		print("obsID not found")
-		return -1
-	
-	cmd = ['psrpipe.py', 
-		   '--emin', str(emin), 
-		   '--emax', str(emax),
-		   '--minsun', str(min_sun)]
+    if not os.path.isdir(obsID):
+        print("obsID not found")
+        return -1
+
+    cmd = ['custom_psrpipe.py', 
+           '--emin', str(emin), 
+           '--emax', str(emax), 
+           '--minsun', str(min_sun)]
 
     #Add par file if it is given
-	if par is not None:
-		cmd.extend(['--par', par])
-	else:
-		log.info("No par file input: pulse phase will not be defined")
+    if par is not None:
+        cmd.extend(['--par', par])
+    else:
+        log.info("No par file input: pulse phase will not be defined")
 
-	if keith:
-		cmd.append('--keith')
+    if keith:
+        cmd.append('--keith')
 
     #Use this argument to do photonphase with multiprocessing
     if crab:
         cmd.append('--crab')
 
-	cmd.append(obsID)
+    cmd.append(obsID)
 
-	subprocess.call(cmd)
+    subprocess.call(cmd)
 
 #runs full pipe on single observation
 def allprocedures(obsID, par, 
@@ -341,7 +341,7 @@ if __name__ == '__main__':
                silent_curl=args.silent_curl)
 
     #Option to call pipeline on a single observation
-    elif args.obsID is not None:
+    elif (args.obsID is not None) and (args.download is None):
         allprocedures(args.obsID, args.par,
                       args.emin, args.emax, 
                       trumpet=args.trumpet, 
@@ -362,6 +362,7 @@ if __name__ == '__main__':
                                         args.user, args.passwd, 
                                         args.outdir, 
                                         args.key, clobber=args.clobber,
+                                        obsIDs=args.obsID,
                                         silent_curl=args.silent_curl)
     #Option to just merge
     #Optional arguments to merge up to specific date and give output name
