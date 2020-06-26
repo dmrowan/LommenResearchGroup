@@ -164,15 +164,16 @@ Again, even though we've shown how each of these pipeline functionalities can be
 
 The Crab is run as part of the pulsar_pipeline but there are some differences in file handling worth mentioning. 
 
-There are multiple parameter files generated from the M&M Crab paper table. These are stored in /students/pipeline/parfiles/crab. We have to match observations to par files. We do this with the `crab_utils.crab_par_match` function. This function identifies which observations have a par file and saves the info in a CSV. 
+There are multiple parameter files generated from the M&M Crab paper table. These are stored in /students/pipeline/parfiles/crab. We have to match observations to par files. We do this with the `crab_utils.crab_par_match` function. This function identifies which observations have a par file and saves the info in a CSV.
 
 ```
 from pipeline import crab_utils
 
 par_dir='/students/pipeline/parfiles/crab'
-obs_dir='/students/pipeline/heasoft6.27/PSR_B0531+21'
+username = <nasa site username>
+passwd = <nasa site passwd>
 
-crab_utils.crab_par_match(par_dir=par_dir, obs_dir=obs_dir)
+crab_utils.crab_par_match(username, passwd, par_dir=par_dir)
 ```
 This will write a csv and tex file (in the current directory) that shows which observations correspond to which par files. There is also an option to have some leway in the date range -- for example if you have an observation on May 15th but your par file only goes to May 10th, you can use `par_date_clearance=5` in `crab_par_match` to include it. By default this is turned off, so the clearance column in the CSV is all zeros. 
 
