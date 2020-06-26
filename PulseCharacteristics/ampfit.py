@@ -24,6 +24,8 @@ def fit(pulsarname, timewidth):
         fname = '1937_events.evt'
     if (pulsarname == '1821'):
         fname = 'PSR_B1821-24_combined.evt'
+    if (pulsarname == 'crab'):
+        fname = '/students/pipeline/heasoft6.27/PSR_B0531+21/1013010121_pipe/cleanfilt.evt'
     log.info('Starting new timewidth')
     tab = Table.read(fname, hdu=1)
     timetab = Table.read(fname, hdu=2)
@@ -40,7 +42,7 @@ def fit(pulsarname, timewidth):
     starttime = timetab['START'][0]
     starttimes.append(starttime)
     for i in range(len(timetab)):
-        if (i==4503): break
+        if (i==(len(timetab)-1)): break
         interval = timetab['STOP'][i] - starttime
         if (timewidth < interval):
             number = int(interval/timewidth)
@@ -127,7 +129,7 @@ def fit(pulsarname, timewidth):
    
    
   #  print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
-    binwidths = list(np.arange(0,0.015 , 0.0001))
+    binwidths = list(np.arange(0,0.015 , 0.00025))
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
   
     # Makes a line plot from the histogram
@@ -158,7 +160,7 @@ def fit(pulsarname, timewidth):
     print("amplitude = ", popt[0], file=f)
     print("center = ", popt[1], file=f)
     f.close()
-    plt.savefig('1937_%s.png' % timewidth)
+    plt.savefig('1821_%s.png' % timewidth)
     plt.clf()
     return(popt[0], width)
 
@@ -166,7 +168,7 @@ amp = []
 width = []
 timewidth=[]
 for twidth in range(1800, 9000, 900):
-    a, w = fit('1937', twidth)
+    a, w = fit('1821', twidth)
     amp.append(a)
     width.append(w)
     timewidth.append(twidth)
