@@ -36,7 +36,7 @@ Within each source directory, a 'tmp' subdirectory is required. This is used for
 
 ## Pulsar parameter files
 
-We will need parameter files to add phases to the pulsar events. These are kept in the /students/pipeline/parfiles directory. Note that the crab pulsar requires multiple par files, and thus is a subdirectory. See the section on the Crab for more info on working with multiple par files. 
+We will need parameter files to add phases to the pulsar events. These are kept in the /students/pipeline/parfiles directory. Note that the crab pulsar requires multiple par files, and thus is a subdirectory. See the section on the Crab for more info on working with multiple par files and matching par files to observations.
 
 The path to the par file is given as an input to the pulsar pipeline.
 
@@ -94,7 +94,7 @@ To run the pipeline on a single observation, specify the observation ID number w
 ```
 pulsar_pipe.py --obsID 3070020518 --par <parfile>
 ```
-Since a count rate cut is normally done on a merged event file, this will prompt the user before performing to perform the cut. If it is selected, a new event file, '3070020518_pipe/cleanfilt_cut.evt', in this case, will be created. 
+Since a count rate cut is normally done on a merged event file, this will prompt the user before performing to perform the cut. If it is selected, a new event file, '3070020518_pipe/cleanfilt_cut.evt', in this case, will be created. The count rate cut and filterbin size can be changed with `--cut` and `--filterbinsize`, as mentioned above.
 
 The clobber argument can be included to re-run the pipeline on an observation:
 ```
@@ -112,7 +112,7 @@ $ pulsar_pipe.py --download PSR_B1821-24 --user <username> --passwd <passwd> -k 
 To download a single observation use `--obsID`. Note that this __does not__ process the observation, just downloads it. You would have to do a call with `--obsID`, like above, to process it after downloading. (working with single observations this way isn't really the intended use of pulsar_pipe, so the command line calls are a bit convoluted)
 
 ```
-$ pulsar_pipe.py --download PSR_B0531+21 --obsID 1013010127 --user nicer_team --passwd -k
+$ pulsar_pipe.py --download PSR_B0531+21 --obsID 1013010127 --user <username> --passwd <passwd> -k
 ```
 
 There is another argument `--silent_curl`, that removes the progress bar from the download. This is useful for when the output is redirected to a file, like we do in the crontab (see that section towards the bottom). 
@@ -184,7 +184,7 @@ pulsar_pipe.py --obsID 1013010127 --par /students/pipeline/parfiles/march_2018_1
 ```
 Notice that there is an additional `--crab` argument that we didn't have above. The Crab observations have way more events so this argument changes the way multiprocessing is handled. For pulsars like PSR_B1937+21 pulsar_pipe is setup to run multiple observations at a time using multiple CPUs. When we use the `--crab` argument we use multiple CPUs for the photonphase processing step.
 
-(in theory we could use --crab for any pulsar, it just wouldn't be useful unless the individual observations contained large (i.e. >100,000) events after filtering)
+(in theory we could use --crab for any pulsar, it just wouldn't be useful unless the individual observations contained large (>100,000) events after filtering)
 
 
 ## Background Pipeline
@@ -286,6 +286,12 @@ How do we know if it works? On the Haverford cluster cron is setup so that every
 __Note that cron jobs are machine specific. If you create a job on dave.astro.haverford.edu it won't show up on frank.astro.haverford.edu, even for the same user__ (all the cron jobs in summer 2020 will be on Dave)
 
 ## Backup system
+
+
+## Miscellaneous Notes
+
+__Why did I get an error about a missing 'tmp' directory?__
+When we call nicerl2 with multiprocessing, we need to be explicit about environmental variables used within HEASoft. If we don't do this, some processes won't be able to use the heasoft tools like nicerl2 correctly. The pipeline creates a path in the tmp directory for each observation. The PFILES variable is set before running nicerl2. To see explicitly where this is done in the python code, go to [LommenResearchGroup/pipeline/pipeline_utils.py](https://github.com/dmrowan/LommenResearchGroup/blob/master/pipeline/pipeline_utils.py) under the `run_nicerl2` function. To read more about why we need to do this, go to the [batch processing help page](https://heasarc.gsfc.nasa.gov/lheasoft/scripting.html)
 
 
 ## Uhoh it broke -- start here
