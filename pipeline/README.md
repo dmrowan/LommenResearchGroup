@@ -298,8 +298,8 @@ When we call nicerl2 with multiprocessing, we need to be explicit about environm
 So, the pipeline broke. Don't panic, [click here](https://www.youtube.com/watch?v=dQw4w9WgXcQ) for a guide on how to fix it. 
 
 ### How can I tell if the pipeline is working?
-There are a few things you can do:
-* read the last entry in mail at /var/mail/pipeline. This shows the full output of the pipeline and is the best way to check for errors and warnings. It also shows the timestamp.
+There are a few things you can do to see if the cron jobs are working:
+* read the last entry in mail at /var/mail/pipeline. This shows the full output of the pipeline and is the best way to check for errors and warnings. It also shows the timestamp. See the 'check_cron.py' section below for more ways to use the mail file
 * see if there are any recent changes in the data set directory. Example: `ls -ltr /students/pipeline/heasoft6.27/PSR_B1821-24`
 * read the backup log for event files. This can be found within each dataset directory. Example: `vim /students/pipeline/heasoft6.27/PSR_B1821-24/evt_backups/log.txt`. The final step of the pipeline is creating a backup which will show up in the log with a time stamp. 
 
@@ -326,6 +326,34 @@ where <username> and <passwd> are the login credentials for the NASA target summ
   
  
 So, if this showed that none of the recent observations had pipedir or event files, that would be cause for concern. It would also be worriesome if all the observations have zero length evts. 
+
+#### Using check_cron.py
+The output of the cron jobs is redirected to a mail file. On the Haverford cluster this is at /var/mail/pipeline. There is a lot of output from the various HEASoft and pipeline code and it can be difficult to identify errors. The check_cron.py script allows the user to search for errors/warnings on specific jobs quickly. To check for errors on the latest call of the 'update0218' routine, use this command:
+
+```
+$ check_cron.py --mail /var/mail pipeline --job update0218
+```
+The `--mail` argument gives the path to the mail file and the `--job` argument gives the job(s) you want to search for. Multiple jobs can be included in the search:
+```
+$ check_cron.py --mail /var/mail pipeline --job update0218 update1821
+```
+
+You might find that certain errors/warnings aren't super relevant. For example some nicersoft scripts have outdated xlim/ylim matplotlib args so there's a warning there. We don't necessarily care about this, so we can hide all warnings that have the word 'matplotlib' with `--skip`
+```
+$ check_cron.py --mail /var/mail/pipeline --job update0218 --skip "matplotlib"
+```
+If we also wanted to skip hot detector warnings, we'd say:
+```
+$ check_cron.py --mail /var/mail/pipeline --job update0218 --skip "matplotlib" "hot detectors"
+```
+It gets kinda annoying to have to say these every time, so __check_cron.py remembers what errors/warnings you skipped previously__. In other words, next time we call check_cron.py we won't see any matplotlib errors even if we don't use the --skip argument. 
+
+If we had previously skipped an error/warning string but now want to see it, use the `--include` argument:
+```
+$ check_cron.py --mail /var/mail/pipeline --job update0218 --include "hot detectors"
+```
+Again, this will be remembered for future calls to check_cron. Everytime this script is called the errors on the 'denylist' are printed to the terminal so you'll know what you're missing. 
+
 
 ### EOFError: EOF when reading a line
 
