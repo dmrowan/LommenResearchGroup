@@ -128,8 +128,6 @@ def fit(pulsarname, timewidth):
                 removed.append(n)
    
    
-  #  print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
-  
     if (pulsarname == '1937'):
         binwidths = list(np.arange(0,0.015 , 0.00025))
     if (pulsarname == '1821'):
@@ -161,13 +159,12 @@ def fit(pulsarname, timewidth):
         popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 0.005, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) 
     if (pulsarname == 'crab'):
         popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 1, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) 
-    width = 2*np.sqrt(2*(math.log(2)))*(popt[2])
- #   print("The width is", width)
+    width = popt[2] #2*np.sqrt(2*(math.log(2)))*(popt[2])
     plt.plot(xvals, gauss(xvals,*popt))
+    errorbar = np.absolute(pcov[2][2])**0.5
     plt.xlabel('Amplitude of Peak')
     plt.ylabel('Counts')
     plt.title('Amplitudes of Pulse Profiles')
-  #  plt.legend(['width =', width], ['amplitude =', popt[0]], ['center =', popt[1]])
     f = open("amphistdata.txt", "a")
     print("width = ", width, file=f)
     print("amplitude = ", popt[0], file=f)
@@ -180,20 +177,25 @@ def fit(pulsarname, timewidth):
     if (pulsarname == 'crab'):
         plt.savefig('crab_%s.png' % timewidth)
     plt.clf()
-    return(popt[0], width)
+    return(popt[0], width, errorbar)
 
 amp = []
 width = []
+errorbars = []
 timewidth=[]
 for twidth in range(60, 210, 30):
-    a, w = fit('crab', twidth)
+ #   if (twidth == 1800):
+  #      twidth = 2100
+    a, w, e = fit('crab', twidth)
     amp.append(a)
     width.append(w)
+    errorbars.append(e)
     timewidth.append(twidth)
-plt.plot(timewidth, width)
+plt.plot(timewidth, width, marker='o', color = 'b')
+plt.errorbar(timewidth, width, yerr = errorbars, color = 'b')
 plt.title("Widths of Amplitude Histograms")
 plt.xlabel("Timewidth (seconds)")
-plt.ylabel("FWHM (counts/second)")
+plt.ylabel("Width (counts/second)")
 plt.show()
 
 
