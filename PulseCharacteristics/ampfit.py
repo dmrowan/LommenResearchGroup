@@ -185,7 +185,7 @@ def fit(pulsarname, timewidth):
 amp = []
 width = []
 timewidth=[]
-for twidth in range(30, 210, 30):
+for twidth in range(60, 210, 30):
     a, w = fit('crab', twidth)
     amp.append(a)
     width.append(w)
