@@ -16,6 +16,8 @@ Makes a histogram of the amplitudes of the peaks of the interpulses of pulse pro
 def gauss(x, a, b, c, d):  # defines gaussian function to use for curve fit
     return(a*np.exp(-((x-b)/c)**2)+d)
 
+def power(x, a, b):
+    return(a*(x**(-b)))
 
 def fit(pulsarname, timewidth):
 
@@ -133,7 +135,7 @@ def fit(pulsarname, timewidth):
     if (pulsarname == '1821'):
         binwidths = list(np.arange(0,0.015 , 0.00025))
     if (pulsarname == 'crab'):
-        binwidths = list(np.arange(16, 20, 0.2))
+        binwidths = list(np.arange(16, 20, 0.1))
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
   
     # Makes a line plot from the histogram
@@ -191,8 +193,10 @@ for twidth in range(60, 210, 30):
     width.append(w)
     errorbars.append(e)
     timewidth.append(twidth)
-plt.plot(timewidth, width, marker='o', color = 'b')
-plt.errorbar(timewidth, width, yerr = errorbars, color = 'b')
+#plt.plot(timewidth, width, 'o')
+popt, pcov = curve_fit(power, timewidth, width)
+plt.plot(timewidth, power(timewidth, *popt))
+plt.errorbar(timewidth, width, yerr = errorbars, fmt = 'o')
 plt.title("Widths of Amplitude Histograms")
 plt.xlabel("Timewidth (seconds)")
 plt.ylabel("Width (counts/second)")
