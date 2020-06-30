@@ -25,7 +25,7 @@ def main():
     for counter in range(len(timetab)):
         totaltime += diff
         diff = 0
-        totaltime += timetab['timedif'][counter]
+        totaltime += timetab['STOP'][counter] - starttime
         if (totaltime >= timewidth):
             diff = totaltime-timewidth
             totaltime -= diff
@@ -37,11 +37,11 @@ def main():
   #          phases.append(list(phase))
             starttime=endtime
             totaltime=0
-
+  
     print(counter)
   #  print(len(phase))
-    print(starttimes)
-    print(endtimes)
+    print(starttimes[0:10])
+    print(endtimes[0:10])
 
 if __name__ == '__main__':
     main()

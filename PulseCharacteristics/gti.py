@@ -24,7 +24,7 @@ def main():
     starttime = timetab['START'][0] 
     timetab['timedif'] = timetab['STOP'] - timetab['START'] 
     while (counter <= len(timetab)):
-        while ((totaltime + timetab['timedif'][counter]) < timewidth):
+        while ((totaltime + timetab['timedif'][counter]- diff) < timewidth):
             totaltime += (timetab['timedif'][counter] - diff)
             diff = 0
             counter += 1  
@@ -38,10 +38,9 @@ def main():
                 break
         if (totaltime < timewidth):
             if (counter == len(timetab)-1): break
-            counter += 1
             diff = timewidth - totaltime
             totaltime += diff
-            endtime = timetab['STOP'][counter] + diff
+            endtime = timetab['START'][counter] + diff
             starttimes.append(starttime)
             endtimes.append(endtime)
          #   rows = np.where((tab['TIME'] >= starttime) & (tab['TIME'] <= endtime))
@@ -52,8 +51,8 @@ def main():
 
     print(counter)
 #    print("The number of profiles is", len(phases))  
-    print(starttimes)
-    print(endtimes)
+    print(starttimes[0:10])
+    print(endtimes[0:10])
 
 if __name__ == '__main__':
     main()
