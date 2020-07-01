@@ -16,6 +16,8 @@ Makes a histogram of the amplitudes of the peaks of the interpulses of pulse pro
 def gauss(x, a, b, c, d):  # defines gaussian function to use for curve fit
     return(a*np.exp(-((x-b)/c)**2)+d)
 
+def power(x, a, b):
+    return(a*(x**(-b)))
 
 def fit(pulsarname, timewidth):
 
@@ -128,14 +130,12 @@ def fit(pulsarname, timewidth):
                 removed.append(n)
    
    
-  #  print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
-  
     if (pulsarname == '1937'):
         binwidths = list(np.arange(0,0.015 , 0.00025))
     if (pulsarname == '1821'):
         binwidths = list(np.arange(0,0.015 , 0.00025))
     if (pulsarname == 'crab'):
-        binwidths = list(np.arange(16, 20, 0.2))
+        binwidths = list(np.arange(16, 20, 0.1))
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
   
     # Makes a line plot from the histogram
@@ -161,13 +161,12 @@ def fit(pulsarname, timewidth):
         popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 0.005, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) 
     if (pulsarname == 'crab'):
         popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 1, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) 
-    width = 2*np.sqrt(2*(math.log(2)))*(popt[2])
- #   print("The width is", width)
+    width = popt[2] #2*np.sqrt(2*(math.log(2)))*(popt[2])
     plt.plot(xvals, gauss(xvals,*popt))
+    errorbar = np.absolute(pcov[2][2])**0.5
     plt.xlabel('Amplitude of Peak')
     plt.ylabel('Counts')
     plt.title('Amplitudes of Pulse Profiles')
-  #  plt.legend(['width =', width], ['amplitude =', popt[0]], ['center =', popt[1]])
     f = open("amphistdata.txt", "a")
     print("width = ", width, file=f)
     print("amplitude = ", popt[0], file=f)
@@ -180,20 +179,31 @@ def fit(pulsarname, timewidth):
     if (pulsarname == 'crab'):
         plt.savefig('crab_%s.png' % timewidth)
     plt.clf()
-    return(popt[0], width)
+    return(popt[0], width, errorbar)
 
 amp = []
 width = []
+errorbars = []
 timewidth=[]
-for twidth in range(60, 210, 30):
-    a, w = fit('crab', twidth)
+for twidth in range(1800, 9000, 900):
+    if (twidth == 1800):
+        twidth = 2100
+    a, w, e = fit('1937', twidth)
     amp.append(a)
     width.append(w)
+    errorbars.append(e)
     timewidth.append(twidth)
-plt.plot(timewidth, width)
+#plt.plot(timewidth, width, 'o')
+popt, pcov = curve_fit(power, timewidth, width)
+plt.plot(timewidth, power(timewidth, *popt))
+y =[]
+for i in timewidth:
+    y.append(1/(i**0.5))
+#plt.plot(timewidth, y, '--')
+plt.errorbar(timewidth, width, yerr = errorbars, fmt = 'o')
 plt.title("Widths of Amplitude Histograms")
-plt.xlabel("Timewidth (seconds)")
-plt.ylabel("FWHM (counts/second)")
+plt.xlabel("Integration Time (seconds)")
+plt.ylabel("Width (counts/second)")
 plt.show()
 
 

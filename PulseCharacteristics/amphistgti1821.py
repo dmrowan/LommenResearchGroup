@@ -120,7 +120,7 @@ def main():
  
     log.info("Amplitude histogram")
     print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
-    binwidths = list(np.arange(40))
+    binwidths = list(np.arange(0, 40, 0.5 ))
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
     plt.xlabel('Amplitude of Peak')
     plt.ylabel('Counts')
