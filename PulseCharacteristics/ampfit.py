@@ -185,10 +185,10 @@ amp = []
 width = []
 errorbars = []
 timewidth=[]
-for twidth in range(60, 210, 30):
- #   if (twidth == 1800):
-  #      twidth = 2100
-    a, w, e = fit('crab', twidth)
+for twidth in range(1800, 9000, 900):
+    if (twidth == 1800):
+        twidth = 2100
+    a, w, e = fit('1937', twidth)
     amp.append(a)
     width.append(w)
     errorbars.append(e)
@@ -196,9 +196,13 @@ for twidth in range(60, 210, 30):
 #plt.plot(timewidth, width, 'o')
 popt, pcov = curve_fit(power, timewidth, width)
 plt.plot(timewidth, power(timewidth, *popt))
+y =[]
+for i in timewidth:
+    y.append(1/(i**0.5))
+#plt.plot(timewidth, y, '--')
 plt.errorbar(timewidth, width, yerr = errorbars, fmt = 'o')
 plt.title("Widths of Amplitude Histograms")
-plt.xlabel("Timewidth (seconds)")
+plt.xlabel("Integration Time (seconds)")
 plt.ylabel("Width (counts/second)")
 plt.show()
 
