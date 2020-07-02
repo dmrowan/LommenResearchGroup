@@ -19,10 +19,10 @@ def gauss(x, a, b, c, d):  # defines gaussian function to use for curve fit
 def main():    
 
     # Reads in data and makes a table
-    fname = '1937_events.evt'
+    fname = '/students/pipeline/heasoft6.27/PSR_B0531+21/1013010121_pipe/cleanfilt.evt'
     log.info('Read in table')
-    tab = Table.read('1937_events.evt', hdu=1)
-    timetab = Table.read('1937_events.evt', hdu=2)
+    tab = Table.read(fname, hdu=1)
+    timetab = Table.read(fname, hdu=2)
  
     # User input: choose time per profile
     timewidth = int(input("How much time in each pulse profile? (in seconds)"))
@@ -37,7 +37,7 @@ def main():
     starttime = timetab['START'][0]
     starttimes.append(starttime)
     for i in range(len(timetab)):
-        if (i==4503): break
+        if (i==(len(timetab)-1)): break
         interval = timetab['STOP'][i] - starttime
         if (timewidth < interval):
             number = int(interval/timewidth)
@@ -78,16 +78,12 @@ def main():
     sections = len(phases)
     emptyremoved = totalphases - sections
     print("The number of time intervals is", totalphases)
-    plotnumber = input("Use all profiles or first 84? (all/84)")
 
     # Makes a list of amplitude of peak in each profile
     log.info("Make list of amplitudes")
     removed = []
     amplitudes = []
-    if (plotnumber == 'all'):
-        number = len(phases)
-    if (plotnumber == '84'):
-        number = 84
+    number = len(phases)
     for n in range(number):
  
         # Makes a line plot from the histogram
@@ -113,24 +109,24 @@ def main():
             continue
 
         # Amplitude of fitted curve
-        amp = popt[0]  # finds amplitude of fitted curve (the first parameter of curve fit)
-        if (popt[1] <= 0.2):
+        amp = (popt[0]/timewidth)  # finds amplitude of fitted curve (the first parameter of curve fit)
+        if (popt[1] >= 0.8):
             amplitudes.append(amp) # appends amplitude of peak into list of amplitudes
         else:
             removed.append(n)           
    
     log.info("Amplitude histogram")
     print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
-    binwidths = list(np.arange(0, 50, 0.5))
+    binwidths = list(np.arange(16, 20, 0.2))
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
   
     # Makes a line plot from the histogram
     amplitudes = np.array(amplitudes)  # uses pulse phases in nth profile
-    yvals, xlims = np.histogram(amplitudes,bins=binwidths) # finds heights and sides of each bin, no plot
+    yvals, xlims = np.histogram(amplitudes, bins = binwidths) # finds heights and sides of each bin, no plot
     xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
 
     # Use convolution to find the estimate for the location of the peak
-    width=5
+    width=1
     x = xvals
     template = np.exp(-((x)/width)**2) # template for convolution
     convo = []
@@ -139,7 +135,10 @@ def main():
     m = np.max(convo) # finds peak value of convolution
     maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
         
-    popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 5, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
+    try:
+        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 1, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
+    except RuntimeError:
+        plt.hist(amplitudes, bins = binwidths)
     width = 2*np.sqrt(2*(math.log(2)))*(popt[2])
     print("The width is", width)
     plt.plot(xvals, gauss(xvals,*popt))

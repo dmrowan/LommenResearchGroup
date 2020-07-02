@@ -176,13 +176,84 @@ This will pull up a slightly different prompt. In this case it should look like 
  three times. The output in XSPEC should look something like this:
  ![xspec_7](assets/xspec_7.png)
  
- As we can see, the fit is really terrible using the default values. 
-### Choosing a model
+ As we can see, the fit is really terrible using the default values. Type `renorm` to fix the normalization. Then fit the model with
+ ```
+ XSPEC12> fit <iterations>
+ ```
+ The computation time is pretty short, so I normally go for a larger number of iterations (~100,000). You should see the fit statistics printed again after the fitting is complete. 
 
 ### Computing errors
 
+The best fit parameters will have errors listed next to them. __These errors should not be used for reporting the significance__. Instead, use the `error` command:
+```
+XSPEC12> error 1
+```
+This prints the error on the first parameter. You can change the desired confidence level and also select multiple parameters. Additional examples are given on the bottom of the [documentation page](https://heasarc.gsfc.nasa.gov/xanadu/xspec/manual/node80.html)
+
 ### Plotting the model
+Now that we've fit a model we can see how it compares against the data. There are multiple axis we can plot, but I usually like to do
+```
+XSPEC12> plot ufspec delchi
+```
+This will make two panels, with the top showing the unfolded spectrum and the bottom showing the residuals. 
 
 ## Plotting Spectra in Python
+The plot looks great, but it's probably not as nice as your other matplotlib plots. To export the data shown in the current plot, use the following commands
+```
+XSPEC12> ipl
+PLT> wdata mydata.txt
+PLT> exit
+```
+This will save the current plot information for all panels. It might take a bit of investigating to figure out what the columns are. There's a class `xspecdata` in `xspeclog.py` that is able to parse the pulsar data from ufspec delchi. Mileage may vary for other sources. 
 
 ## Using Log Files
+
+The log file is also super useful for keeping track of many spectra. We might generate many spectra with different data selections (see multispectra.py for an example) and want to save the results in a table. We can parse the log file as a text file to find the fit parameter values, errors, and chi2. See `xspeclog.py` for an example implementation. 
+
+## Scripting in XSPEC
+
+Doing XSPEC many times really sucks. Luckily, it's not too hard to script. Write a file with extension xcm that lists all the commands:
+```
+data 1:1 onpeak_1.pha 2:2 nu30101031002_on_off_bk_sr.pha.grp 3:3 b1937_xmm_mos_src.pha.grp
+resp 1:1 /packages/caldb/data/nicer/xti/cpf/rmf/nixtiref20170601v001.rmf
+arf 1:1 /packages/caldb/data/nicer/xti/cpf/arf/nixtiaveonaxis20170601v002.arf
+back 1:1 offpeak.pha
+
+cpd /xs
+abund wilm
+
+ignore 1:**-1., 9.-**
+ignore 2:80.-**
+ignore 3:**-1.,10.-** 
+
+model powerlaw*tbabs
+```
+If we name the file 'xspecscript.xcm' (and make it executable), this can be called in XSPEC
+```
+XSPEC12>@xspecscript.xcm
+```
+
+## XSPEC in Python
+
+There's a python module for XSPEC. The documentation can be found [here](https://heasarc.gsfc.nasa.gov/docs/xanadu/xspec/python/PyXspec.pdf). I don't have much experience using this, but I know Lauren had some success with it. 
+
+You can also call command line XSPEC in python using pexpect. Here's an example of how I used it in `genspectra.py`:
+```
+import pexpect
+
+xspec = pexpect.spawn("xspec")
+xspec.expect("XSPEC12>")
+xspec.sendline(f"data 1:1 {phafile}")
+xspec.expect("XSPEC12>")
+xspec.sendline("resp 1 /packages/caldb/data/nicer/xti/cpf/" \
+               "rmf/nixtiref20170601v001.rmf")
+xspec.expect("XSPEC12>")
+xspec.sendline("arf 1 /packages/caldb/data/nicer/xti/cpf/" \
+               "arf/nixtiaveonaxis20170601v002.arf")
+xspec.expect("XSPEC12>")
+xspec.sendline("ig **-0.5, 10.-**")
+xspec.expect("XSPEC12>")
+```
+(this method could also be used to script other command line ftools like XSELECT).
+
+To see a more involved example where we use this in cojunction with xcm scripts, check out `multispectra.py`. 
