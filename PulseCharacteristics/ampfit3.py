@@ -13,8 +13,8 @@ desc="""
 Makes a histogram of the amplitudes of the peaks of the interpulses of pulse profiles based on time interval
 """
 
-def gauss(x, m, s, d):  
-    return((1/(np.sqrt(2*np.pi)*s)*np.exp(-(((x - m)/s)**2)/2))+d)
+def gauss(x, a, b, c, d):  # defines gaussian function to use for curve fit
+    return(a*np.exp(-((x-b)/c)**2)+d)
 
 def power(x, a, b):
     return(a*(x**(-b)))
@@ -104,15 +104,12 @@ def fit(pulsarname, timewidth):
 
          # Does a gaussian curve fit to the histogram
         try:
-            popt, pcov = curve_fit(gauss, xvals, yvals, bounds = ((0, 0, min(yvals)),(max(yvals)+100, 0.1, max(yvals))))#, p0= [max(yvals),maxloc,0.05, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
+            popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
         except RuntimeError:
             removed.append(n)
             continue
-        amp = popt[0]/timewidth
-        amplitudes.append(amp)   
 
         # Amplitude of fitted curve
-        """
         if (pulsarname == '1937'):
             amp = popt[0]/timewidth  # finds amplitude of fitted curve (the first parameter of curve fit)
             if (popt[1] <= 0.2):
@@ -131,7 +128,7 @@ def fit(pulsarname, timewidth):
                 amplitudes.append(amp)
             else:
                 removed.append(n)
-    """
+   
    
     if (pulsarname == '1937'):
         binwidths = list(np.arange(0,0.015 , 0.00025))
@@ -142,26 +139,43 @@ def fit(pulsarname, timewidth):
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
   
     mean = np.mean(amplitudes)
-    sd = np.std(amplitudes)
-    print(mean, sd)
+    sd = np.std(amplitudes)    
 
+    # Makes a line plot from the histogram
     amplitudes = np.array(amplitudes)  # uses pulse phases in nth profile
     yvals, xlims = np.histogram(amplitudes,bins=binwidths) # finds heights and sides of each bin, no plot
     xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
-    popt, pcov = curve_fit(gauss, xvals, yvals, p0 = [mean, sd, min(yvals)])
-    mean2 = popt[0]
-    sd2 = popt[1]
 
+    # Use convolution to find the estimate for the location of the peak
+    width=0.005
+    if (pulsarname == 'crab'):
+        width = 1
+    x = xvals
+    template = np.exp(-((x)/width)**2) # template for convolution
+    convo = []
+    for i in range(len(yvals)):
+        convo.append(np.sum(yvals*np.roll(template,i))) # finds convolution
+    m = np.max(convo) # finds peak value of convolution
+    maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
+ 
+    if (pulsarname == '1937'):
+        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 0.005, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
+    if (pulsarname == '1821'):
+        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 0.005, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
+    if (pulsarname == 'crab'):
+        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 1, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
+    width = popt[2] #2*np.sqrt(2*(math.log(2)))*(popt[2])
+    plt.plot(xvals, gauss(xvals,*popt))
+    errorbar = np.absolute(pcov[2][2])**0.5
 
     plt.xlabel('Amplitude of Peak')
     plt.ylabel('Counts')
     plt.title('Amplitudes of Pulse Profiles')
     f = open("amphistdata.txt", "a")
-    print("width = ", sd, file=f)
-    print("amplitude = ", mean, file=f)
-    print("width from fit = ", sd2, file=f)
-    print("amplitude from fit = ", mean2, file=f)
-   # print("center = ", popt[1], file=f)
+    print("standard deviation = ", sd, file=f)
+    print("mean = ", mean, file=f)
+    print("width = ", width, file=f)
+    print("amplitude = ", popt[0], file=f)
     f.close()
     if (pulsarname == '1937'):
         plt.savefig('1937_%s.png' % timewidth)
@@ -170,27 +184,33 @@ def fit(pulsarname, timewidth):
     if (pulsarname == 'crab'):
         plt.savefig('crab_%s.png' % timewidth)
     plt.clf()
-    return(mean, sd)
+    return(mean, sd, width, popt[0])
 
 amp = []
 width = []
+width2 = []
+amp2 = []
 errorbars = []
 timewidth=[]
 for twidth in range(1800, 9000, 900):
     if (twidth == 1800):
         twidth = 2100
-    a, w = fit('1937', twidth)
+    a, w, w2, a2 = fit('1937', twidth)
     amp.append(a)
     width.append(w)
-  #  errorbars.append(e)
+    width2.append(w2)
+    amp2.append(a2)
     timewidth.append(twidth)
-plt.plot(timewidth, width, 'o')
+plt.plot(timewidth, width, 'o', color = 'b')
 popt, pcov = curve_fit(power, timewidth, width)
-#plt.loglog(timewidth, power(timewidth, *popt))
+plt.plot(timewidth, power(timewidth, *popt), color = 'b')
+plt.plot(timewidth, width2, 'o', color = 'g')
+popt, pcov = curve_fit(power, timewidth, width2)
+plt.plot(timewidth, power(timewidth, *popt), color = 'g')
 y =[]
 for i in timewidth:
     y.append(1/(i**0.5))
-#plt.loglog(timewidth, y, '--')
+#plt.plot(timewidth, y, '--')
 #plt.errorbar(timewidth, width, yerr = errorbars, fmt = 'o')
 plt.title("Widths of Amplitude Histograms")
 plt.xlabel("Integration Time (seconds)")
