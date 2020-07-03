@@ -134,7 +134,7 @@ def fit(pulsarname, timewidth):
     if (pulsarname == '1937'):
         binwidths = list(np.arange(0, 0.017, 0.0005))
     if (pulsarname == '1821'):
-        binwidths = list(np.arange(0,0.015 , 0.00025))
+        binwidths = list(np.arange(0, 0.02, 0.00025))
     if (pulsarname == 'crab'):
         binwidths = list(np.arange(16, 20, 0.1))
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
@@ -188,9 +188,9 @@ mean2 = []
 errorbars = []
 timewidth=[]
 for twidth in range(1800, 9000, 900):
-    if (twidth == 1800):
-        twidth = 2100
-    m, w, w2, m2 = fit('1937', twidth)
+   # if (twidth == 1800):
+    #    twidth = 2100
+    m, w, w2, m2 = fit('1821', twidth)
     mean.append(m)
     width.append(w)
     width2.append(w2)
