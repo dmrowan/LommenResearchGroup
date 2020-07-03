@@ -9,7 +9,7 @@ from scipy.optimize import curve_fit
 import pandas as pd
 
 desc="""
-Plots all histograms and curve fits for given time intervals
+Makes a histogram of the amplitudes of the peaks of the interpulses of pulse profiles based on time interval
 """
 
 def gauss(x, a, m, s, d):
@@ -22,9 +22,10 @@ def main():
     log.info('Read in table')
     tab = Table.read('1937_events.evt', hdu=1)
     timetab = Table.read('1937_events.evt', hdu=2)
-    
+ 
     # User input: choose time per profile
     timewidth = int(input("How much time in each pulse profile? (in seconds)"))
+
 
     # Splits pulse phase data into profiles based on time intervals
     log.info("Limit data")
@@ -71,23 +72,29 @@ def main():
         phase = tab['PULSE_PHASE'][rows[0]]
         phases.append(list(phase))
 
+    totalphases = len(phases)
+    phases = [x for x in phases if x != []]
     sections = len(phases)
-    print("The number of time intervals is", sections)
-    phases = [x for x in phases if x != []] # gets rid of all empty lists in phases
+    emptyremoved = totalphases - sections
+    print("The number of time intervals is", totalphases)
+    plotnumber = input("Use all profiles or first 84? (all/84)")
 
-    # Makes a list of xvalues and fits for each profile
-
-    log.info("Make list of curve fits")
-    xvalues = []
-    curves = []
-    for n in range(len(phases)):
+    # Makes a list of amplitude of peak in each profile
+    log.info("Make list of amplitudes")
+    removed = []
+    amplitudes = []
+    if (plotnumber == 'all'):
+        number = len(phases)
+    if (plotnumber == '84'):
+        number = 84
+    for n in range(number):
  
         # Makes a line plot from the histogram
         phase = np.array(phases[n])  # uses pulse phases in nth profile
         yvals, xlims = np.histogram(phase,bins=255) # finds heights and sides of each bin, no plot
         xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
-  
-        # Use convolution to find the estimate for the location of the peak
+
+         # Use convolution to find the estimate for the location of the peak
         width=0.05
         x = xvals
         template = np.exp(-((x)/width)**2) # template for convolution
@@ -97,37 +104,27 @@ def main():
         m = np.max(convo) # finds peak value of convolution
         maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
 
-        # Does a gaussian curve fit to the histogram
-        popt, pcov = curve_fit(gauss, xvals, yvals,p0=[max(yvals), maxloc, 0.05, min(yvals)]) #bounds = ((0, 0, min(yvals)),(max(yvals)+100, 0.1, max(yvals)))) #, p0= [max(yvals),maxloc,0.05, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram 
+         # Does a gaussian curve fit to the histogram
+        try:
+            popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
+        except RuntimeError:
+            removed.append(n)
+            continue
+
+        # Amplitude of fitted curve
+        amp = popt[0]/timewidth  # finds amplitude of fitted curve (the first parameter of curve fit)
         if (popt[1] <= 0.2):
-            xvalues.append(xvals)
-            curves.append(popt)
-        if (popt[1] > 0.2):
-            phases[n] = []
-
-    phases = [x for x in phases if x != []]
-
-    notempty = len(phases)
-    print("The number of time intervals with data is", notempty)
-    row = int(input("How many rows of subplots?"))
-    col = int(input("How many columns of subplots?"))
-
-    log.info("Plot all curve fits")
-    fig, ax = plt.subplots(row, col, sharex = 'col')
-    i = 0
-    j = 0
-    for n in range(len(phases)):
-        if (j > (col-1)):
-            j = 0
-            i += 1
-        ax[i, j].hist(np.array(phases[n]), bins = 255)
-        ax[i, j].plot(xvalues[n], gauss(xvalues[n], *curves[n]))
-        j += 1 
-    
-    fig.text(0.5, 0.04, 'Pulse Phase', ha='center')
-    fig.text(0.04, 0.5, 'Counts', va='center', rotation='vertical') 
+            amplitudes.append(amp) # appends amplitude of peak into list of amplitudes
+        else:
+            removed.append(n)           
    
-    print(popt) 
+    log.info("Amplitude histogram")
+    print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
+    binwidths = list(np.arange(0, 0.0002, 0.000002))
+    plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
+    plt.xlabel('Amplitude of Peak')
+    plt.ylabel('Counts')
+    plt.title('Amplitudes of Pulse Profiles')
     plt.show()
         
 if __name__ == '__main__':

@@ -13,8 +13,8 @@ desc="""
 Makes a histogram of the amplitudes of the peaks of the interpulses of pulse profiles based on time interval
 """
 
-def gauss(x, a, b, c, d):  # defines gaussian function to use for curve fit
-    return(a*np.exp(-((x-b)/c)**2)+d)
+def gauss(x, a, m, s, d):
+    return(((a*1/np.sqrt(2*np.pi))*np.exp(-(((x - m)/s)**2)/2))+d)
 
 def power(x, a, b):
     return(a*(x**(-b)))
@@ -111,7 +111,8 @@ def fit(pulsarname, timewidth):
 
         # Amplitude of fitted curve
         if (pulsarname == '1937'):
-            amp = popt[0]/timewidth  # finds amplitude of fitted curve (the first parameter of curve fit)
+            amp = popt[0]/timewidth
+           # amp = (popt[0]/(np.sqrt(2*np.pi)*popt[2]))/timewidth  # finds amplitude of fitted curve (the first parameter of curve fit)
             if (popt[1] <= 0.2):
                 amplitudes.append(amp) # appends amplitude of peak into list of amplitudes
             else:
@@ -131,7 +132,7 @@ def fit(pulsarname, timewidth):
    
    
     if (pulsarname == '1937'):
-        binwidths = list(np.arange(0,0.015 , 0.00025))
+        binwidths = list(np.arange(0, 0.017, 0.0005))
     if (pulsarname == '1821'):
         binwidths = list(np.arange(0,0.015 , 0.00025))
     if (pulsarname == 'crab'):
@@ -151,20 +152,14 @@ def fit(pulsarname, timewidth):
     if (pulsarname == 'crab'):
         width = 1
     x = xvals
-    template = np.exp(-((x)/width)**2) # template for convolution
+    template = ((1/(np.sqrt(2*np.pi)*width))*np.exp(-((x/width)**2)/2))
     convo = []
     for i in range(len(yvals)):
         convo.append(np.sum(yvals*np.roll(template,i))) # finds convolution
     m = np.max(convo) # finds peak value of convolution
     maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
  
-    if (pulsarname == '1937'):
-        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 0.005, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
-    if (pulsarname == '1821'):
-        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 0.005, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
-    if (pulsarname == 'crab'):
-        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 1, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
-    width = popt[2] #2*np.sqrt(2*(math.log(2)))*(popt[2])
+    popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, width, min(yvals)]) #, bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
     plt.plot(xvals, gauss(xvals,*popt))
     errorbar = np.absolute(pcov[2][2])**0.5
 
@@ -172,10 +167,10 @@ def fit(pulsarname, timewidth):
     plt.ylabel('Counts')
     plt.title('Amplitudes of Pulse Profiles')
     f = open("amphistdata.txt", "a")
-    print("standard deviation = ", sd, file=f)
-    print("mean = ", mean, file=f)
-    print("width = ", width, file=f)
-    print("amplitude = ", popt[0], file=f)
+    print("standard deviation1 = ", sd, file=f)
+    print("standard deviation2 = ", popt[2], file=f)
+    print("mean1 = ", mean, file=f)
+    print("mean2 = ", popt[1], file=f)
     f.close()
     if (pulsarname == '1937'):
         plt.savefig('1937_%s.png' % timewidth)
@@ -184,37 +179,50 @@ def fit(pulsarname, timewidth):
     if (pulsarname == 'crab'):
         plt.savefig('crab_%s.png' % timewidth)
     plt.clf()
-    return(mean, sd, width, popt[0])
+    return(mean, sd, popt[2], popt[1])
 
-amp = []
+mean = []
 width = []
 width2 = []
-amp2 = []
+mean2 = []
 errorbars = []
 timewidth=[]
 for twidth in range(1800, 9000, 900):
     if (twidth == 1800):
         twidth = 2100
-    a, w, w2, a2 = fit('1937', twidth)
-    amp.append(a)
+    m, w, w2, m2 = fit('1937', twidth)
+    mean.append(m)
     width.append(w)
     width2.append(w2)
-    amp2.append(a2)
+    mean2.append(m2)
     timewidth.append(twidth)
-plt.plot(timewidth, width, 'o', color = 'b')
-popt, pcov = curve_fit(power, timewidth, width)
-plt.plot(timewidth, power(timewidth, *popt), color = 'b')
-plt.plot(timewidth, width2, 'o', color = 'g')
-popt, pcov = curve_fit(power, timewidth, width2)
-plt.plot(timewidth, power(timewidth, *popt), color = 'g')
 y =[]
 for i in timewidth:
     y.append(1/(i**0.5))
-#plt.plot(timewidth, y, '--')
+plottype = 'loglog'
+if (plottype == 'plot'):
+    plt.plot(timewidth, width, 'o', color = 'b')
+    popt, pcov = curve_fit(power, timewidth, width)
+    plt.plot(timewidth, power(timewidth, *popt), color = 'b')
+    plt.plot(timewidth, width2, 'o', color = 'g')
+    popt, pcov = curve_fit(power, timewidth, width2)
+    plt.plot(timewidth, power(timewidth, *popt), color = 'g')
+   # plt.plot(np.log(timewidth), np.log(y), '--')
+    plt.title("Widths of Amplitude Distribution vs Integration Time")
+    plt.xlabel("Integration Time (seconds)")
+    plt.ylabel("Standard Deviation (counts/second)")
+if (plottype == 'loglog'):
+    plt.plot(np.log(timewidth), np.log(width), 'o', color = 'b')
+    popt, pcov = curve_fit(power, timewidth, width)
+    plt.plot(np.log(timewidth), np.log(power(timewidth, *popt)), color = 'b')
+    plt.plot(np.log(timewidth), np.log(width2), 'o', color = 'g')
+    popt, pcov = curve_fit(power, timewidth, width2)
+    plt.plot(np.log(timewidth), np.log(power(timewidth, *popt)), color = 'g')
+    plt.plot(np.log(timewidth), np.log(y)-1.5, '--')
 #plt.errorbar(timewidth, width, yerr = errorbars, fmt = 'o')
-plt.title("Widths of Amplitude Histograms")
-plt.xlabel("Integration Time (seconds)")
-plt.ylabel("Width (counts/second)")
+    plt.title("Widths of Amplitude Distribution vs Integration Time in LogLog Scale")
+    plt.xlabel("log(Integration Time) (seconds)")
+    plt.ylabel("log(Standard Deviation) (counts/second)")
 plt.show()
 
 
