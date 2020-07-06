@@ -208,7 +208,7 @@ for twidth in range(1800, 9000, 900):
 y =[]
 for i in timewidth:
     y.append(1/(i**0.5))
-plottype = 'plot'
+plottype = 'loglog'
 if (plottype == 'plot'):
     plt.plot(timewidth, width, 'o', color = 'b')
     popt, pcov = curve_fit(power, timewidth, width)
@@ -230,7 +230,7 @@ if (plottype == 'loglog'):
     popt, pcov = curve_fit(power, timewidth, width2)
     fit = plt.plot(np.log(timewidth), np.log(power(timewidth, *popt)), color = 'g', label = 'Fitted')
     const = plt.plot(np.log(timewidth), np.log(y)-2.8, '--', label = 'Constant')
-    plt.errorbar(np.log(timewidth), np.log(width2), yerr = errorbars, fmt = 'o', color = 'g')
+    plt.errorbar(np.log(timewidth), np.log(width2), yerr = np.log(errorbars), fmt = 'o', color = 'g')
   #  plt.title("Integrated Intensity Distribution vs Integration Time")
     plt.title("Widths of Amplitude Distribution vs Integration Time")
     plt.legend()
