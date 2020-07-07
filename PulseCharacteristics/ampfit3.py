@@ -195,10 +195,10 @@ width2 = []
 mean2 = []
 errorbars = []
 timewidth=[]
-for twidth in range(1800, 9000, 900):
-    if (twidth == 1800):
-        twidth = 2100
-    m, w, w2, m2, e = fit('1937', twidth, 'integrated intensity')
+for twidth in range(60, 210, 30):
+  #  if (twidth == 1800):
+  #      twidth = 2100
+    m, w, w2, m2, e = fit('crab', twidth, 'integrated intensity')
     mean.append(m)
     width.append(w)
     width2.append(w2)
@@ -208,7 +208,7 @@ for twidth in range(1800, 9000, 900):
 y =[]
 for i in timewidth:
     y.append(1/(i**0.5))
-plottype = 'loglog'
+plottype = 'plot'
 if (plottype == 'plot'):
     plt.plot(timewidth, width, 'o', color = 'b')
     popt, pcov = curve_fit(power, timewidth, width)
@@ -217,26 +217,23 @@ if (plottype == 'plot'):
     popt, pcov = curve_fit(power, timewidth, width2)
     fit = plt.plot(timewidth, power(timewidth, *popt), color = 'g', label = 'Fitted')
     plt.errorbar(timewidth, width2, yerr = errorbars, fmt = 'o', color = 'g')
-    plt.title("Widths of Amplitude Distribution vs Integration Time")
- #   plt.title("Widths of Integrated Intensity Distribution vs Integration Time")
+ #   plt.title("Widths of Amplitude Distribution vs Integration Time")
+    plt.title("Widths of Integrated Intensity Distribution vs Integration Time")
     plt.legend()
     plt.xlabel("Integration Time (seconds)")
     plt.ylabel("Standard Deviation (counts/second)")
 if (plottype == 'loglog'):
-    plt.loglog(timewidth, width, 'o', color = 'b')
+    plt.plot(np.log10(timewidth), np.log10(width), 'o', color = 'b')
     popt, pcov = curve_fit(power, timewidth, width)
     cslope = popt[1]
     cslopeerror = np.absolute(pcov[1][1])**0.5
-    plt.loglog(timewidth, power(timewidth, *popt), color = 'b', label = 'Calculated')
-    plt.loglog(timewidth, width2, 'o', color = 'g')
+    plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'b', label = 'Calculated')
+    plt.plot(np.log10(timewidth), np.log10(width2), 'o', color = 'g')
     popt, pcov = curve_fit(power, timewidth, width2)
     fslope = popt[1]
     fslopeerror = np.absolute(pcov[1][1])**0.5
-    plt.loglog(timewidth, power(timewidth, *popt), color = 'g', label = 'Fitted')
-  #  n = []
-  #  for i in y:
-  #      n.append(i- 0.0215)
-    plt.loglog(timewidth, y, '--', label = 'Constant')
+    plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'g', label = 'Fitted')
+    plt.plot(np.log10(timewidth), np.log10(y), '--', label = 'Constant')
   #  print(width2)
   #  print(errorbars)
     lowererror = []
