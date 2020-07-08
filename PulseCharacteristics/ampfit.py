@@ -147,6 +147,7 @@ def fit(pulsarname, timewidth, var):
         width = 0.00005
     if (pulsarname == 'crab'):
         binwidths = list(np.arange(16, 20, 0.1))
+        width = 1
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
   
     sd = np.std(amplitudes)  # calculates standard deviation directly
@@ -157,10 +158,8 @@ def fit(pulsarname, timewidth, var):
     xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
 
     # Use convolution to find the estimate for the location of the peak
-    if (pulsarname == 'crab'):
-        width = 1
     x = xvals
-    template = ((1/(np.sqrt(2*np.pi)*width))*np.exp(-((x/width)**2)/2))
+    template = (np.exp(-((x/width)**2)/2))
     convo = []
     for i in range(len(yvals)):
         convo.append(np.sum(yvals*np.roll(template,i))) # finds convolution

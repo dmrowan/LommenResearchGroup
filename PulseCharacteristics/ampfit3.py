@@ -146,7 +146,13 @@ def fit(pulsarname, timewidth, var):
         binwidths = list(np.arange(0, 0.0002, 0.000005))
         width = 0.00005
     if (pulsarname == 'crab'):
-        binwidths = list(np.arange(16, 20, 0.1))
+            if (var == 'amplitude'):
+                binwidths = list(np.arange(16, 20, 0.1))
+                width = 0.005
+            if (var == 'integrated intensity'):
+                binwidths = list(np.arange(0, 0.0002, 0.000005))
+                width = 0.00005
+
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
   
     sd = np.std(amplitudes)  # calculates standard deviation directly
@@ -160,7 +166,7 @@ def fit(pulsarname, timewidth, var):
     if (pulsarname == 'crab'):
         width = 1
     x = xvals
-    template = ((1/(np.sqrt(2*np.pi)*width))*np.exp(-((x/width)**2)/2))
+    template = np.exp(-((x/width)**2)/2)
     convo = []
     for i in range(len(yvals)):
         convo.append(np.sum(yvals*np.roll(template,i))) # finds convolution
