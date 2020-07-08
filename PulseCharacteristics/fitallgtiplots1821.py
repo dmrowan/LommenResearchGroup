@@ -12,8 +12,8 @@ desc="""
 Plots all histograms and curve fits for given time intervals
 """
 
-def gauss(x, a, b, c, d):  # defines gaussian function to use for curve fit
-    return(a*np.exp(-((x-b)/c)**2)+d)
+def gauss(x, a, m, s, d):
+    return((a*np.exp(-(((x - m)/s)**2)/2))+d)
 
 def main():    
 
@@ -69,7 +69,12 @@ def main():
     for i in range(len(starttimes)-1):
         rows = np.where((tab['TIME'] >= starttimes[i]) & (tab['TIME'] <= endtimes[i]))
         phase = tab['PULSE_PHASE'][rows[0]]
-        phases.append(list(phase))
+        phase = list(phase)
+        for i in range(len(phase)):
+            if (phase[i] < 0.5):
+                phase[i] = 0
+        phase = [x for x in phase if x!= 0]
+        phases.append(phase)
 
     sections = len(phases)
     print("The number of time intervals is", sections)
@@ -87,9 +92,9 @@ def main():
  
         # Makes a line plot from the histogram
         phase = np.array(phases[n])  # uses pulse phases in nth profile
+       # phase = [x for x in phase if x >= 0.5] 
         yvals, xlims = np.histogram(phase,bins=255) # finds heights and sides of each bin, no plot
         xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
-  
         # Use convolution to find the estimate for the location of the peak
         width=0.05
         x = xvals
@@ -101,7 +106,7 @@ def main():
         maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
 
         # Does a gaussian curve fit to the histogram
-        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram 
+        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)+20]) # uses gaussian function to do a curve fit to the line version fo the histogram 
         if ((popt[1] >= 0.7)&(popt[1]<= 0.85)):
             xvalues.append(xvals)
             curves.append(popt)
@@ -109,7 +114,6 @@ def main():
             phases[n] = []
         if (popt[1] > 0.85):
             phases[n] = []
-
 
     phases = [x for x in phases if x != []]
 

@@ -3066,3 +3066,7 @@ standard deviation1 =  0.14634630907006332
 standard deviation2 =  1.0
 mean1 =  [[...], [...], [...], [...]]
 mean2 =  16.05
+standard deviation1 =  0.13054691376728267
+standard deviation2 =  0.03004782079238216
+standard deviation1 =  0.15249705671646194
+standard deviation2 =  0.023294470387777245

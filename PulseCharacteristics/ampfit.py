@@ -19,7 +19,7 @@ def gauss(x, a, m, s, d):
 def power(x, a, b):
     return(a*(x**(-b)))
 
-def fit(pulsarname, timewidth, var):
+def fit(pulsarname, timewidth):
 
     # Reads in data and makes a table
     if (pulsarname == '1937'):
@@ -83,12 +83,15 @@ def fit(pulsarname, timewidth, var):
 
     # Makes a list of amplitude of peak in each profile
     removed = []
-    amplitudes = []
+    intint = []
     number = len(phases)
     for n in range(number):
  
         # Makes a line plot from the histogram
         phase = np.array(phases[n])  # uses pulse phases in nth profile
+        for i in phase:
+            if (i<0.5):
+                del(i)
         yvals, xlims = np.histogram(phase,bins=255) # finds heights and sides of each bin, no plot
         xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
 
@@ -111,50 +114,37 @@ def fit(pulsarname, timewidth, var):
 
         # Amplitude and integrated intensity of fitted curve
         if (pulsarname == '1937'):
-            if (var == 'amplitude'):
-                amp = popt[0]/timewidth # amplitude
-            if (var == 'integrated intensity'):
-                amp = (popt[0]*popt[2]*np.sqrt(2*np.pi))/timewidth 
+            amp = (popt[0]*popt[2]*np.sqrt(2*np.pi))/timewidth 
             if (popt[1] <= 0.2):
-                amplitudes.append(amp) # appends amplitude of peak into list of amplitudes
+                intint.append(amp) # appends amplitude of peak into list of amplitudes
             else:
                 removed.append(n)        
         if (pulsarname == '1821'):
-            if (var == 'amplitude'):
-                amp = popt[0]/timewidth # amplitude
-            if (var == 'integrated intensity'):
-                amp = (popt[0]*popt[2]*np.sqrt(2*np.pi))/timewidth
+            amp = (popt[0]*popt[2]*np.sqrt(2*np.pi))/timewidth
             if ((popt[1] >= 0.7) & (popt[1] <= 0.85)):
-                amplitudes.append(amp) # appends amplitude of peak into list of amplitudes
+                intint.append(amp) # appends amplitude of peak into list of amplitudes
             else:
                 removed.append(n)
         if (pulsarname == 'crab'):
-            if (var == 'amplitude'):
-                amp = popt[0]/timewidth # amplitude
-            if (var == 'integrated intensity'):
-                amp = (popt[0]*popt[2]*np.sqrt(2*np.pi))/timewidth
+            amp = (popt[0]*popt[2]*np.sqrt(2*np.pi))/timewidth
             if (popt[1] >= 0.8):
-                amplitudes.append(amp)
+                intint.append(amp)
             else:
                 removed.append(n)
    
    
-    if (var == 'amplitude'):
-        binwidths = list(np.arange(0, 0.02, 0.00025))
-        width = 0.005
-    if (var == 'integrated intensity'):
-        binwidths = list(np.arange(0, 0.0002, 0.000005))
-        width = 0.00005
+    binwidths = list(np.arange(0, 0.0002, 0.000005))
+    width = 0.00005
     if (pulsarname == 'crab'):
-        binwidths = list(np.arange(16, 20, 0.1))
-        width = 1
-    plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
+        binwidths = list(np.arange(0.4, 1.2, 0.01))
+        width = 0.1
+    plt.hist(intint, bins = binwidths) # makes histogram of amplitudes
   
-    sd = np.std(amplitudes)  # calculates standard deviation directly
+    sd = np.std(intint)  # calculates standard deviation directly
 
     # Makes a line plot from the histogram
-    amplitudes = np.array(amplitudes)  # uses pulse phases in nth profile
-    yvals, xlims = np.histogram(amplitudes,bins=binwidths) # finds heights and sides of each bin, no plot
+    intint = np.array(intint)  # uses pulse phases in nth profile
+    yvals, xlims = np.histogram(intint,bins=binwidths) # finds heights and sides of each bin, no plot
     xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
 
     # Use convolution to find the estimate for the location of the peak
@@ -176,32 +166,26 @@ def fit(pulsarname, timewidth, var):
     f = open("amphistdata.txt", "a")
     print("standard deviation1 = ", sd, file=f)
     print("standard deviation2 = ", popt[2], file=f)
-    print("mean1 = ", mean, file=f)
-    print("mean2 = ", popt[1], file=f)
     f.close()
     if (pulsarname == '1937'):
-        plt.savefig('1937int_%s.png' % timewidth)
+        plt.savefig('1937_%s.png' % timewidth)
     if (pulsarname == '1821'):
         plt.savefig('1821_%s.png' % timewidth)
     if (pulsarname == 'crab'):
         plt.savefig('crab_%s.png' % timewidth)
     plt.clf()
-    return(mean, sd, popt[2], popt[1], errorbar)
+    return(sd, popt[2], errorbar)
 
-mean = []
 width = []
 width2 = []
-mean2 = []
 errorbars = []
 timewidth=[]
-for twidth in range(1800, 9000, 900):
-    if (twidth == 1800):
-        twidth = 2100
-    m, w, w2, m2, e = fit('1937', twidth, 'integrated intensity')
-    mean.append(m)
+for twidth in range(60, 210, 30):
+   # if (twidth == 1800):
+    #    twidth = 2100
+    w, w2, e = fit('crab', twidth)
     width.append(w)
     width2.append(w2)
-    mean2.append(m2)
     errorbars.append(e)
     timewidth.append(twidth)
 y =[]
@@ -216,8 +200,7 @@ if (plottype == 'plot'):
     popt, pcov = curve_fit(power, timewidth, width2)
     fit = plt.plot(timewidth, power(timewidth, *popt), color = 'g', label = 'Fitted')
     plt.errorbar(timewidth, width2, yerr = errorbars, fmt = 'o', color = 'g')
-    plt.title("Widths of Amplitude Distribution vs Integration Time")
- #   plt.title("Widths of Integrated Intensity Distribution vs Integration Time")
+    plt.title("Widths of Integrated Intensity Distribution vs Integration Time")
     plt.legend()
     plt.xlabel("Integration Time (seconds)")
     plt.ylabel("Standard Deviation (counts/second)")
