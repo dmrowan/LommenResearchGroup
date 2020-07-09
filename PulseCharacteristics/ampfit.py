@@ -89,10 +89,20 @@ def fit(pulsarname, timewidth):
  
         # Makes a line plot from the histogram
         phase = np.array(phases[n])  # uses pulse phases in nth profile
-        for i in phase:
-            if (i<0.5):
-                del(i)
-        yvals, xlims = np.histogram(phase,bins=255) # finds heights and sides of each bin, no plot
+        binnumber = 255
+        if (pulsarname == '1821'):
+            for i in range(len(phase)):
+                if (phase[i] < 0.5):
+                    phase[i] = 0
+            phase = [x for x in phase if x!= 0]
+            bins = 128
+        if (pulsarname == 'crab'):
+            for i in range(len(phase)):
+                if (phase[i] < 0.5):
+                    phase[i] = 0
+            phase = [x for x in phase if x!= 0]
+            bins = 128
+        yvals, xlims = np.histogram(phase,bins=binnumber) # finds heights and sides of each bin, no plot
         xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
 
          # Use convolution to find the estimate for the location of the peak
@@ -160,9 +170,9 @@ def fit(pulsarname, timewidth):
     plt.plot(xvals, gauss(xvals,*popt))
     errorbar = np.absolute(pcov[2][2])**0.5
 
-    plt.xlabel('Amplitude of Peak')
+    plt.xlabel('Integrated Intensity')
     plt.ylabel('Counts')
-    plt.title('Amplitudes of Pulse Profiles')
+    plt.title('Integrated Intensities of Pulse Profiles')
     f = open("amphistdata.txt", "a")
     print("standard deviation1 = ", sd, file=f)
     print("standard deviation2 = ", popt[2], file=f)
@@ -180,10 +190,10 @@ width = []
 width2 = []
 errorbars = []
 timewidth=[]
-for twidth in range(60, 210, 30):
-   # if (twidth == 1800):
-    #    twidth = 2100
-    w, w2, e = fit('crab', twidth)
+for twidth in range(1800, 9000, 900):
+    if (twidth == 1800):
+        twidth = 2100
+    w, w2, e = fit('1937', twidth)
     width.append(w)
     width2.append(w2)
     errorbars.append(e)
@@ -205,34 +215,26 @@ if (plottype == 'plot'):
     plt.xlabel("Integration Time (seconds)")
     plt.ylabel("Standard Deviation (counts/second)")
 if (plottype == 'loglog'):
-    plt.loglog(timewidth, width, 'o', color = 'b')
+    plt.plot(np.log10(timewidth), np.log10(width), 'o', color = 'b')
     popt, pcov = curve_fit(power, timewidth, width)
     cslope = popt[1]
     cslopeerror = np.absolute(pcov[1][1])**0.5
-    plt.loglog(timewidth, power(timewidth, *popt), color = 'b', label = 'Calculated')
-    plt.loglog(timewidth, width2, 'o', color = 'g')
+    plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'b', label = 'Calculated')
+  #  plt.plot(np.log10(timewidth), np.log10(width2), 'o', color = 'g')
     popt, pcov = curve_fit(power, timewidth, width2)
     fslope = popt[1]
     fslopeerror = np.absolute(pcov[1][1])**0.5
-    plt.loglog(timewidth, power(timewidth, *popt), color = 'g', label = 'Fitted')
-  #  n = []
-  #  for i in y:
-  #      n.append(i- 0.0215)
-    plt.loglog(timewidth, y, '--', label = 'Constant')
-  #  print(width2)
-  #  print(errorbars)
+    plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'g', label = 'Fitted')
+    plt.plot(np.log10(timewidth), np.log10(y)-2.7, '--', label = 'Constant')
     lowererror = []
     uppererror = []
     for x in range(len(errorbars)):
-        uppererror.append(np.log10(width2[x]-errorbars[x])-np.log10(width2[x]))
-        lowererror.append(np.log10(width2[x]+errorbars[x])-np.log10(width2[x]))
-  #  loglogerrors =  [lowererror, uppererror]
-  #  loglogerror = np.array(loglogerrors)
-  #  print(loglogerrors)
-  #  print(loglogerror)
-  #  plt.errorbar(np.log10(timewidth),np.log10(width2), yerr = loglogerror , fmt = 'o', color = 'g')
+        lowererror.append(abs(np.log10(width2[x]-errorbars[x])-np.log10(width2[x])))
+        uppererror.append(np.log10(width2[x]+errorbars[x])-np.log10(width2[x]))
+    loglogerrors =  [lowererror, uppererror]
+    loglogerror = np.array(loglogerrors)
+    plt.errorbar(np.log10(timewidth),np.log10(width2), yerr = loglogerror , fmt = 'o', color = 'g')
     plt.title("Widths of Integrated Intensity Distribution vs Integration Time")
-  #  plt.title("Widths of Amplitude Distribution vs Integration Time")
     plt.legend()
     plt.xlabel("log(Integration Time (seconds))")
     plt.ylabel("log(Standard Deviation (counts/second))")
