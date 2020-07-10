@@ -83,11 +83,11 @@ def integrationtimes(timewidth):
         for n in range(number):
             # Makes a line plot from the histogram
             phase = np.array(phases[n])  # uses pulse phases in nth profile
-          #  for i in range(len(phase)):
-          #      if (phase[i] < 0.5):
-          #          phase[i] = 0
-          #  phase = [x for x in phase if x!= 0]
-            binnumber = 255
+            for i in range(len(phase)):
+                if (phase[i] < 0.5):
+                    phase[i] = 0
+            phase = [x for x in phase if x!= 0]
+            binnumber = 128
             yvals, xlims = np.histogram(phase,bins=binnumber) # finds heights and sides of each bin, no plot
             xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
 
@@ -117,6 +117,6 @@ def integrationtimes(timewidth):
                 removed.append(n)
 
 for time in range(1800, 9000, 900):
-   # if (time == '1800'):
+   # if (time == 1800):
    #     time = 2100
     integrationtimes(time)
