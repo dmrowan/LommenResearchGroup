@@ -21,9 +21,8 @@ def power(x, a, b):
 
 def integrationtimes(timewidth):
 
-    fname = '/students/pipeline/heasoft6.27/PSR_B0531+21/1013010121_pipe/cleanfilt.evt'
-    fname2 = '/students/pipeline/heasoft6.27/PSR_B0531+21/1013010127_pipe/cleanfilt.evt'
-    filenames =  [fname, fname2]
+    fname = 'PSR_B1821-24_combined.evt'
+    filenames =  [fname]
    
     for name in filenames:
         tab = Table.read(name, hdu=1)
@@ -84,11 +83,11 @@ def integrationtimes(timewidth):
         for n in range(number):
             # Makes a line plot from the histogram
             phase = np.array(phases[n])  # uses pulse phases in nth profile
-            for i in range(len(phase)):
-                if (phase[i] < 0.5):
-                    phase[i] = 0
-            phase = [x for x in phase if x!= 0]
-            binnumber = 128
+          #  for i in range(len(phase)):
+          #      if (phase[i] < 0.5):
+          #          phase[i] = 0
+          #  phase = [x for x in phase if x!= 0]
+            binnumber = 255
             yvals, xlims = np.histogram(phase,bins=binnumber) # finds heights and sides of each bin, no plot
             xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
 
@@ -110,13 +109,14 @@ def integrationtimes(timewidth):
                 continue
 
             intint = (popt[0]*popt[2]*np.sqrt(2*np.pi))/timewidth
-            if (popt[1] >= 0.8):
-                f = open("crabintdata_%s.txt" % timewidth, "a")
+            if ((popt[1] >= 0.7) & (popt[1] <= 0.85)):
+                f = open("1821intdata_%s.txt" % timewidth, "a")
                 print(intint, file=f)
                 f.close()
             else:
                 removed.append(n)
 
-times = [10]
-for time in times:
+for time in range(1800, 9000, 900):
+   # if (time == '1800'):
+   #     time = 2100
     integrationtimes(time)

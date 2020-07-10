@@ -19,13 +19,16 @@ def gauss(x, a, m, s, d):
 def power(x, a, b):
     return(a*(x**(-b)))
 
-def fit(timewidth):
+def fit(pulsarname, timewidth):
  
-    intint = pd.read_csv('crabintdata_%s.txt' %timewidth, header = None)
+    if (pulsarname == '1937'):
+        intint = pd.read_csv('1937intdata_%s.txt' %timewidth, header = None)
+    if (pulsarname == '1821'):
+        intint = pd.read_csv('1821intdata_%s.txt' %timewidth, header = None)
     intint = list(intint[0])
  
-    binwidths = list(np.arange(0.4, 1.4, 0.01))
-    width = 0.1
+    binwidths = list(np.arange(0, 0.0002, 0.000005))
+    width = 0.00005
     plt.hist(intint, bins = binwidths) # makes histogram of amplitudes
   
     sd = np.std(intint)  # calculates standard deviation directly
@@ -51,19 +54,24 @@ def fit(timewidth):
     plt.xlabel('Integrated Intensity')
     plt.ylabel('Counts')
     plt.title('Integrated Intensities of Pulse Profiles')
-    plt.savefig('crab_%s.png' % timewidth)
+    if (pulsarname == '1937'):
+        plt.savefig('1937_%s.png' % timewidth)
+    if (pulsarname == '1821'):
+        plt.savefig('1821_%s.png' % timewidth)
     plt.clf()
     return(sd, popt[2], errorbar)
 
+pname = '1937'
 plottype = 'loglog'
 width = []
 width2 = []
 errorbars = []
 timewidth=[]
-for twidth in range(0, 210, 30): 
-    if (twidth == 0):
-        twidth = 10
-    w, w2, e = fit(twidth)
+for twidth in range(1800, 9000, 900): 
+    if (pname == '1937'):
+        if (twidth == 1800):
+            twidth = 2100
+    w, w2, e = fit(pname, twidth)
     width.append(w)
     width2.append(w2)
     errorbars.append(e)
@@ -94,7 +102,10 @@ if (plottype == 'loglog'):
     fslope = popt[1]
     fslopeerror = np.absolute(pcov[1][1])**0.5
     plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'g', label = 'Fitted')
-    shift = 0.3
+    if (pname == '1937'):
+        shift = 2.7
+    if (pname == '1821'):
+        shift = 2.9
     plt.plot(np.log10(timewidth), np.log10(y)-shift, '--', label = 'Constant')
     lowererror = []
     uppererror = []
