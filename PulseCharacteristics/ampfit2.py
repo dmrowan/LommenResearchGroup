@@ -182,7 +182,7 @@ def fit(pulsarname, timewidth):
     if (pulsarname == '1821'):
         plt.savefig('1821_%s.png' % timewidth)
     if (pulsarname == 'crab'):
-        plt.savefig('crab_%s.png' % timewidth)
+        plt.savefig('crab2_%s.png' % timewidth)
     plt.clf()
     return(sd, popt[2], errorbar)
 
@@ -192,7 +192,7 @@ width = []
 width2 = []
 errorbars = []
 timewidth=[]
-for twidth in range(60, 210, 30): 
+for twidth in range(60, 180, 30): 
     if (pname == '1937'):
         if (twidth == 1800):
             twidth = 2100
@@ -227,13 +227,7 @@ if (plottype == 'loglog'):
     fslope = popt[1]
     fslopeerror = np.absolute(pcov[1][1])**0.5
     plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'g', label = 'Fitted')
-    if (pname == '1937'):
-        shift = 2.7
-    if (pname == '1821'):
-        shift = 2.9
-    if (pname == 'crab'):
-        shift = 0.6
-    plt.plot(np.log10(timewidth), np.log10(y)-shift, '--', label = 'Constant')
+    plt.plot(np.log10(timewidth), np.log10(y)-2.9, '--', label = 'Constant')
     lowererror = []
     uppererror = []
     for x in range(len(errorbars)):
@@ -246,7 +240,6 @@ if (plottype == 'loglog'):
     plt.legend()
     plt.xlabel("log(Integration Time (seconds))")
     plt.ylabel("log(Standard Deviation (counts/second))")
-    
     print(cslope, cslopeerror)
     print(fslope, fslopeerror)
 plt.show()
