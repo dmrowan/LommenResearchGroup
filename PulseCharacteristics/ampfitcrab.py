@@ -13,8 +13,8 @@ desc="""
 Makes a histogram of the amplitudes of the peaks of the interpulses of pulse profiles based on time interval
 """
 
-def gauss(x, a, b, c, d):  # defines gaussian function to use for curve fit
-    return(a*np.exp(-((x-b)/c)**2)+d)
+def gauss(x, a, m, s, d):
+    return((a*np.exp(-(((x - m)/s)**2)/2))+d)
 
 def main():    
 
@@ -109,7 +109,8 @@ def main():
             continue
 
         # Amplitude of fitted curve
-        amp = (popt[0]/timewidth)  # finds amplitude of fitted curve (the first parameter of curve fit)
+        amp = (popt[0]*popt[2]*np.sqrt(2*np.pi))/timewidth
+  # finds amplitude of fitted curve (the first parameter of curve fit)
         if (popt[1] >= 0.8):
             amplitudes.append(amp) # appends amplitude of peak into list of amplitudes
         else:
@@ -117,7 +118,7 @@ def main():
    
     log.info("Amplitude histogram")
     print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
-    binwidths = list(np.arange(16, 20, 0.2))
+    binwidths = list(np.arange(0.4, 1.2, 0.01))
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
   
     # Makes a line plot from the histogram
@@ -126,7 +127,7 @@ def main():
     xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
 
     # Use convolution to find the estimate for the location of the peak
-    width=1
+    width=0.1
     x = xvals
     template = np.exp(-((x)/width)**2) # template for convolution
     convo = []
@@ -136,10 +137,10 @@ def main():
     maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
         
     try:
-        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 1, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
+        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, width, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
     except RuntimeError:
         plt.hist(amplitudes, bins = binwidths)
-    width = 2*np.sqrt(2*(math.log(2)))*(popt[2])
+    width = popt[2]
     print("The width is", width)
     plt.plot(xvals, gauss(xvals,*popt))
     plt.xlabel('Amplitude of Peak')

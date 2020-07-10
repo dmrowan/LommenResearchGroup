@@ -129,7 +129,8 @@ def main():
     
     fig.text(0.5, 0.04, 'Pulse Phase', ha='center')
     fig.text(0.04, 0.5, 'Counts', va='center', rotation='vertical') 
-    
+   
+    print(popt) 
     plt.show()
         
 if __name__ == '__main__':

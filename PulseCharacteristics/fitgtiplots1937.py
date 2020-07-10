@@ -12,8 +12,8 @@ desc="""
 Plots all histograms and curve fits for given time intervals
 """
 
-def gauss(x, m, s, d):
-    return(((1/(np.sqrt(2*np.pi)*s))*np.exp(-(((x - m)/s)**2)/2))+d)
+def gauss(x, a, m, s, d):
+    return(((a*1/(np.sqrt(2*np.pi)*s))*np.exp(-(((x - m)/s)**2)/2))+d)
 
 def main():    
 
@@ -98,16 +98,12 @@ def main():
         maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
 
         # Does a gaussian curve fit to the histogram
-        try:
-            popt, pcov = curve_fit(gauss, xvals, yvals,p0=[max(yvals), 0.05, min(yvals)]) #bounds = ((0, 0, min(yvals)),(max(yvals)+100, 0.1, max(yvals)))) #, p0= [max(yvals),maxloc,0.05, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram 
-       # if (popt[1] <= 0.2):
-        except RuntimeError:
+        popt, pcov = curve_fit(gauss, xvals, yvals,p0=[max(yvals), maxloc, 0.05, min(yvals)]) #bounds = ((0, 0, min(yvals)),(max(yvals)+100, 0.1, max(yvals)))) #, p0= [max(yvals),maxloc,0.05, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram 
+        if (popt[1] <= 0.2):
+            xvalues.append(xvals)
+            curves.append(popt)
+        if (popt[1] > 0.2):
             phases[n] = []
-            continue
-        xvalues.append(xvals)
-        curves.append(popt)
-       # if (popt[1] > 0.2):
-       #     phases[n] = []
 
     phases = [x for x in phases if x != []]
 

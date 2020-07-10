@@ -7,14 +7,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import pandas as pd
-import math
 
 desc="""
 Makes a histogram of the amplitudes of the peaks of the interpulses of pulse profiles based on time interval
 """
 
-def gauss(x, a, b, c, d):  # defines gaussian function to use for curve fit
-    return(a*np.exp(-((x-b)/c)**2)+d)
+def gauss(x, a, m, s, d):
+    return(((a*1/(np.sqrt(2*np.pi)*s))*np.exp(-(((x - m)/s)**2)/2))+d)
 
 def main():    
 
@@ -113,7 +112,7 @@ def main():
             continue
 
         # Amplitude of fitted curve
-        amp = popt[0]  # finds amplitude of fitted curve (the first parameter of curve fit)
+        amp = popt[0]/timewidth  # finds amplitude of fitted curve (the first parameter of curve fit)
         if (popt[1] <= 0.2):
             amplitudes.append(amp) # appends amplitude of peak into list of amplitudes
         else:
@@ -121,28 +120,8 @@ def main():
    
     log.info("Amplitude histogram")
     print("The number of profiles removed due to insufficient data is", len(removed)+emptyremoved)
-    binwidths = list(np.arange(0, 50, 0.5))
+    binwidths = list(np.arange(0, 0.0002, 0.000002))
     plt.hist(amplitudes, bins = binwidths) # makes histogram of amplitudes
-  
-    # Makes a line plot from the histogram
-    amplitudes = np.array(amplitudes)  # uses pulse phases in nth profile
-    yvals, xlims = np.histogram(amplitudes,bins=binwidths) # finds heights and sides of each bin, no plot
-    xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
-
-    # Use convolution to find the estimate for the location of the peak
-    width=5
-    x = xvals
-    template = np.exp(-((x)/width)**2) # template for convolution
-    convo = []
-    for i in range(len(yvals)):
-        convo.append(np.sum(yvals*np.roll(template,i))) # finds convolution
-    m = np.max(convo) # finds peak value of convolution
-    maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
-        
-    popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, 5, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
-    width = 2*np.sqrt(2*(math.log(2)))*(popt[2])
-    print("The width is", width)
-    plt.plot(xvals, gauss(xvals,*popt))
     plt.xlabel('Amplitude of Peak')
     plt.ylabel('Counts')
     plt.title('Amplitudes of Pulse Profiles')
