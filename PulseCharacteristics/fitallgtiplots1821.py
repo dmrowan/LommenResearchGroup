@@ -70,10 +70,6 @@ def main():
         rows = np.where((tab['TIME'] >= starttimes[i]) & (tab['TIME'] <= endtimes[i]))
         phase = tab['PULSE_PHASE'][rows[0]]
         phase = list(phase)
-     #   for i in range(len(phase)):
-     #       if (phase[i] < 0.5):
-     #           phase[i] = 0
-     #   phase = [x for x in phase if x!= 0]
         phases.append(phase)
 
     sections = len(phases)
