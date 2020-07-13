@@ -95,14 +95,11 @@ class EnergyBands:
         self.sigmafit_popt, self.sigmafit_pcov = EnergyBands.modelFit_sigma(self)
         self.modelDensity = EnergyBands.hydroStaticModel(self)
 
-
-
     # function that splits the altitudes based on energy bands
     def altSplit(self):
         index = np.where((enArray >= self.energy_band[0]) & (
             enArray < self.energy_band[1]))
         return altArray[index[0]]
-
 
     # function that deduces the number of counts per bin size
     def countRate(self):
@@ -117,7 +114,6 @@ class EnergyBands:
                 binTime.append(np.mean(self.time[desind[0]]))
         return np.array(binCounts), np.array(altitude), np.array(binTime)
 
-
     def countRateSync(self):
         rho = []
         temp = []
@@ -128,41 +124,33 @@ class EnergyBands:
                 temp.append(np.mean(self.T_pre[desind[0]]))
         return np.array(rho), np.array(temp)
 
-
     # function that makes a list of times corresponding to each energy range
     def enSplit(self):
         index = np.where((enArray >= self.energy_band[0]) & (
             enArray < self.energy_band[1]))
         return eventTime[index[0]], enArray[index[0]]/100
 
-
     def percTrans(self):
         plateau = np.where(((self.new_alt > 200) & (self.new_alt < 250)))
         avg = np.mean(self.rate[plateau[0]])
         return (self.rate/avg)*100
 
-
     # functions to make the atmospheric model
     # altArray=h in mathematica
 
-
     def atmHeight(self):
         return np.array((k*self.T_msis)/(1000*mu*mp*g))
-
 
     def Sigma(self):
         c = np.float(-3)
         return (3.31*10**3)*(np.mean(self.energies)/100)**c
 
-
     # i is the index in altArray
     def Z(self, x, i, Alt):
         return np.sqrt(x**2+(R+Alt[i])**2)-R
 
-
     # def Rho(x, i, Alt, p0, l):
         # return p0*np.exp(-(Z(x, i, Alt)-z0)/l)
-
 
     # numerical integration
     def Transmit(self, sigma):
@@ -181,16 +169,13 @@ class EnergyBands:
         trans = 100*np.exp(tau)
         return np.array(trans)
 
-
     def msisSplit(self, msis_col):
         index = np.where((enArray >= self.energy_band[0]) & (enArray < self.energy_band[1]))
         return msis_col[index[0]]
 
-
     def modelFit_sigma(self):
         popt, pcov = curve_fit(EnergyBands.Transmit, self, self.perc_trans)
         return popt, pcov
-
 
     # calculating fit uncertrainty based on parameter uncertainties at the point with x=X -- this will need to change...
     def paramUnc(self, Popt, Pcov, X):
@@ -209,7 +194,6 @@ class EnergyBands:
             added_frac_unc += frac_unc_params[i]
 
         return np.sqrt(added_frac_unc)
-
 
     def hydroStaticModel(self):
         numInt = []
@@ -233,7 +217,7 @@ class EnergyBands:
         index_zdz = len(self.altExtend) - 1
         index_z = len(self.altExtend) - 2
 
-        for indx in np.arange(len(self.altExtend),0,-1):
+        for indx in np.arange(len(self.altExtend), 0, -1):
 
             if (indx == len(self.altExtend)):
                 f = 0
@@ -245,7 +229,6 @@ class EnergyBands:
                 Rho_z.append((((numInt[0]/A[0])+T[0]*rho0))/T[0])
                 index_zdz -= 1
                 index_z -= 1
-
 
             elif (index_z > 0):
                 f = 0
@@ -275,11 +258,11 @@ class EnergyBands:
 
     @property
     def altExtend(self):
-        X = np.arange(min(self.new_alt),max(self.new_alt),intStepSize)
+        X = np.arange(min(self.new_alt), max(self.new_alt), intStepSize)
         return X
 
     @property
     def tempExtend(self):
-        X = np.arange(min(self.altExtend),max(self.altExtend),intStepSize)
+        X = np.arange(min(self.altExtend), max(self.altExtend), intStepSize)
         function = interpolate.interp1d(self.new_alt, self.T_msis)
         return function(X)
