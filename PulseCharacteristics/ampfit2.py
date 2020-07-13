@@ -62,7 +62,7 @@ def fit(pulsarname, timewidth):
     return(sd, popt[2], errorbar)
 
 pname = '1937'
-plottype = 'loglog'
+plottype = 'plot'
 width = []
 width2 = []
 errorbars = []
@@ -82,10 +82,10 @@ for i in timewidth:
 if (plottype == 'plot'):
     plt.plot(timewidth, width, 'o', color = 'b')
     popt, pcov = curve_fit(power, timewidth, width)
-    calc = plt.plot(timewidth, power(timewidth, *popt), color = 'b', label = 'Calculated')
+    calc = plt.plot(timewidth, power(timewidth, *popt), color = 'b', label = 'Standard deviation')
  #   plt.plot(timewidth, width2, 'o', color = 'g')
     popt, pcov = curve_fit(power, timewidth, width2)
-    fit = plt.plot(timewidth, power(timewidth, *popt), color = 'g', label = 'Fitted')
+    fit = plt.plot(timewidth, power(timewidth, *popt), color = 'g', label = 'Gaussian curve fit')
     plt.errorbar(timewidth, width2, yerr = errorbars, fmt = 'o', color = 'g')
     plt.title("Widths of Integrated Intensity Distribution vs Integration Time")
     plt.legend()
@@ -96,16 +96,16 @@ if (plottype == 'loglog'):
     popt, pcov = curve_fit(power, timewidth, width)
     cslope = popt[1]
     cslopeerror = np.absolute(pcov[1][1])**0.5
-    plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'b', label = 'Calculated')
+    plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'b', label = 'Standard deviation')
   #  plt.plot(np.log10(timewidth), np.log10(width2), 'o', color = 'g')
     popt, pcov = curve_fit(power, timewidth, width2)
     fslope = popt[1]
     fslopeerror = np.absolute(pcov[1][1])**0.5
-    plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'g', label = 'Fitted')
+    plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'g', label = 'Gaussian curve fit')
     if (pname == '1937'):
         shift = 2.7
     if (pname == '1821'):
-        shift = 2.9
+        shift = 2.6
     plt.plot(np.log10(timewidth), np.log10(y)-shift, '--', label = 'Constant')
     lowererror = []
     uppererror = []

@@ -95,13 +95,13 @@ def fit(pulsarname, timewidth):
                 if (phase[i] < 0.5):
                     phase[i] = 0
             phase = [x for x in phase if x!= 0]
-            bins = 128
+            binnumber = 128
         if (pulsarname == 'crab'):
             for i in range(len(phase)):
                 if (phase[i] < 0.5):
                     phase[i] = 0
             phase = [x for x in phase if x!= 0]
-            bins = 128
+            binnumber = 128
         yvals, xlims = np.histogram(phase,bins=binnumber) # finds heights and sides of each bin, no plot
         xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
 
