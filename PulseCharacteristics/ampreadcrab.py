@@ -16,19 +16,66 @@ Makes a histogram of the amplitudes of the peaks of the interpulses of pulse pro
 def gauss(x, a, m, s, d):
     return((a*np.exp(-(((x - m)/s)**2)/2))+d)
 
+def gauss2(x, a, m, s, b, c, e, d):
+    return((a*np.exp(-(((x - m)/s)**2)/2))+(b*np.exp(-(((x - c)/e)**2)/2))+d)
+
 def power(x, a, b):
     return(a*(x**(-b)))
 
 def integrationtimes(timewidth):
 
-    fname = '/students/pipeline/heasoft6.27/PSR_B0531+21/1013010121_pipe/cleanfilt.evt'
-    fname2 = '/students/pipeline/heasoft6.27/PSR_B0531+21/1013010127_pipe/cleanfilt.evt'
-    filenames =  [fname, fname2]
+    fnames = pd.read_csv('crabfilenames.txt', header = None)
+    fnames = list(fnames[0])
+    
+    filenames =  [fnames[0]]
    
     for name in filenames:
+        log.info('Starting new int time')
         tab = Table.read(name, hdu=1)
         timetab = Table.read(name, hdu=2)
- 
+        
+        phase = np.array(tab['PULSE_PHASE'])  # uses pulse phases in nth profile
+        yvals, xlims = np.histogram(phase,bins=255) # finds heights and sides of each bin, no plot
+        xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
+        # Use convolution to find the estimate for the location of the peak
+        width=0.05
+        x = xvals
+        template = np.exp(-((x)/width)**2) # template for convolution
+        convo = []
+        for i in range(len(yvals)):
+            convo.append(np.sum(yvals*np.roll(template,i))) # finds convolution
+        m = np.max(convo) # finds peak value of convolution
+        maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
+        popt, pcov = curve_fit(gauss, xvals, yvals, p0 = [max(yvals), maxloc, 0.05, min(yvals)])
+
+        for i in range(len(phase)):
+            if ((phase[i] > popt[1]-popt[2]) & (phase[i] < popt[1]+popt[2])):
+                phase[i] = 0
+        phase = [x for x in phase if x!= 0]
+        yvals2, xlims2 = np.histogram(phase,bins=255) # finds heights and sides of each bin, no plot
+        xvals2 = xlims2[:-1] + np.diff(xlims2)/2 # finds middle of each bin, to be x values of line plot
+        # Use convolution to find the estimate for the location of the peak
+        width=0.05
+        x = xvals2
+        template = np.exp(-((x)/width)**2) # template for convolution
+        convo = []
+        for i in range(len(yvals2)):
+            convo.append(np.sum(yvals2*np.roll(template,i))) # finds convolution
+        m = np.max(convo) # finds peak value of convolution
+        maxloc2 = xvals2[convo.index(m)]  # finds the location of the peak of convolution
+
+        popt, pcov = curve_fit(gauss2, xvals, yvals, p0 = [max(yvals), maxloc, 0.05, max(yvals2), maxloc2, 0.05, min(yvals)])
+        if (popt[0] > popt[3]):
+            peakloc = popt[1]
+            standdev = popt[2]
+            intloc = popt[4]
+            intstanddev = popt[5]
+        if (popt[0] < popt[3]):
+            peakloc = popt[4]
+            standdev = popt[5]
+            intloc = popt[1]
+
+
         # Splits pulse phase data into profiles based on time intervals
         phases = []
         starttimes =[]
@@ -85,7 +132,7 @@ def integrationtimes(timewidth):
             # Makes a line plot from the histogram
             phase = np.array(phases[n])  # uses pulse phases in nth profile
             for i in range(len(phase)):
-                if (phase[i] < 0.5):
+                if ((phase[i] > intloc-(intstanddev*2)) & (phase[i] < intloc+(intstanddev*2))):
                     phase[i] = 0
             phase = [x for x in phase if x!= 0]
             binnumber = 128
@@ -104,19 +151,19 @@ def integrationtimes(timewidth):
 
             # Does a gaussian curve fit to the histogram
             try:
-                popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
+                popt2, pcov2 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
             except RuntimeError:
                 removed.append(n)
                 continue
 
-            intint = (popt[0]*popt[2]*np.sqrt(2*np.pi))/timewidth
-            if (popt[1] >= 0.8):
-                f = open("crabintdata_%s.txt" % timewidth, "a")
+            intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/timewidth
+            f = open("crabintdata_%s.txt" % timewidth, "a")
+            if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
                 print(intint, file=f)
-                f.close()
             else:
                 removed.append(n)
+            f.close()
 
-times = [10]
+times = [10, 30, 60, 90, 120, 150, 180]
 for time in times:
     integrationtimes(time)

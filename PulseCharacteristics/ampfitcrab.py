@@ -24,15 +24,15 @@ def fit(timewidth):
     intint = pd.read_csv('crabintdata_%s.txt' %timewidth, header = None)
     intint = list(intint[0])
  
-    binwidths = list(np.arange(0.4, 1.4, 0.01))
-    width = 0.1
-    plt.hist(intint, bins = binwidths) # makes histogram of amplitudes
+    binwidths = list(np.arange(0, 35, 1))
+    width = 5
+    plt.hist(intint, bins=binwidths) # makes histogram of amplitudes
   
     sd = np.std(intint)  # calculates standard deviation directly
 
     # Makes a line plot from the histogram
     intint = np.array(intint)  # uses pulse phases in nth profile
-    yvals, xlims = np.histogram(intint,bins=binwidths) # finds heights and sides of each bin, no plot
+    yvals, xlims = np.histogram(intint, bins = binwidths) # finds heights and sides of each bin, no plot
     xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
 
     # Use convolution to find the estimate for the location of the peak
