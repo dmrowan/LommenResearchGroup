@@ -20,20 +20,26 @@ tab_ni = Table.read('ni2200300102.mkf', hdu=1)
 timeArray = np.array(tab_ni['TIME'])
 elevArray = np.array(tab_ni['ELV'])
 azArray = np.array(tab_ni['RAM_ANGLE'])
-enArray_low = np.array(tab_ni['FPM_XRAY_PI_0035_0200'])
-enArray_mid = np.array(tab_ni['FPM_XRAY_PI_0800_1200'])
+location = np.array(tab_ni['POSITION'])
+locationX = location[:, 0]
+locationY = location[:, 1]
+locationZ = location[:, 2]
 
 tab_evt = Table.read('cleanfilt.evt', hdu=1)
 eventTime = np.array(tab_evt['TIME'][startTimeIndex:stopTimeIndex])
 enArray = np.array(tab_evt['PI'][startTimeIndex:stopTimeIndex])
 
 
-# interpolate the times.evt to go over the range of elevations.mkf
-f = interpolate.interp1d(timeArray, elevArray, kind='linear')
-elev_evt = f(eventTime)
+def Interpolator(col_mkf):
+    f = interpolate.interp1d(timeArray, col_mkf, kind='linear')
+    return f(eventTime)
 
-g = interpolate.interp1d(timeArray, azArray, kind='linear')
-az_evt = g(eventTime)
+
+elev_evt = Interpolator(elevArray)
+az_evt = Interpolator(azArray)
+Xcoord = Interpolator(locationX)
+Ycoord = Interpolator(locationY)
+Zcoord = Interpolator(locationZ)
 
 # calculate altitude based on elevation angle
 R = 6378
@@ -65,7 +71,7 @@ msisRho = msisSync(density)
 msisT = msisSync(temp)
 
 
-#constants
+# constants
 binSize_all = 1
 k = 1.38064852e-23
 mu = 28
@@ -74,7 +80,19 @@ g = 9.8
 # L = (k*T)/(1000*mu*mp*g)
 z0 = 135
 # p0 = 0.0012*np.exp(-z0/L)
-intStepSize = .05
+
+# Energy Band cutoffs
+# bin size and energy band cutoffs
+binSize_all = 1
+lowEn = [30, 70]
+lowMidEn = [70, 100]
+lowMidEn1 = [70, 80]
+lowMidEn2 = [80, 90]
+lowMidEn3 = [90, 100]
+midEn = [100, 200]
+highEn = [200, 600]
+allEn = [0, 600]
+newEnRange = [80, 100]
 
 
 class EnergyBands:
@@ -84,15 +102,13 @@ class EnergyBands:
         self.bin_size = bin_size
         self.time, self.energies = EnergyBands.enSplit(self)
         self.alt = EnergyBands.altSplit(self)
-        self.rate, self.new_alt, self.binTime = EnergyBands.countRate(self)
+        self.rate, self.new_alt, self.binTime, self.binnedEnergy, self.binnedX, self.binnedY, self.binnedZ = EnergyBands.countRate(self)
         self.T_pre = EnergyBands.msisSplit(self, msisT)
         self.rho_pre = EnergyBands.msisSplit(self, msisRho)
         self.rho_msis, self.T_msis = EnergyBands.countRateSync(self)
         self.perc_trans = EnergyBands.percTrans(self)
-        self.L_msis = EnergyBands.atmHeight(self)
-        # self.sigmaN = EnergyBands.Sigma(self)
-        # self.trans_model = Transmit(self.new_alt, self.sigmaN)
         self.sigmafit_popt, self.sigmafit_pcov = EnergyBands.modelFit_sigma(self)
+        self.trans_model = EnergyBands.Transmit2(self)
         self.modelDensity = EnergyBands.hydroStaticModel(self)
 
     # function that splits the altitudes based on energy bands
@@ -106,13 +122,25 @@ class EnergyBands:
         binCounts = []
         binTime = []
         altitude = []
+        binnedEnergy = []
+        binnedX = []
+        binnedY = []
+        binnedZ = []
         for i in np.arange(min(self.time), max(self.time)+self.bin_size, self.bin_size):
             desind = np.where((self.time >= i) & (self.time < i + self.bin_size))
             if len(self.alt[desind[0]]) != 0:
                 binCounts.append(np.size(desind[0]))
                 altitude.append(np.mean(self.alt[desind[0]]))
                 binTime.append(np.mean(self.time[desind[0]]))
-        return np.array(binCounts), np.array(altitude), np.array(binTime)
+                binnedEnergy.append(np.mean(self.energies[desind[0]]))
+                binnedX.append(np.mean(Xcoord[desind[0]]))
+                binnedY.append(np.mean(Ycoord[desind[0]]))
+                binnedZ.append(np.mean(Zcoord[desind[0]]))
+        return np.array(binCounts), np.array(altitude), np.array(binTime), np.array(binnedEnergy), np.array(binnedX), np.array(binnedY), np.array(binnedZ)
+
+    def msisSplit(self, msis_col):
+        index = np.where((enArray >= self.energy_band[0]) & (enArray < self.energy_band[1]))
+        return msis_col[index[0]]
 
     def countRateSync(self):
         rho = []
@@ -136,82 +164,77 @@ class EnergyBands:
         return (self.rate/avg)*100
 
     # functions to make the atmospheric model
-    # altArray=h in mathematica
-
+    # altArray=h
+    @property
     def atmHeight(self):
         return np.array((k*self.T_msis)/(1000*mu*mp*g))
 
-    def Sigma(self):
-        c = np.float(-3)
-        return (3.31*10**3)*(np.mean(self.energies)/100)**c
-
-    # i is the index in altArray
-    def Z(self, x, i, Alt):
-        return np.sqrt(x**2+(R+Alt[i])**2)-R
-
-    # def Rho(x, i, Alt, p0, l):
-        # return p0*np.exp(-(Z(x, i, Alt)-z0)/l)
-
-    # numerical integration
+    # Transmit for fitting sigma
     def Transmit(self, sigma):
-        elem = 500
         tau = []
-        dist = 2*np.sqrt((R+H)**2-(R+self.new_alt)**2)
+        halfDist = np.sqrt((R+H)**2-(R+self.new_alt)**2)
         for hi in range(len(self.new_alt)):
-            f = 0
-            x2 = (dist[hi]*10**5)/2
-            X = np.linspace(0, x2, elem)
-            for n in X:
-                dx = x2/elem
-                f += self.rho_msis[hi]*dx  # this used to refer to Rho()
-            tau.append(-2*sigma*f)
+            g = 0
+            intStepSize = 0.05e5  # 0.05km
+            upperBound1 = halfDist[hi]*10**5
+            upperBound2 = 1000e5  # 1000km
+            X1 = np.arange(0, upperBound1, intStepSize)
+            X2 = np.arange(0, upperBound2, intStepSize)
+            for n in X1:
+                g += self.rho_msis[hi]*intStepSize
+
+            for n in X2:
+                g += self.rho_msis[hi]*intStepSize
+
+            tau.append(sigma*g)
         tau = np.array(tau)
-        trans = 100*np.exp(tau)
+        trans = 100*np.exp(-tau)
+
         return np.array(trans)
 
-    def msisSplit(self, msis_col):
-        index = np.where((enArray >= self.energy_band[0]) & (enArray < self.energy_band[1]))
-        return msis_col[index[0]]
+    # using the equation found from fitting sigma originally (msis_edge.ipynb)
+    @property
+    def sigmaTrend(self):
+        c = np.float(-3)
+        return (135.5)*(self.binnedEnergy)**c + 87.6   # 3.31e3E + const
+
+    def Transmit2(self):
+        tau = []
+        halfDist = np.sqrt((R+H)**2-(R+self.new_alt)**2)
+        for hi in range(len(self.new_alt)):
+            g = 0
+            intStepSize = 0.05e5  # 0.05 km
+            upperBound1 = halfDist[hi]*10**5
+            upperBound2 = 1000e5  # 1000km
+            X1 = np.arange(0, upperBound1, intStepSize)
+            X2 = np.arange(0, upperBound2, intStepSize)
+            for n in X1:
+                g += self.rho_msis[hi]*intStepSize
+
+            for n in X2:
+                g += self.rho_msis[hi]*intStepSize
+
+            tau.append(self.sigmaTrend[hi]*g)
+        tau = np.array(tau)
+        trans = 100*np.exp(-tau)
+
+        return np.array(trans)
 
     def modelFit_sigma(self):
         popt, pcov = curve_fit(EnergyBands.Transmit, self, self.perc_trans)
         return popt, pcov
 
-    # calculating fit uncertrainty based on parameter uncertainties at the point with x=X -- this will need to change...
-    def paramUnc(self, Popt, Pcov, X):
-        Popt.tolist()
-        fVal = SeventhOr(startTime + X, *Popt)
-        frac_unc_params = []
-        added_frac_unc = 0
-
-        for paramIn in range(len(Popt)):
-            Popt[paramIn] = Popt[paramIn] + np.sqrt(abs(Pcov[paramIn][paramIn]))
-            fNew = SeventhOr(startTime + X, *Popt)
-            frac_unc = abs(fNew-fVal)/fVal
-            frac_unc_params.append((frac_unc)**2)
-
-        for i in range(len(frac_unc_params)):
-            added_frac_unc += frac_unc_params[i]
-
-        return np.sqrt(added_frac_unc)
-
     def hydroStaticModel(self):
         numInt = []
         A = []
         T = []
-        Rho_zdz = []
         Rho_z = []
         f = 0
-        for alt in np.arange(0,len(self.altExtend),1):
+        intStepSize = 0.05  # km
+        for alt in np.arange(0, len(self.altExtend), 1):
             i = alt - 1
             A.append((self.altExtend[i]**2)*(k/(g*mu*mp)))
             T.append(self.tempExtend[i])
-
-        T.insert(len(T),T.pop(0))
-
-        #A.reverse()
-        #T_z.reverse()
-        #T_zdz.reverse()
 
         upperIndex = len(self.altExtend) - 1
         index_zdz = len(self.altExtend) - 1
@@ -258,11 +281,31 @@ class EnergyBands:
 
     @property
     def altExtend(self):
+        intStepSize = 0.05
         X = np.arange(min(self.new_alt), max(self.new_alt), intStepSize)
         return X
 
     @property
     def tempExtend(self):
+        intStepSize = 0.05
         X = np.arange(min(self.altExtend), max(self.altExtend), intStepSize)
         function = interpolate.interp1d(self.new_alt, self.T_msis)
         return function(X)
+
+    # # calculating fit uncertrainty based on parameter uncertainties at the point with x=X -- this will need to change...
+    # def paramUnc(self, Popt, Pcov, X):
+    #     Popt.tolist()
+    #     fVal = SeventhOr(startTime + X, *Popt)
+    #     frac_unc_params = []
+    #     added_frac_unc = 0
+    #
+    #     for paramIn in range(len(Popt)):
+    #         Popt[paramIn] = Popt[paramIn] + np.sqrt(abs(Pcov[paramIn][paramIn]))
+    #         fNew = SeventhOr(startTime + X, *Popt)
+    #         frac_unc = abs(fNew-fVal)/fVal
+    #         frac_unc_params.append((frac_unc)**2)
+    #
+    #     for i in range(len(frac_unc_params)):
+    #         added_frac_unc += frac_unc_params[i]
+    #
+    #     return np.sqrt(added_frac_unc)
