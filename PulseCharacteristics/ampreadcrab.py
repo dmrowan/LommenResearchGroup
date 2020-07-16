@@ -131,11 +131,13 @@ def integrationtimes(timewidth):
         for n in range(number):
             # Makes a line plot from the histogram
             phase = np.array(phases[n])  # uses pulse phases in nth profile
+            a = intloc-(intstanddev*2)
+            b = intloc+(intstanddev*2)
             for i in range(len(phase)):
-                if ((phase[i] > intloc-(intstanddev*2)) & (phase[i] < intloc+(intstanddev*2))):
+                if ((phase[i] > a) & (phase[i] < b)):
                     phase[i] = 0
             phase = [x for x in phase if x!= 0]
-            binnumber = 128
+            binnumber = int(200-(200*(b-a)))
             yvals, xlims = np.histogram(phase,bins=binnumber) # finds heights and sides of each bin, no plot
             xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
 

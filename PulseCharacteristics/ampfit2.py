@@ -24,10 +24,10 @@ def fit(pulsarname, timewidth):
     if (pulsarname == '1937'):
         intint = pd.read_csv('1937intdata_%s.txt' %timewidth, header = None)
     if (pulsarname == '1821'):
-        intint = pd.read_csv('1821intdata2_%s.txt' %timewidth, header = None)
+        intint = pd.read_csv('1821intdata_%s.txt' %timewidth, header = None)
     intint = list(intint[0])
  
-    binwidths = list(np.arange(0.000025, 0.00065, 0.00002))
+    binwidths = list(np.arange(0.000025, 0.00065, 0.00001))
     width = 0.00005
     plt.hist(intint, bins = binwidths) # makes histogram of amplitudes
   
@@ -105,7 +105,7 @@ if (plottype == 'loglog'):
     if (pname == '1937'):
         shift = 2.7
     if (pname == '1821'):
-        shift = 2.6
+        shift = 2.3
     plt.plot(np.log10(timewidth), np.log10(y)-shift, '--', label = 'Constant')
     lowererror = []
     uppererror = []
