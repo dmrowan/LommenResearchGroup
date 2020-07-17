@@ -27,7 +27,7 @@ def integrationtimes(timewidth):
     fnames = pd.read_csv('crabfilenames.txt', header = None)
     fnames = list(fnames[0])
     
-    filenames =  [fnames[1]]
+    filenames =  [fnames[2]]
    
     for name in filenames:
         log.info('Starting new int time')
@@ -48,7 +48,6 @@ def integrationtimes(timewidth):
         maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
         popt, pcov = curve_fit(gauss, xvals, yvals, p0 = [max(yvals), maxloc, 0.05, min(yvals)])
 
-     #   plt.hist(phase, bins=255)
  
         for i in range(len(phase)):
             if ((phase[i] > popt[1]-popt[2]) & (phase[i] < popt[1]+popt[2])):
@@ -77,9 +76,6 @@ def integrationtimes(timewidth):
             standdev = popt[5]
             intloc = popt[1]
             intstanddev = popt[2]
-    #    print(peakloc, standdev, intloc, intstanddev)        
-    #    plt.plot(xvals, gauss2(xvals, *popt))
-    #    plt.show()    
  
         # Splits pulse phase data into profiles based on time intervals
         phases = []
@@ -138,16 +134,9 @@ def integrationtimes(timewidth):
             phase = np.array(phases[n])  # uses pulse phases in nth profile
             a = intloc-(intstanddev*2)
             b = intloc+(intstanddev*2)
-            if (a<0):
-                for i in range(len(phase)):
-                    if ((phase[i] >= 0) & (phase[i] < b)):
-                        phase[i] = 0
-                    if (phase[i] > (1+a)) & (phase[i] <=1):
-                        phase[i] = 0
-            if (a>=0):
-                for i in range(len(phase)):
-                    if ((phase[i] > a) & (phase[i] < b)):
-                        phase[i] = 0
+            for i in range(len(phase)):
+                if ((phase[i] > a) & (phase[i] < b)):
+                    phase[i] = 0
             phase = [x for x in phase if x!= 0]
             binnumber = int(200-(200*(b-a)))
             yvals, xlims = np.histogram(phase,bins=binnumber) # finds heights and sides of each bin, no plot
@@ -166,16 +155,12 @@ def integrationtimes(timewidth):
             # Does a gaussian curve fit to the histogram
             try:
                 popt2, pcov2 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)]) 
-           #     plt.hist(phases[n], bins=200)
-           #     plt.hist(phase, bins=binnumber)
-           #     plt.plot(xvals, gauss(xvals, *popt2))
-           #     plt.show()
             except RuntimeError:
                 removed.append(n)
                 continue
 
             intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/timewidth
-            f = open("crabintdata_%s.txt" % timewidth, "a")
+            f = open("crabintdata2_%s.txt" % timewidth, "a")
             if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
                 print(intint, file=f)
             else:

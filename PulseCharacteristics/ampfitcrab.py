@@ -24,10 +24,9 @@ def fit(timewidth):
     intint = pd.read_csv('crabintdata_%s.txt' %timewidth, header = None)
     intint = list(intint[0])
  
-    binwidths = list(np.arange(0, 35, 1))
-    width = 5
+    binwidths = list(np.arange(0.5, 2, 0.01))
+    width = 0.5
     plt.hist(intint, bins=binwidths) # makes histogram of amplitudes
-  
     sd = np.std(intint)  # calculates standard deviation directly
 
     # Makes a line plot from the histogram
@@ -94,7 +93,7 @@ if (plottype == 'loglog'):
     fslope = popt[1]
     fslopeerror = np.absolute(pcov[1][1])**0.5
     plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'g', label = 'Gaussian curve fit')
-    shift = 0.3
+    shift = 0
     plt.plot(np.log10(timewidth), np.log10(y)-shift, '--', label = 'Constant')
     lowererror = []
     uppererror = []
