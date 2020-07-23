@@ -135,9 +135,18 @@ def integrationtimes(timewidth):
                 if ((phase[i] > a) & (phase[i] < b)):
                     phase[i] = 0
             phase = [x for x in phase if x!= 0]
-            binnumber = int(200-(200*(b-a)))
+           # binnumber = int(200-(200*(b-a)))
+            binnumber = 200
             yvals, xlims = np.histogram(phase,bins=binnumber) # finds heights and sides of each bin, no plot
             xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
+            for i in range(len(xvals)):
+                if ((xvals[i]>=a) & (xvals[i]<=b)):
+                    xvals[i] = 999
+                    yvals[i] = 999
+            xvals = [x for x in xvals if x!= 999]
+            yvals = [x for x in yvals if x!= 999]
+            xvals = np.array(xvals)
+            yvals = np.array(yvals)
             # Use convolution to find the estimate for the location of the peak
             width=0.05
             x = xvals
@@ -150,13 +159,13 @@ def integrationtimes(timewidth):
 
             # Does a gaussian curve fit to the histogram
             try:
-                popt3, pcov3 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)]) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
+                popt3, pcov3 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) 
             except RuntimeError:
                 removed.append(n)
                 continue
 
             intint = (popt3[0]*popt3[2]*np.sqrt(2*np.pi))/timewidth
-            f = open("1821intdata2_%s.txt" % timewidth, "a")
+            f = open("1821intdata_%s.txt" % timewidth, "a")
             if ((popt3[1] >= peakloc-(standdev*4)) & (popt3[1] <= peakloc+(standdev*4))):
                 print(intint, file=f)
             else:
@@ -165,6 +174,6 @@ def integrationtimes(timewidth):
         print(timewidth, len(phases), len(removed))
 
 for time in range(1800, 9000, 900):
-   # if (time == 1800):
-   #     time = 2100
+    if (time == 1800):
+        time = 2100
     integrationtimes(time)

@@ -21,7 +21,8 @@ def power(x, a, b):
 
 def integrationtimes(timewidth):
 
-    fname = 'PSR_B1821-24_combined.evt'
+  #  fname = 'PSR_B1821-24_combined.evt'
+    fname = '1937_events.evt'
     filenames =  [fname]
    
     for name in filenames:
@@ -84,13 +85,14 @@ def integrationtimes(timewidth):
         for n in range(number):
             # Makes a line plot from the histogram
             phase = np.array(phases[n])  # uses pulse phases in nth profile
-            a = 0.2385359
-            b = 0.3208263
-            for i in range(len(phase)):
-                if ((phase[i] > a) & (phase[i] < b)):
-                    phase[i] = 0
-            phase = [x for x in phase if x!= 0]
-            binnumber = int(200-(200*(b-a)))
+           # a = 0.2385359
+           # b = 0.3208263
+           # for i in range(len(phase)):
+            #    if ((phase[i] > a) & (phase[i] < b)):
+             #       phase[i] = 0
+           # phase = [x for x in phase if x!= 0]
+           # binnumber = int(200-(200*(b-a)))
+            binnumber =255
             yvals, xlims = np.histogram(phase,bins=binnumber) # finds heights and sides of each bin, no plot
             xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
             # Use convolution to find the estimate for the location of the peak
@@ -105,7 +107,7 @@ def integrationtimes(timewidth):
 
             # Does a gaussian curve fit to the histogram
             try:
-                popt3, pcov3 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)]) 
+                popt3, pcov3 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) 
             #    plt.hist(phases[n], bins = 200)
             #    plt.hist(phase, bins=binnumber)
             #    plt.plot(xvals, gauss(xvals, *popt3))
@@ -115,8 +117,8 @@ def integrationtimes(timewidth):
                 continue
 
             intint = (popt3[0]*popt3[2]*np.sqrt(2*np.pi))/timewidth
-            f = open("1821intdata_%s.txt" % timewidth, "a")
-            if ((popt3[1] >= 0.681392) & (popt3[1] <= 0.77576)):
+            f = open("1937intdata_%s.txt" % timewidth, "a")
+            if ((popt3[1] <= 0.2)):
                 print(intint, file=f)
             else:
                 removed.append(n)
@@ -124,6 +126,6 @@ def integrationtimes(timewidth):
         print(timewidth, len(phases), len(removed))
 
 for time in range(1800, 9000, 900):
-   # if (time == 1800):
-   #     time = 2100
+    if (time == 1800):
+        time = 2100
     integrationtimes(time)

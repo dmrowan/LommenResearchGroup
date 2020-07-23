@@ -26,8 +26,11 @@ def fit(pulsarname, timewidth):
     if (pulsarname == '1821'):
         intint = pd.read_csv('1821intdata_%s.txt' %timewidth, header = None)
     intint = list(intint[0])
- 
-    binwidths = list(np.arange(0.000025, 0.00065, 0.00001))
+
+    if (pulsarname == '1821'): 
+        binwidths = list(np.arange(0, 0.0004, 0.000005))
+    if (pulsarname == '1937'):
+        binwidths = list(np.arange(0, 0.0002, 0.000005))
     width = 0.00005
     plt.hist(intint, bins = binwidths) # makes histogram of amplitudes
   
@@ -62,15 +65,14 @@ def fit(pulsarname, timewidth):
     return(sd, popt[2], errorbar)
 
 pname = '1821'
-plottype = 'loglog'
+plottype = 'plot'
 width = []
 width2 = []
 errorbars = []
 timewidth=[]
 for twidth in range(1800, 9000, 900): 
-    if (pname == '1937'):
-        if (twidth == 1800):
-            twidth = 2100
+    if (twidth == 1800):
+        twidth = 2100
     w, w2, e = fit(pname, twidth)
     width.append(w)
     width2.append(w2)
@@ -103,9 +105,9 @@ if (plottype == 'loglog'):
     fslopeerror = np.absolute(pcov[1][1])**0.5
     plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'g', label = 'Gaussian curve fit')
     if (pname == '1937'):
-        shift = 2.7
+        shift = 2.9
     if (pname == '1821'):
-        shift = 2.3
+        shift = 2.6
     plt.plot(np.log10(timewidth), np.log10(y)-shift, '--', label = 'Constant')
     lowererror = []
     uppererror = []

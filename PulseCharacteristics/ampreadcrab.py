@@ -27,7 +27,7 @@ def integrationtimes(timewidth):
     fnames = pd.read_csv('crabfilenames.txt', header = None)
     fnames = list(fnames[0])
     
-    filenames =  [fnames[1]]
+    filenames =  [fnames[2]]
    
     for name in filenames:
         log.info('Starting new int time')
@@ -88,7 +88,8 @@ def integrationtimes(timewidth):
         totaltime = 0
         starttime = timetab['START'][0]
         starttimes.append(starttime)
-        for i in range(len(timetab)):
+        for i in range(20):
+            print(i)
             if (i==(len(timetab)-1)): break
             interval = timetab['STOP'][i] - starttime
             if (timewidth < interval):
@@ -121,6 +122,7 @@ def integrationtimes(timewidth):
                 starttime = timetab['START'][i+1]
 
         for i in range(len(starttimes)-1):
+            print('hello', i)
             rows = np.where((tab['TIME'] >= starttimes[i]) & (tab['TIME'] <= endtimes[i]))
             phase = tab['PULSE_PHASE'][rows[0]]
             phases.append(list(phase))
@@ -144,14 +146,23 @@ def integrationtimes(timewidth):
                         phase[i] = 0
                     if (phase[i] > (1+a)) & (phase[i] <=1):
                         phase[i] = 0
+                binnumber = int(200-(200*(b-a)))
             if (a>=0):
                 for i in range(len(phase)):
                     if ((phase[i] > a) & (phase[i] < b)):
                         phase[i] = 0
+                binnumber = 200
             phase = [x for x in phase if x!= 0]
-            binnumber = int(200-(200*(b-a)))
             yvals, xlims = np.histogram(phase,bins=binnumber) # finds heights and sides of each bin, no plot
             xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
+            for i in range(len(xvals)):
+                if ((xvals[i]>=a) & (xvals[i]<=b)):
+                    xvals[i] = 999
+                    yvals[i] = 999
+            xvals = [x for x in xvals if x!= 999]
+            yvals = [x for x in yvals if x!= 999]
+            xvals = np.array(xvals)
+            yvals = np.array(yvals)
 
             # Use convolution to find the estimate for the location of the peak
             width=0.05
@@ -166,16 +177,19 @@ def integrationtimes(timewidth):
             # Does a gaussian curve fit to the histogram
             try:
                 popt2, pcov2 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)]) 
-           #     plt.hist(phases[n], bins=200)
-           #     plt.hist(phase, bins=binnumber)
-           #     plt.plot(xvals, gauss(xvals, *popt2))
-           #     plt.show()
+                plt.hist(phases[n], bins=200)
+               # plt.hist(phase, bins=binnumber)
+                yval, xlims = np.histogram(phase,bins=binnumber)
+                xval = xlims[:-1] + np.diff(xlims)/2 
+                plt.plot(xval, yval, '.') 
+                plt.plot(xvals, gauss(xvals, *popt2))
+                plt.show()
             except RuntimeError:
                 removed.append(n)
                 continue
 
             intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/timewidth
-            f = open("crabintdata_%s.txt" % timewidth, "a")
+            f = open("crabintdata2_%s.txt" % timewidth, "a")
             if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
                 print(intint, file=f)
             else:
