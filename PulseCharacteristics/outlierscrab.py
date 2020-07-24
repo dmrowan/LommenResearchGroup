@@ -27,7 +27,7 @@ def integrationtimes(timewidth):
     fnames = pd.read_csv('crabfilenames.txt', header = None)
     fnames = list(fnames[0])
     
-    filenames =  [fnames[2]]
+    filenames =  [fnames[1]]
    
     for name in filenames:
         log.info('Starting new int time')
@@ -82,6 +82,7 @@ def integrationtimes(timewidth):
     #    plt.show()    
  
         # Splits pulse phase data into profiles based on time intervals
+        
         phases = []
         starttimes =[]
         endtimes = []
@@ -129,10 +130,17 @@ def integrationtimes(timewidth):
         phases = [x for x in phases if x != []]
         sections = len(phases)
         emptyremoved = totalphases - sections
-
+     #   f = open("crabphases_%s.txt" % timewidth, "a")
+     #   print(phases, file=f)
+     #   f.close()
+       
         # Makes a list of amplitude of peak in each profile
         removed = []
         number = len(phases)
+        intints = []
+        parameters = []
+        xvalues = []
+        phases2 = []
         for n in range(number):
             # Makes a line plot from the histogram
             phase = np.array(phases[n])  # uses pulse phases in nth profile
@@ -200,14 +208,60 @@ def integrationtimes(timewidth):
                 continue
 
             intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/timewidth
-            f = open("crabintdata3_%s.txt" % timewidth, "a")
             if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
-                print(intint, file=f)
+                intints.append(intint)
+                parameters.append(popt2)
+                xvalues.append(xvals)
+                phases2.append(phases[n])
             else:
                 removed.append(n)
-            f.close()
-        print(timewidth, len(phases), len(removed))
+        
+        binwidths = list(np.arange(0, 2.5, 0.025))
+        width = 0.5
+        yvals, xlims = np.histogram(intints,bins=binwidths)
+        xvals = xlims[:-1] + np.diff(xlims)/2
+        x = xvals
+        template = (np.exp(-((x/width)**2)/2))
+        convo = []
+        for i in range(len(yvals)):
+            convo.append(np.sum(yvals*np.roll(template,i))) 
+        m = np.max(convo) 
+        maxloc = xvals[convo.index(m)] 
+        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, width, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
+        outliers = []
+        outlierplots = []
+        outlierxvals = []
+        outlierphases= []
+        for i in range(len(intints)):
+            if (intints[i] < popt[1] - 3*popt[2]):
+                outliers.append(intints[i])
+                outlierplots.append(parameters[i])
+                outlierxvals.append(xvalues[i])
+                outlierphases.append(phases2[i])
+            if (intints[i] > popt[1] + 3*popt[2]):
+                outliers.append(intints[i])
+                outlierplots.append(parameters[i])
+                outlierxvals.append(xvalues[i])
+                outlierphases.append(phases2[i])
+        print("The number of outliers is", len(outliers))
+        row = int(input("How many rows of subplots?"))
+        col = int(input("How many columns of subplots?"))
+        fig, ax = plt.subplots(row, col, sharex = 'col')
+        i = 0
+        j = 0
+        print(outliers)
+        for n in range(len(outlierplots)):
+            if (j > (col-1)):
+                j = 0
+                i += 1
+            ax[i, j].hist(outlierphases[n], bins = 200)
+            ax[i, j].plot(outlierxvals[n], gauss(outlierxvals[n], *outlierplots[n]))
+            j += 1
 
-times = [10, 30, 60, 90, 120, 150, 180]
+            
+        print(timewidth, len(phases), len(removed))
+        plt.show()
+
+times = [10]
 for time in times:
     integrationtimes(time)
