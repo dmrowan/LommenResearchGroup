@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import pandas as pd
 import math
+import csv
 
 desc="""
-Makes a histogram of the amplitudes of the peaks of the interpulses of pulse profiles based on time interval
+Plots outliers for the crab
 """
 
 def gauss(x, a, m, s, d):
@@ -19,21 +20,37 @@ def gauss(x, a, m, s, d):
 def gauss2(x, a, m, s, b, c, e, d):
     return((a*np.exp(-(((x - m)/s)**2)/2))+(b*np.exp(-(((x - c)/e)**2)/2))+d)
 
-def power(x, a, b):
-    return(a*(x**(-b)))
-
-def integrationtimes(timewidth):
+def outliers(timewidth):
+    intint = pd.read_csv('crabintdata_%s.txt' %timewidth, header = None)
+    intint = list(intint[0])
+    upper = []
+    lower = []
+    for i in intint:
+         if (i > 1.5):
+              upper.append(i)
+         if (i < 0.8):
+              lower.append(i)
+    print('The total number of data points is', len(intint))
+    print('The number of outliers above integrated intensity of 1.5 is', len(upper))
+    print('The number of outliers below integrated intensity of 0.8 is', len(lower))
 
     fnames = pd.read_csv('crabfilenames.txt', header = None)
     fnames = list(fnames[0])
-    
-    filenames =  [fnames[5]]
-   
+
+    filenames =  [fnames[2]]
+
+    upper = []
+    upperplot = []
+    lower = [] 
+    lowerplot = []    
+    upperintintensity = []
+    lowerintintensity = []
+
     for name in filenames:
         log.info('Starting new int time')
         tab = Table.read(name, hdu=1)
         timetab = Table.read(name, hdu=2)
-        
+
         phase = np.array(tab['PULSE_PHASE'])  # uses pulse phases in nth profile
         yvals, xlims = np.histogram(phase,bins=255) # finds heights and sides of each bin, no plot
         xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
@@ -49,7 +66,7 @@ def integrationtimes(timewidth):
         popt, pcov = curve_fit(gauss, xvals, yvals, p0 = [max(yvals), maxloc, 0.05, min(yvals)])
 
      #   plt.hist(phase, bins=255)
- 
+
         for i in range(len(phase)):
             if ((phase[i] > popt[1]-popt[2]) & (phase[i] < popt[1]+popt[2])):
                 phase[i] = 0
@@ -77,10 +94,7 @@ def integrationtimes(timewidth):
             standdev = popt[5]
             intloc = popt[1]
             intstanddev = popt[2]
-    #    print(peakloc, standdev, intloc, intstanddev)        
-    #    plt.plot(xvals, gauss2(xvals, *popt))
-    #    plt.show()    
- 
+       
         # Splits pulse phase data into profiles based on time intervals
         phases = []
         starttimes =[]
@@ -119,7 +133,7 @@ def integrationtimes(timewidth):
                     starttimes.append(starttime)
                     totaltime = diff
                 starttime = timetab['START'][i+1]
-
+            
         for i in range(len(starttimes)-1):
             rows = np.where((tab['TIME'] >= starttimes[i]) & (tab['TIME'] <= endtimes[i]))
             phase = tab['PULSE_PHASE'][rows[0]]
@@ -170,7 +184,7 @@ def integrationtimes(timewidth):
             yvals = [x for x in yvals if x!= 999]
             xvals = np.array(xvals)
             yvals = np.array(yvals)
-
+            
             # Use convolution to find the estimate for the location of the peak
             width=0.05
             x = xvals
@@ -187,27 +201,63 @@ def integrationtimes(timewidth):
 
             # Does a gaussian curve fit to the histogram
             try:
-                popt2, pcov2 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) 
+                popt2, pcov2 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
                # plt.hist(phases[n], bins=200)
-               # plt.hist(phase, bins=binnumber)
-               # yval, xlims = np.histogram(phase,bins=binnumber)
-               # xval = xlims[:-1] + np.diff(xlims)/2 
-               # plt.plot(xval, yval, '.') 
-               # plt.plot(xvals, gauss(xvals, *popt2))
-               # plt.show()
             except RuntimeError:
                 removed.append(n)
                 continue
 
             intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/timewidth
-            f = open("crabintdata_%s.txt" % timewidth, "a")
             if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
-                print(intint, file=f)
+                if (intint > 1.5):
+                    with open('upperoutliers_%s.csv'%timewidth, 'a+', newline= '') as file:
+                       output = csv.writer(file, delimiter='\t')
+                       output.writerow([intint, popt2, phases[n]])
+                    
+                if (intint < 0.8):
+                    with open('loweroutliers_%s.csv'%timewidth, 'a+', newline='') as file:
+                       output = csv.writer(file, delimiter='\t')
+                       output.writerow([intint, popt2, phases[n]])
             else:
                 removed.append(n)
-            f.close()
-        print(timewidth, len(phases), len(removed))
+    #plot subplots of all outliers
+#    row = 5
+#    col = 5
 
-times = [10, 30, 60, 90, 120, 150, 180]
-for time in times:
-    integrationtimes(time)
+#    log.info("Plot all curve fits")
+#    fig, ax = plt.subplots(row, col, sharex = 'col')
+#    i = 0
+#    j = 0
+#    for n in range(len(upper)):
+#        if (j > (col-1)):
+#            j = 0
+#            i += 1
+#        ax[i, j].hist(np.array(upper[n]), bins = 200)
+#        #ax[i, j].plot(upperplot[n], gauss(upperplot[n], *upperplot[n]))
+#        ax.legend(upperintintensity[n], loc='upper right')
+#        j += 1
+#
+#    fig.text(0.5, 0.04, 'Pulse Phase', ha='center')
+#    fig.text(0.04, 0.5, 'Counts', va='center', rotation='vertical')
+    
+#    plt.savefig('upperoutliers_%s.png' % timewidth)
+   # plt.clf()
+#
+#    for n in range(len(lower)):
+#        if (j > (col-1)):
+#            j = 0
+#            i += 1
+#        ax[i, j].hist(np.array(lower[n]), bins = 200)
+#        #ax[i, j].plot(upperplot[n], gauss(upperplot[n], *upperplot[n]))
+#        ax.legend(lowerintintensity[n], loc='upper right')
+#        j += 1
+
+#    fig.text(0.5, 0.04, 'Pulse Phase', ha='center')
+#    fig.text(0.04, 0.5, 'Counts', va='center', rotation='vertical')
+ 
+#    plt.savefig('loweroutliers_%s.png' % timewidth)
+#    plt.clf()
+ 
+time = 10
+outliers(time)
+
