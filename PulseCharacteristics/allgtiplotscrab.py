@@ -14,7 +14,9 @@ Reads in table and plots pulse profiles (histograms) based on time in each profi
 def main():
 
     # Reads in data and makes a table
-    fname = '/students/pipeline/heasoft6.27/PSR_B0531+21/1013010121_pipe/cleanfilt.evt'  
+    fnames = pd.read_csv('crabfilenames.txt', header = None)
+    fnames = list(fnames[0])
+    fname =  fnames[5]
     log.info('Read in table')
     tab = Table.read(fname, hdu=1)
     timetab = Table.read(fname, hdu=2)

@@ -21,7 +21,7 @@ def gauss2(x, a, m, s, b, c, e, d):
     return((a*np.exp(-(((x - m)/s)**2)/2))+(b*np.exp(-(((x - c)/e)**2)/2))+d)
 
 def outliers(timewidth):
-    intint = pd.read_csv('crabintdata_%s.txt' %timewidth, header = None)
+    intint = pd.read_csv('crabintdata_%s.txt'%timewidth, header = None)
     intint = list(intint[0])
     upper = []
     lower = []
@@ -37,7 +37,7 @@ def outliers(timewidth):
     fnames = pd.read_csv('crabfilenames.txt', header = None)
     fnames = list(fnames[0])
 
-    filenames =  [fnames[2]]
+    filenames =  [fnames[0], fnames[1], fnames[2], fnames[3], fnames[4], fnames[5]]
 
     upper = []
     upperplot = []
@@ -102,7 +102,7 @@ def outliers(timewidth):
         totaltime = 0
         starttime = timetab['START'][0]
         starttimes.append(starttime)
-        for i in range(len(timetab)):
+        for i in range(4):
             if (i==(len(timetab)-1)): break
             interval = timetab['STOP'][i] - starttime
             if (timewidth < interval):
@@ -209,55 +209,41 @@ def outliers(timewidth):
 
             intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/timewidth
             if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
-                if (intint > 1.5):
-                    with open('upperoutliers_%s.csv'%timewidth, 'a+', newline= '') as file:
+                if ((intint < 1.5) & (intint >0.8)):
+                    with open('centerintint_%s.csv'%timewidth, 'a+', newline= '') as file:
                        output = csv.writer(file, delimiter='\t')
-                       output.writerow([intint, popt2, phases[n]])
+                       output.writerow([intint])
+                    with open('centercurve_%s.csv'%timewidth, 'a+', newline= '') as file:
+                       output = csv.writer(file, delimiter='\t')
+                       output.writerow(list(popt2))
+                    with open('centerhist_%s.csv'%timewidth, 'a+', newline= '') as file:
+                       output = csv.writer(file, delimiter='\t')
+                       output.writerow((phases[n]))
+                """ if (intint > 1.5):
+                    with open('upperintint_%s.csv'%timewidth, 'a+', newline= '') as file:
+                       output = csv.writer(file, delimiter='\t')
+                       output.writerow([intint])
+                    with open('uppercurve_%s.csv'%timewidth, 'a+', newline= '') as file:
+                       output = csv.writer(file, delimiter='\t')
+                       output.writerow(list(popt2))
+                    with open('upperhist_%s.csv'%timewidth, 'a+', newline= '') as file:
+                       output = csv.writer(file, delimiter='\t')
+                       output.writerow((phases[n]))
                     
                 if (intint < 0.8):
-                    with open('loweroutliers_%s.csv'%timewidth, 'a+', newline='') as file:
+                    with open('lowerintint_%s.csv'%timewidth, 'a+', newline= '') as file:
                        output = csv.writer(file, delimiter='\t')
-                       output.writerow([intint, popt2, phases[n]])
+                       output.writerow([intint])
+                    with open('lowercurve_%s.csv'%timewidth, 'a+', newline= '') as file:
+                       output = csv.writer(file, delimiter='\t')
+                       output.writerow(list(popt2))
+                    with open('lowerhist_%s.csv'%timewidth, 'a+', newline= '') as file:
+                       output = csv.writer(file, delimiter='\t')
+                       output.writerow((phases[n])) """
             else:
                 removed.append(n)
-    #plot subplots of all outliers
-#    row = 5
-#    col = 5
-
-#    log.info("Plot all curve fits")
-#    fig, ax = plt.subplots(row, col, sharex = 'col')
-#    i = 0
-#    j = 0
-#    for n in range(len(upper)):
-#        if (j > (col-1)):
-#            j = 0
-#            i += 1
-#        ax[i, j].hist(np.array(upper[n]), bins = 200)
-#        #ax[i, j].plot(upperplot[n], gauss(upperplot[n], *upperplot[n]))
-#        ax.legend(upperintintensity[n], loc='upper right')
-#        j += 1
-#
-#    fig.text(0.5, 0.04, 'Pulse Phase', ha='center')
-#    fig.text(0.04, 0.5, 'Counts', va='center', rotation='vertical')
-    
-#    plt.savefig('upperoutliers_%s.png' % timewidth)
-   # plt.clf()
-#
-#    for n in range(len(lower)):
-#        if (j > (col-1)):
-#            j = 0
-#            i += 1
-#        ax[i, j].hist(np.array(lower[n]), bins = 200)
-#        #ax[i, j].plot(upperplot[n], gauss(upperplot[n], *upperplot[n]))
-#        ax.legend(lowerintintensity[n], loc='upper right')
-#        j += 1
-
-#    fig.text(0.5, 0.04, 'Pulse Phase', ha='center')
-#    fig.text(0.04, 0.5, 'Counts', va='center', rotation='vertical')
  
-#    plt.savefig('loweroutliers_%s.png' % timewidth)
-#    plt.clf()
- 
-time = 10
-outliers(time)
+time = [10, 30, 60, 90, 120]
+for t in time:
+    outliers(t)
 
