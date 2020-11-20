@@ -54,7 +54,7 @@ def fit(timewidth):
     plt.clf()
     return(sd, popt[2], errorbar)
 
-plottype = 'loglog'
+plottype = 'plot'
 width = []
 width2 = []
 errorbars = []

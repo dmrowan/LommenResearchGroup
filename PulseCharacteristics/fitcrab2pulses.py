@@ -134,6 +134,7 @@ def integrationtimes(timewidth):
         # Makes a list of amplitude of peak in each profile
         removed = []
         number = len(phases)
+       # number = 16
         for n in range(number):
             # Makes a line plot from the histogram
             phase = np.array(phases[n])  # uses pulse phases in nth profile
@@ -205,20 +206,24 @@ def integrationtimes(timewidth):
                 removed.append(n)
                 continue
 
-          #  print(popt2)
             mainintint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/timewidth
             int3 = (popt2[3]*popt2[5]*np.sqrt(2*np.pi))/timewidth
             sumintint = mainintint + int3
-          #  print(mainintint, int3, sumintint)
-          #  plt.show()
             if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
-                with open('crabintdata2pulses_%s.csv'%timewidth, 'a+', newline= '') as file:
-                       output = csv.writer(file, delimiter='\t')
-                       output.writerow([mainintint, int3, sumintint])
+                with open('2pulseintint_%s.csv'%timewidth, 'a+', newline= '') as file:
+                   output = csv.writer(file, delimiter='\t')
+                   output.writerow([mainintint, int3, sumintint])
+                with open('2pulsecurve_%s.csv'%timewidth, 'a+', newline= '') as file:
+                   output = csv.writer(file, delimiter='\t')
+                   output.writerow(list(popt2))
+                with open('2pulsehist_%s.csv'%timewidth, 'a+', newline= '') as file:
+                   output = csv.writer(file, delimiter='\t')
+                   output.writerow((phases[n]))
             else:
                 removed.append(n)
+
         print(timewidth, len(phases), len(removed))
 
-times = [10, 30, 60, 90, 120, 150, 180]
+times = [90, 120, 150, 180]
 for time in times:
     integrationtimes(time)
