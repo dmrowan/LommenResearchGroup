@@ -118,14 +118,18 @@ def main():
 
     notempty = len(phases)
     print("The number of time intervals with data is", notempty)
-    row = int(input("How many rows of subplots?"))
-    col = int(input("How many columns of subplots?"))
+  #  row = int(input("How many rows of subplots?"))
+  #  col = int(input("How many columns of subplots?"))
+ 
+    row = 3
+    col = 4
 
     log.info("Plot all curve fits")
     fig, ax = plt.subplots(row, col, sharex = 'col')
     i = 0
     j = 0
-    for n in range(len(phases)):
+   # for n in range(len(phases)):
+    for n in range(12):
         if (j > (col-1)):
             j = 0
             i += 1

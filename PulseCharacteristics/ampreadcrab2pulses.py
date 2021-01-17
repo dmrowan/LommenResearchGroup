@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import pandas as pd
 import math
+import csv
 
 desc="""
 Makes a histogram of the amplitudes of the peaks of the interpulses of pulse profiles based on time interval
@@ -24,13 +25,16 @@ def power(x, a, b):
 
 def integrationtimes(timewidth):
 
-    fname = 'PSR_B1821-24_combined.evt'
-    filenames =  [fname]
+    fnames = pd.read_csv('crabfilenames.txt', header = None)
+    fnames = list(fnames[0])
+    
+    filenames =  [fnames[0], fnames[1], fnames[2], fnames[3], fnames[4], fnames[5]]
    
     for name in filenames:
+        log.info('Starting new int time')
         tab = Table.read(name, hdu=1)
         timetab = Table.read(name, hdu=2)
-
+        
         phase = np.array(tab['PULSE_PHASE'])  # uses pulse phases in nth profile
         yvals, xlims = np.histogram(phase,bins=255) # finds heights and sides of each bin, no plot
         xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
@@ -44,7 +48,9 @@ def integrationtimes(timewidth):
         m = np.max(convo) # finds peak value of convolution
         maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
         popt, pcov = curve_fit(gauss, xvals, yvals, p0 = [max(yvals), maxloc, 0.05, min(yvals)])
-    
+
+     #   plt.hist(phase, bins=255)
+ 
         for i in range(len(phase)):
             if ((phase[i] > popt[1]-popt[2]) & (phase[i] < popt[1]+popt[2])):
                 phase[i] = 0
@@ -72,14 +78,14 @@ def integrationtimes(timewidth):
             standdev = popt[5]
             intloc = popt[1]
             intstanddev = popt[2]
-        print(peakloc, standdev, intloc, intstanddev)
-
+    #    print(peakloc, standdev, intloc, intstanddev)        
+    #    plt.plot(xvals, gauss2(xvals, *popt))
+    #    plt.show()    
+ 
         # Splits pulse phase data into profiles based on time intervals
         phases = []
         starttimes =[]
         endtimes = []
-        xvalues  = []
-        curves  = []
         totaltime = 0
         starttime = timetab['START'][0]
         starttimes.append(starttime)
@@ -131,77 +137,88 @@ def integrationtimes(timewidth):
         for n in range(number):
             # Makes a line plot from the histogram
             phase = np.array(phases[n])  # uses pulse phases in nth profile
+            """
             a = intloc-(intstanddev*2)
             b = intloc+(intstanddev*2)
-            for i in range(len(phase)):
-                if ((phase[i] > a) & (phase[i] < b)):
-                    phase[i] = 0
-            phase = [x for x in phase if x!= 0]
-           # binnumber = int(200-(200*(b-a)))
+            if (a<0):
+                for i in range(len(phase)):
+                    if ((phase[i] >= 0) & (phase[i] < b)):
+                        phase[i] = 0
+                    if (phase[i] > (1+a)) & (phase[i] <=1):
+                        phase[i] = 0
+                binnumber = int(200-(200*(b-a)))
+            if (a>=0):
+                for i in range(len(phase)):
+                    if ((phase[i] > a) & (phase[i] < b)):
+                        phase[i] = 0
+                binnumber = 200
+            phase = [x for x in phase if x!= 0] """
             binnumber = 200
             yvals, xlims = np.histogram(phase,bins=binnumber) # finds heights and sides of each bin, no plot
             xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
-            for i in range(len(xvals)):
-                if ((xvals[i]>=a) & (xvals[i]<=b)):
-                    xvals[i] = 999
-                    yvals[i] = 999
+            """
+            if (a>=0):
+                for i in range(len(xvals)):
+                    if ((xvals[i]>=a) & (xvals[i]<=b)):
+                        xvals[i] = 999
+                        yvals[i] = 999
+            if (a<0):
+                for i in range(len(xvals)):
+                    if ((xvals[i] >= 0) & (xvals[i] < b)):
+                        xvals[i] = 999
+                        yvals[i] = 999
+                    if ((xvals[i] > (1+a)) & (xvals[i] <= 1)):
+                        xvals[i] = 999
+                        yvals[i] = 999
             xvals = [x for x in xvals if x!= 999]
-            yvals = [x for x in yvals if x!= 999]
+            yvals = [x for x in yvals if x!= 999]"""
             xvals = np.array(xvals)
             yvals = np.array(yvals)
+
             # Use convolution to find the estimate for the location of the peak
             width=0.05
             x = xvals
             template = np.exp(-((x)/width)**2) # template for convolution
             convo = []
-            for i in range(len(yvals)):
-                convo.append(np.sum(yvals*np.roll(template,i))) # finds convolution
+            try:
+                for i in range(len(yvals)):
+                    convo.append(np.sum(yvals*np.roll(template,i))) # finds convolution
+            except ValueError:
+                removed.append(n)
+                continue
             m = np.max(convo) # finds peak value of convolution
             maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
 
+            
+
             # Does a gaussian curve fit to the histogram
             try:
-                popt3, pcov3 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) 
+                popt2, pcov2 = curve_fit(gauss2, xvals, yvals, p0= [max(yvals)-min(yvals),maxloc,0.05, (max(yvals)-min(yvals))/2, intloc, 0.05, min(yvals)], bounds = ((0, 0, 0, 0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf, np.inf, np.inf, np.inf))) 
+               # plt.hist(phases[n], bins=200)
+               # plt.hist(phase, bins=binnumber)
+               # yval, xlims = np.histogram(phase,bins=binnumber)
+               # xval = xlims[:-1] + np.diff(xlims)/2 
+               # plt.plot(xval, yval, '.') 
+               # plt.plot(xvals, gauss2(xvals, *popt2))
+               # plt.show()
             except RuntimeError:
                 removed.append(n)
                 continue
 
-            intint = (popt3[0]*popt3[2]*np.sqrt(2*np.pi))/timewidth
-          #  f = open("1821intdata_%s.txt" % timewidth, "a")
-            if ((popt3[1] >= peakloc-(standdev*4)) & (popt3[1] <= peakloc+(standdev*4))):
-               # print(intint, file=f)
-                xvalues.append(xvals)
-                curves.append(popt3)
+          #  print(popt2)
+            mainintint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/timewidth
+            int3 = (popt2[3]*popt2[5]*np.sqrt(2*np.pi))/timewidth
+            sumintint = mainintint + int3
+          #  print(mainintint, int3, sumintint)
+          #  plt.show()
+            if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
+                with open('crabintdata2pulses_%s.csv'%timewidth, 'a+', newline= '') as file:
+                       output = csv.writer(file, delimiter='\t')
+                       output.writerow([mainintint, int3, sumintint])
             else:
                 removed.append(n)
-           # f.close()
         print(timewidth, len(phases), len(removed))
 
-        phases = [x for x in phases if x != []]
-
-        notempty = len(phases)
-        print("The number of time intervals with data is", notempty)
-        row = 3
-        col = 4
-        log.info("Plot all curve fits")
-        fig, ax = plt.subplots(row, col, sharex = 'col')
-        i = 0
-        j = 0
-        for n in range(12):
-            if (j > (col-1)):
-                j = 0
-                i += 1
-            ax[i, j].hist(np.array(phases[n]), bins = 200)
-            ax[i, j].plot(xvalues[n], gauss(xvalues[n], *curves[n]))
-            j += 1
-        fig.text(0.5, 0.04, 'Pulse Phase', ha='center')
-        fig.text(0.04, 0.5, 'Counts', va='center', rotation='vertical')
-        plt.show()
-
-
-t = [10000]
-#for time in range(1800, 9000, 900):
-for time in t:
-    if (time == 1800):
-        time = 2100
+times = [10, 30, 60, 90, 120, 150, 180]
+for time in times:
     integrationtimes(time)

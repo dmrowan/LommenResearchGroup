@@ -69,6 +69,8 @@ def main():
         phase = tab['PULSE_PHASE'][rows[0]]
         phases.append(list(phase))
   
+    
+  
     sections = len(phases)
     print("The number of time intervals is", sections)
     plotnumber = input("Plot all profiles or first 84? (all/84)")

@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import pandas as pd
 import math
+import csv
 
 desc="""
 Makes a histogram of the amplitudes of the peaks of the interpulses of pulse profiles based on time interval
@@ -19,12 +20,23 @@ def gauss(x, a, m, s):
 def power(x, a, b):
     return(a*(x**(-b)))
 
-def fit(timewidth):
+def fit(timewidth, pulse):
  
-    intint = pd.read_csv('crabintdata_%s.txt' %timewidth, header = None)
-    intint = list(intint[0])
+    intints = pd.read_csv('crabintdata2pulses_%s.csv' %timewidth, header = None, delimiter = '\t')
+    intintmain = list(intints[0])
+    intintinterpulse = list(intints[1])
+    intintsum = list(intints[2])
  
+    if pulse == 'main':
+        intint = intintmain
+    if pulse == 'interpulse':
+        intint = intintinterpulse
+    if pulse == 'sum':
+        intint = intintsum
+
     binwidths = list(np.arange(0, 2.5, 0.025))
+    if pulse == 'sum':
+        binwidths = list(np.arange(0, 5, 0.05))
     width = 0.5
     plt.hist(intint, bins=binwidths) # makes histogram of amplitudes
     sd = np.std(intint)  # calculates standard deviation directly
@@ -50,11 +62,12 @@ def fit(timewidth):
     plt.xlabel('Integrated Intensity')
     plt.ylabel('Counts')
     plt.title('Integrated Intensities of Pulse Profiles')
-    plt.savefig('crab_%s.png' % timewidth)
+    plt.savefig('crab%s_%s.png' %(pulse, timewidth))
     plt.clf()
     return(sd, popt[2], errorbar)
 
 plottype = 'plot'
+whichpulse = 'main'
 width = []
 width2 = []
 errorbars = []
@@ -62,7 +75,7 @@ timewidth=[]
 for twidth in range(0, 210, 30): 
     if (twidth == 0):
         twidth = 10
-    w, w2, e = fit(twidth)
+    w, w2, e = fit(twidth, whichpulse)
     width.append(w)
     width2.append(w2)
     errorbars.append(e)

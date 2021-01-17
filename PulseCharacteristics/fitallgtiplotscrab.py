@@ -183,6 +183,7 @@ def main():
                 convo.append(np.sum(yvals*np.roll(template,i))) # finds convolution
         except ValueError:
             removed.append(n)
+            phases[n] = []
             continue
         m = np.max(convo) # finds peak value of convolution
         maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution

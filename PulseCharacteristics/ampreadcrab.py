@@ -27,7 +27,7 @@ def integrationtimes(timewidth):
     fnames = pd.read_csv('crabfilenames.txt', header = None)
     fnames = list(fnames[0])
     
-    filenames =  [fnames[2]]
+    filenames =  [fnames[0], fnames[1], fnames[2], fnames[3], fnames[4], fnames[5]]
    
     for name in filenames:
         log.info('Starting new int time')
@@ -200,7 +200,7 @@ def integrationtimes(timewidth):
                 continue
 
             intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/timewidth
-            f = open("crabintdata3_%s.txt" % timewidth, "a")
+            f = open("crabintdata_%s.txt" % timewidth, "a")
             if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
                 print(intint, file=f)
             else:

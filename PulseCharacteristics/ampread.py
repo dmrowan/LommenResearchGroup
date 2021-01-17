@@ -122,8 +122,10 @@ def integrationtimes(timewidth):
                 print(intint, file=f)
             else:
                 removed.append(n)
+                phases[n] = []
             f.close()
         print(timewidth, len(phases), len(removed))
+
 
 for time in range(1800, 9000, 900):
     if (time == 1800):

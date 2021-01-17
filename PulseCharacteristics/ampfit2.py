@@ -13,8 +13,8 @@ desc="""
 Makes a histogram of the amplitudes of the peaks of the interpulses of pulse profiles based on time interval
 """
 
-def gauss(x, a, m, s, d):
-    return((a*np.exp(-(((x - m)/s)**2)/2))+d)
+def gauss(x, a, m, s):
+    return(a*np.exp(-(((x - m)/s)**2)/2))
 
 def power(x, a, b):
     return(a*(x**(-b)))
@@ -50,7 +50,7 @@ def fit(pulsarname, timewidth):
     m = np.max(convo) # finds peak value of convolution
     maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
  
-    popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, width, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
+    popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, width], bounds = ((0, 0, 0), (np.inf, np.inf, np.inf))) # uses gaussian function to do a curve fit to the line version fo the histogram; uses maxloc for the guess for location
     plt.plot(xvals, gauss(xvals,*popt))
     errorbar = np.absolute(pcov[2][2])**0.5
 
@@ -108,7 +108,7 @@ if (plottype == 'loglog'):
         shift = 2.9
     if (pname == '1821'):
         shift = 2.6
-    plt.plot(np.log10(timewidth), np.log10(y)-shift, '--', label = 'Constant')
+    plt.plot(np.log10(timewidth), np.log10(y)-shift, '--', label = 'Gaussian distibution (slope = -1/2)')
     lowererror = []
     uppererror = []
     for x in range(len(errorbars)):
