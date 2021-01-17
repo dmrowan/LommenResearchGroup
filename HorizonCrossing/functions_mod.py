@@ -3,6 +3,7 @@ from astropy.table import Table
 import numpy as np
 from scipy import interpolate
 from scipy.optimize import curve_fit
+from astropy.io import ascii
 # from scipy.integrate import quad
 
 # Time range around the horizon crossing
@@ -25,10 +26,18 @@ tab_evt = Table.read('cleanfilt.evt', hdu=1)
 eventTime = np.array(tab_evt['TIME'][startTimeIndex:stopTimeIndex])
 enArray = np.array(tab_evt['PI'][startTimeIndex:stopTimeIndex])
 
+# read in MSIS model data
+data = ascii.read("msis_model.txt")
+
+height = np.array(data['km'])
+density = np.array(data['g/cm^3'])
+temp = np.array(data['K'])
+
 
 # bin size and energy band cutoffs
 binSize_all = 1
-lowEn = [30, 100]
+lowEn = [30, 70]
+lowMidEn = [70, 100]
 midEn = [100, 200]
 highEn = [200, 600]
 allEn = [0, 600]
@@ -52,15 +61,15 @@ class EnergyBands:
 f = interpolate.interp1d(timeArray, elevArray, kind='linear')
 elev_evt = f(eventTime)
 
-# g = interpolate.interp1d(timeArray, azArray, kind='linear')
-# az_evt = g(eventTime)
+g = interpolate.interp1d(timeArray, azArray, kind='linear')
+az_evt = g(eventTime)
 
 # calculate altitude based on elevation angle
 R = 6378
 H = 410
 theta = np.arcsin(R/(R+H))
 altArray = []
-for val in elev_evt:
+for indx, val in enumerate(elev_evt):
     h = ((R+H)*np.sin(theta+val*(np.pi/180)))-R
     altArray.append(h)
 altArray = np.array(altArray)
@@ -115,7 +124,7 @@ rho0 = 0.0012*np.exp(-z0/L)
 
 def Sigma(energy):
     c = np.float(-3)
-    return 3.31*(np.mean(energy)/100)**c
+    return (3.31*10**3)*(np.mean(energy)/100)**c
 
 
 # i is the index in altArray
