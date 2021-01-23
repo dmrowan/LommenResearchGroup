@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sat Jan 16 2021
-Last updated: Jan 16 2021
 
-@author: nathanielruhl
+@author: Nathaniel Ruhl and Noah Schwab
 
 This script contains a piecewise model for transmittance vs. time for a circular 
-sattelite orbit. It uses the Beer-Lambert law and MSIS data.
+sattelite orbit. The model uses the Beer-Lambert law and MSIS data.
 """
 #%% Import modules
 
@@ -27,23 +26,24 @@ theta = np.arcsin(R/(R+H))
 
 #%% Create arrays of orbital phase angles, at one second per index
 
-eclipse_array1 = np.arange(0, theta+omega, omega)
-hc_array = np.arange(theta, np.pi/2+omega, omega)
-unattenuated_array = np.arange(np.pi/2, 3*np.pi/2+omega, omega)
-occultation_array = np.arange(3*np.pi/2, 2*np.pi-theta+omega, omega)
-eclipse_array2 = np.arange(2*np.pi-theta, 2*np.pi+omega, omega)
+eclipse_array1 = np.arange(0, theta, omega)
+hc_array = np.arange(theta, np.pi/2, omega)
+unattenuated_array = np.arange(np.pi/2, 3*np.pi/2, omega)
+occultation_array = np.arange(3*np.pi/2, 2*np.pi-theta, omega)
+eclipse_array2 = np.arange(2*np.pi-theta, 2*np.pi, omega)
+
+full_angle_array = list(eclipse_array1) + list(hc_array) + list(unattenuated_array) + list(occultation_array) + list(eclipse_array2)
+
+full_angle_array = np.array(full_angle_array)
 
 
 #%% Confirmation of full orbit
 
 full_angle_array = list(eclipse_array1) + list(hc_array) + list(unattenuated_array) + list(occultation_array) + list(eclipse_array2)
-'''
-plt.plot(-np.cos(full_angle_array), np.sin(full_angle_array), ',')
-plt.plot(-np.cos(hc_array), np.sin(hc_array), 'o')
-plt.plot(-np.cos(occultation_array), np.sin(occultation_array), 'o')
-'''
 
-#%% Create tangent altitude arrays
+full_angle_array = np.array(full_angle_array)
+
+#%% Create tangent altitude arrays for the crossings
 
 tangentAlt_hc = (R+H)*np.sin(hc_array)-R
 tangentAlt_occultation = -((R+H)*np.sin(occultation_array)+R)
@@ -104,6 +104,10 @@ percent_trans_unattenuated = [1 for i in unattenuated_array]
 transmit_model_hc = TransmitModel(tangentAlt_hc, msisRho_hc)
 transmit_model_occultation = TransmitModel(tangentAlt_occultation, msisRho_occultation)
 
+full_transmit_model = list(percent_trans_eclipse1) + list(transmit_model_hc) + list(percent_trans_unattenuated) + list(transmit_model_occultation) + list(percent_trans_eclipse2)
+
+full_transmit_model = np.array(full_transmit_model)
+
 #%% Plot the the Transmit vs Time model
 
 plt.figure(1)
@@ -116,7 +120,7 @@ plt.plot(eclipse_array2/omega, percent_trans_eclipse2, 'blue')
 plt.xlabel('Time (s)')
 plt.ylabel('Transmittance')
 
-#%% Read in data from the february 3rd and compare to model
+#%% Read in data from the february 3rd '08-10 keV' and compare to model
 
 data = ascii.read('08-10keV.dat')
 
@@ -124,7 +128,7 @@ crossing_elev = np.deg2rad(np.array(data['elev (mkf)']))
 crossing_phaseAngle = crossing_elev+theta
 
 feb3_trans_hc = np.array(data['%Transmission (evt)']/100)
-feb3_trans_hc = list(feb3_trans_hc) + [1 for i in range(42)]
+feb3_trans_hc = list(feb3_trans_hc) + [1 for i in range(41)]
 feb3_trans_occultation = feb3_trans_hc[::-1]
 
 plt.figure(2)
@@ -159,23 +163,58 @@ def calcCountRate(timeArray):
 
 binnedRate, binnedTime = calcCountRate(eventTime)
 
-#%% Plot data against model
+#%% Start EVT data at 0 sec
+
+time0_offset = binnedTime[0]
+
 binnedTime = binnedTime - binnedTime[0]
+
+# Find the index after a full period from start point
+index_fullPeriod = np.where(binnedTime > T)[0][0]
+
+#%% Plot data against model - time on x-axis
 
 plt.figure(3)
 plt.title('Data vs Model')
-plt.plot(binnedTime, binnedRate,'.')
-plt.plot(eclipse_array1/omega, percent_trans_eclipse1, 'blue')
-plt.plot(hc_array/omega, transmit_model_hc,'orange')
-plt.plot(unattenuated_array/omega, percent_trans_unattenuated, 'blue')
-plt.plot(occultation_array/omega, transmit_model_occultation,'orange')
-plt.plot(eclipse_array2/omega, percent_trans_eclipse2, 'blue')
+plt.plot(binnedTime, binnedRate,'.')                                            # plot data
+for n in range(3):                                                              # plot model
+    plt.plot((eclipse_array1+n*2*np.pi)/omega, percent_trans_eclipse1, 'blue')
+    plt.plot((hc_array+n*2*np.pi)/omega, transmit_model_hc,'orange')
+    plt.plot((unattenuated_array+n*2*np.pi)/omega, percent_trans_unattenuated, 'blue')
+    plt.plot((occultation_array+n*2*np.pi)/omega, transmit_model_occultation,'orange')
+    plt.plot((eclipse_array2+n*2*np.pi)/omega, percent_trans_eclipse2, 'blue')
 plt.xlabel('Time (s)')
 plt.ylabel('Transmittance')
 
+#%% Plot data against model - orbital phase on x-axis
 
+plt.figure(4)
+plt.title('Data vs Model')
+plt.plot(binnedTime*omega, binnedRate,'.')
+for n in range(3):
+    plt.plot((eclipse_array1+n*2*np.pi), percent_trans_eclipse1, 'orange')
+    plt.plot((hc_array+n*2*np.pi), transmit_model_hc,'orange')
+    plt.plot((unattenuated_array+n*2*np.pi), percent_trans_unattenuated, 'orange')
+    plt.plot((occultation_array+n*2*np.pi), transmit_model_occultation,'orange')
+    plt.plot((eclipse_array2+n*2*np.pi), percent_trans_eclipse2, 'orange')
+plt.xlabel('Phase from Arbitrary Line (rad)')
+plt.ylabel('Transmittance')
 
-        
+#%% Calculate time difference between horizon crossing curves @ 50% point
 
+plt.figure(5)
+plt.title('Data vs Model')
+plt.plot(full_angle_array,full_transmit_model)
+plt.plot(binnedTime[0:index_fullPeriod]*omega, binnedRate[0:index_fullPeriod], '.')
 
+deltaT_50 = np.where(full_transmit_model>0.5)[0][0]-np.where(binnedRate[0:index_fullPeriod]>0.5)[0][0]
+
+# If our bin sizes were not one second, we would need to say delta_50 = full_angle_array[deltaT_50_indx]/omega
+# This is not an exact way to calculate the time in between - the first data point above 05 in the data
+# is 0.6 - a better way may be to use the same 50% mathod but with an interpolated binnedRate, or a convolution.
+
+#%% Read in the mkf to verify RA of ISS @ time0_offset - delta_T
+
+# We may not be able to use this first peak because we don't have data before time zero.
+# Let's run this script for the third peak (horizon crossing)
 
