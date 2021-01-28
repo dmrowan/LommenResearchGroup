@@ -6,7 +6,8 @@ Created on Sat Jan 16 2021
 @author: Nathaniel Ruhl and Noah Schwab
 
 This script contains a piecewise model for transmittance vs. time for a circular 
-sattelite orbit. The model uses the Beer-Lambert law and MSIS data.
+sattelite orbit. The model uses the Beer-Lambert law and MSIS data. This script uses
+"msis_419.txt", "08-10keV.dat", "cleanfilt.evt", and "ni2200300102.mkf" all from feb3.
 """
 #%% Import modules
 
@@ -18,10 +19,10 @@ from scipy import interpolate
 
 #%% Define constants
 
-R = 6371;
-H = 420;
-T = 5574;
-omega = 2 * np.pi / T;  
+R = 6371
+H = 420
+T = 5574 ## 5569.5 is the exact value from the convolution on feb3
+omega = 2 * np.pi / T  
 theta = np.arcsin(R/(R+H))
 
 #%% Create arrays of orbital phase angles, at one second per index
@@ -122,6 +123,10 @@ plt.ylabel('Transmittance')
 
 #%% Read in data from the february 3rd '08-10 keV' and compare to model
 
+'''We are able to line up the transmission curve to the data via the elevation
+angle in the mkf file. The data file "08-10keV.dat" starts at an elevation
+and tangent altitude of zero and spans to 'theta' and 420 km respectively'''
+
 data = ascii.read('08-10keV.dat')
 
 crossing_elev = np.deg2rad(np.array(data['elev (mkf)']))
@@ -163,21 +168,25 @@ def calcCountRate(timeArray):
 
 binnedRate, binnedTime = calcCountRate(eventTime)
 
+#%% Manually find an index before the third peak
+#plt.plot(binnedRate,'.')
+time0_indx = 11400
+
 #%% Start EVT data at 0 sec
 
-time0_offset = binnedTime[0]
+time0_offset = binnedTime[time0_indx]
 
-binnedTime = binnedTime - binnedTime[0]
+binnedTime = binnedTime - binnedTime[time0_indx]
 
-# Find the index after a full period from start point
+#%% Find the index after a full period from start point
 index_fullPeriod = np.where(binnedTime > T)[0][0]
 
 #%% Plot data against model - time on x-axis
 
 plt.figure(3)
 plt.title('Data vs Model')
-plt.plot(binnedTime, binnedRate,'.')                                            # plot data
-for n in range(3):                                                              # plot model
+plt.plot(binnedTime[time0_indx:(time0_indx+index_fullPeriod)], binnedRate[time0_indx:(time0_indx+index_fullPeriod)],'.')                                            # plot data
+for n in range(1):                                                              # plot model
     plt.plot((eclipse_array1+n*2*np.pi)/omega, percent_trans_eclipse1, 'blue')
     plt.plot((hc_array+n*2*np.pi)/omega, transmit_model_hc,'orange')
     plt.plot((unattenuated_array+n*2*np.pi)/omega, percent_trans_unattenuated, 'blue')
@@ -190,8 +199,8 @@ plt.ylabel('Transmittance')
 
 plt.figure(4)
 plt.title('Data vs Model')
-plt.plot(binnedTime*omega, binnedRate,'.')
-for n in range(3):
+plt.plot(binnedTime[0:index_fullPeriod]*omega, binnedRate[0:index_fullPeriod],'.')
+for n in range(1):
     plt.plot((eclipse_array1+n*2*np.pi), percent_trans_eclipse1, 'orange')
     plt.plot((hc_array+n*2*np.pi), transmit_model_hc,'orange')
     plt.plot((unattenuated_array+n*2*np.pi), percent_trans_unattenuated, 'orange')
@@ -205,16 +214,71 @@ plt.ylabel('Transmittance')
 plt.figure(5)
 plt.title('Data vs Model')
 plt.plot(full_angle_array,full_transmit_model)
-plt.plot(binnedTime[0:index_fullPeriod]*omega, binnedRate[0:index_fullPeriod], '.')
+plt.plot(binnedTime[time0_indx:(time0_indx+index_fullPeriod)]*omega, binnedRate[time0_indx:(time0_indx+index_fullPeriod)], '.')
 
-deltaT_50 = np.where(full_transmit_model>0.5)[0][0]-np.where(binnedRate[0:index_fullPeriod]>0.5)[0][0]
+deltaT_50 = np.where(full_transmit_model>0.5)[0][0]-np.where(binnedRate[time0_indx:(time0_indx+index_fullPeriod)]>0.5)[0][0]
 
 # If our bin sizes were not one second, we would need to say delta_50 = full_angle_array[deltaT_50_indx]/omega
 # This is not an exact way to calculate the time in between - the first data point above 05 in the data
-# is 0.6 - a better way may be to use the same 50% mathod but with an interpolated binnedRate, or a convolution.
+# is 0.6 - a better way may be to use the same 50% method but with an interpolated/exponenential trendline binnedRate, or a convolution.
 
-#%% Read in the mkf to verify RA of ISS @ time0_offset - delta_T
+t50_indx = np.where(binnedRate[time0_indx:(time0_indx+index_fullPeriod)]> 0.5)[0][0]
 
-# We may not be able to use this first peak because we don't have data before time zero.
-# Let's run this script for the third peak (horizon crossing)
+#%% Read in the mkf file
+
+tab_ni = Table.read('ni2200300102.mkf', hdu=1)
+timeMKF = np.array(tab_ni['TIME'])
+elevMKF = np.array(tab_ni['ELV'])
+ramMKF = np.array(tab_ni['RAM_ANGLE'])
+position = tab_ni['POSITION']
+position_mag = np.array(np.sqrt((position[:,0])**2+(position[:,1])**2+(position[:,2])**2))
+positionX = np.array(position[:,0])/position_mag
+positionY = np.array(position[:,1])/position_mag
+positionZ = np.array(position[:,2])/position_mag
+velocity = tab_ni['VELOCITY']
+velocity_mag = np.array(np.sqrt((velocity[:,0])**2+(velocity[:,1])**2+(velocity[:,2])**2))
+
+#%% Verify RA of ISS @ time0_offset - delta_T
+
+startMKF_indx = np.where(timeMKF == round(time0_offset))[0][0]                  # index of t0
+
+# This step assumes source is in plane of orbit
+#opposite_point_indx_mkf = np.where(timeMKF == round(time0_offset-deltaT_50))[0][0]
+t50_indx_mkf = np.where(timeMKF == round(time0_offset+t50_indx))[0][0]
+
+RA_ISS = np.arctan2(positionY,positionX)
+DEC_ISS = np.arcsin(positionZ)
+
+RA_source = np.deg2rad(275)
+DEC_source = np.deg2rad(-25)
+
+print('RA of 50% point: ' + str(np.rad2deg(RA_ISS[t50_indx_mkf])))
+
+#print('The RA of the ISS at the point opposite the source: ' + str(np.rad2deg(RA_ISS[opposite_point_indx_mkf])))  
+print('The RA of the source: ' + str(np.rad2deg(RA_source)))
+print('180 degree difference is expected')
+print('-----')
+# You will notice that the line below causes an error because the desired time is not in the mkf
+#print('The DEC of the ISS at the point opposite the source: ' + str(np.rad2deg(RA_ISS[opposite_point_indx_mkf])))
+print('The DEC of the source: ' + str(np.rad2deg(DEC_source)))
+
+#%% Find RA/DEC of 50% point
+
+# Rough comparison of the 50% point due to precession. Note that this is not accurate because
+# the 50% point is not well defined for the not-horizon crossings. In order for this code to work,
+# you need to read in the EVT file again without doing the time offset step.
+
+#plt.plot(binnedRate,'.')
+index_mkf_504 = np.where(timeMKF == round(binnedTime[17217]))
+index_mkf_503 = np.where(timeMKF == round(binnedTime[11613]))
+index_mkf_502 = np.where(timeMKF == round(binnedTime[6130]))
+index_mkf_501 = np.where(timeMKF == round(binnedTime[484]))
+
+RA_ISS = np.arctan2(positionY,positionX)
+
+print(np.rad2deg(RA_ISS[index_mkf_501]))
+print(np.rad2deg(RA_ISS[index_mkf_502]))
+print(np.rad2deg(RA_ISS[index_mkf_503]))
+print(np.rad2deg(RA_ISS[index_mkf_504]))
+
 
