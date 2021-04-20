@@ -27,7 +27,7 @@ def integrationtimes(timewidth):
     fnames = pd.read_csv('crabfilenames.txt', header = None)
     fnames = list(fnames[0])
     
-    filenames =  [fnames[1], fnames[2], fnames[3], fnames[4], fnames[5]]
+    filenames =  [fnames[0]]
    
     for name in filenames:
         log.info('Starting new int time')
@@ -124,7 +124,7 @@ def integrationtimes(timewidth):
                         starttimes.append(starttime)
                         totaltime = 0 #resets totaltime for next range
                 else:
-                    if interval > (timewidth - headstart):
+                    if (interval > (timewidth - headstart)):
                         endtime = starttime + (timewidth - headstart)
                         endtimes.append(endtime)
                         totaltime += (endtime - starttime) 
@@ -155,6 +155,7 @@ def integrationtimes(timewidth):
                                 m = (timetab['STOP'][i+counter] - timetab['START'][i+counter])
                                 totaltime1 += m
                                 counter += 1
+                                print(counter)
                             diff = totaltime1 - totaltime
                             endtime = starttime + timewidth
                             for value in gaps:
@@ -269,7 +270,7 @@ def integrationtimes(timewidth):
                 continue
 
             intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/timewidth
-            f = open("crabintdata_%s.txt" % timewidth, "a")
+            f = open("crabintdata3_%s.txt" % timewidth, "a")
             if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
                 print(intint, file=f)
             else:
@@ -277,7 +278,7 @@ def integrationtimes(timewidth):
             f.close()
         print(timewidth, len(phases), len(removed))
 
-times = [10, 30, 60, 90, 120, 150, 180]
+times = [10]
 for time in times:
     integrationtimes(time)
     print(time)

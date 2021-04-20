@@ -19,26 +19,21 @@ def gauss(x, a, m, s):
 def power(x, a, b):
     return(a*(x**(-b)))
 
-def fit(pulsarname, timewidth):
- 
-    if (pulsarname == '1937'):
-        intint = pd.read_csv('1937intdata_%s.txt' %timewidth, header = None)
-    if (pulsarname == '1821'):
-        intint = pd.read_csv('1821intdata_%s.txt' %timewidth, header = None)
-    intint = list(intint[0])
+def fit(timewidth):
 
-    if (pulsarname == '1821'): 
-        binwidths = list(np.arange(0, 0.0004, 0.000005))
-    if (pulsarname == '1937'):
-        binwidths = list(np.arange(0, 0.0002, 0.000005))
-    width = 0.00005
-    plt.hist(intint, bins = binwidths) # makes histogram of amplitudes
-  
+ 
+    intint = pd.read_csv('testintdata_%s.txt' %timewidth, header = None)
+    intint = list(intint[0])
+    print(intint)
+ 
+    binwidths = list(np.arange(0, 2.5, 0.025))
+    width = 0.5
+    plt.hist(intint, bins=binwidths) # makes histogram of amplitudes
     sd = np.std(intint)  # calculates standard deviation directly
 
     # Makes a line plot from the histogram
     intint = np.array(intint)  # uses pulse phases in nth profile
-    yvals, xlims = np.histogram(intint,bins=binwidths) # finds heights and sides of each bin, no plot
+    yvals, xlims = np.histogram(intint, bins = binwidths) # finds heights and sides of each bin, no plot
     xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
 
     # Use convolution to find the estimate for the location of the peak
@@ -57,23 +52,18 @@ def fit(pulsarname, timewidth):
     plt.xlabel('Integrated Intensity')
     plt.ylabel('Counts')
     plt.title('Integrated Intensities of Pulse Profiles')
-    if (pulsarname == '1937'):
-        plt.savefig('1937_%s.png' % timewidth)
-    if (pulsarname == '1821'):
-        plt.savefig('1821_%s.png' % timewidth)
+    plt.savefig('test_%s.png' % timewidth)
     plt.clf()
     return(sd, popt[2], errorbar)
 
-pname = '1821'
-plottype = 'plot'
+plottype = 'loglog'
 width = []
 width2 = []
 errorbars = []
 timewidth=[]
-for twidth in range(1800, 9000, 900): 
-    if (twidth == 1800):
-        twidth = 2100
-    w, w2, e = fit(pname, twidth)
+backlevel = [7, 8 ,9]
+for twidth in backlevel: 
+    w, w2, e = fit(twidth)
     width.append(w)
     width2.append(w2)
     errorbars.append(e)
@@ -104,11 +94,8 @@ if (plottype == 'loglog'):
     fslope = popt[1]
     fslopeerror = np.absolute(pcov[1][1])**0.5
     plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'g', label = 'Gaussian curve fit')
-    if (pname == '1937'):
-        shift = 2.9
-    if (pname == '1821'):
-        shift = 2.6
-    plt.plot(np.log10(timewidth), np.log10(y)-shift, '--', label = 'Gaussian distibution (slope = -1/2)')
+    shift = 1.3
+    plt.plot(np.log10(timewidth), np.log10(y)-shift, '--', label = 'Gaussian distribution (slope = -1/2)')
     lowererror = []
     uppererror = []
     for x in range(len(errorbars)):

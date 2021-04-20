@@ -73,6 +73,6 @@ def plot(timewidth):
     plt.clf()
     
 
-time =  [10, 30, 60]
+time =  [90]
 for t in time:
     plot(t)

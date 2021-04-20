@@ -10,6 +10,7 @@ import pandas as pd
 import math
 
 desc="""
+Makes a histogram of the amplitudes of the peaks of the interpulses of pulse profiles based on time interval
 """
 
 def gauss(x, a, m, s, d):
@@ -23,16 +24,13 @@ def power(x, a, b):
 
 def integrationtimes(timewidth):
 
-    fnames = pd.read_csv('crabfilenames.txt', header = None)
-    fnames = list(fnames[0])
-    
-    filenames =  [fnames[1]]
+    fname = 'PSR_B1821-24_combined.evt'
+    filenames =  [fname]
    
     for name in filenames:
-        log.info('Starting new int time')
         tab = Table.read(name, hdu=1)
         timetab = Table.read(name, hdu=2)
-        
+
         phase = np.array(tab['PULSE_PHASE'])  # uses pulse phases in nth profile
         yvals, xlims = np.histogram(phase,bins=255) # finds heights and sides of each bin, no plot
         xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
@@ -46,9 +44,7 @@ def integrationtimes(timewidth):
         m = np.max(convo) # finds peak value of convolution
         maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
         popt, pcov = curve_fit(gauss, xvals, yvals, p0 = [max(yvals), maxloc, 0.05, min(yvals)])
-
-     #   plt.hist(phase, bins=255)
- 
+    
         for i in range(len(phase)):
             if ((phase[i] > popt[1]-popt[2]) & (phase[i] < popt[1]+popt[2])):
                 phase[i] = 0
@@ -76,15 +72,14 @@ def integrationtimes(timewidth):
             standdev = popt[5]
             intloc = popt[1]
             intstanddev = popt[2]
-    #    print(peakloc, standdev, intloc, intstanddev)        
-    #    plt.plot(xvals, gauss2(xvals, *popt))
-    #    plt.show()    
- 
+        print(peakloc, standdev, intloc, intstanddev)
+
         # Splits pulse phase data into profiles based on time intervals
-        
         phases = []
         starttimes =[]
         endtimes = []
+        xvalues  = []
+        curves  = []
         totaltime = 0
         starttime = timetab['START'][0]
         starttimes.append(starttime)
@@ -129,138 +124,84 @@ def integrationtimes(timewidth):
         phases = [x for x in phases if x != []]
         sections = len(phases)
         emptyremoved = totalphases - sections
-     #   f = open("crabphases_%s.txt" % timewidth, "a")
-     #   print(phases, file=f)
-     #   f.close()
-       
+
         # Makes a list of amplitude of peak in each profile
         removed = []
         number = len(phases)
-        intints = []
-        parameters = []
-        xvalues = []
-        phases2 = []
         for n in range(number):
             # Makes a line plot from the histogram
             phase = np.array(phases[n])  # uses pulse phases in nth profile
             a = intloc-(intstanddev*2)
             b = intloc+(intstanddev*2)
-            if (a<0):
-                for i in range(len(phase)):
-                    if ((phase[i] >= 0) & (phase[i] < b)):
-                        phase[i] = 0
-                    if (phase[i] > (1+a)) & (phase[i] <=1):
-                        phase[i] = 0
-                binnumber = int(200-(200*(b-a)))
-            if (a>=0):
-                for i in range(len(phase)):
-                    if ((phase[i] > a) & (phase[i] < b)):
-                        phase[i] = 0
-                binnumber = 200
+            for i in range(len(phase)):
+                if ((phase[i] > a) & (phase[i] < b)):
+                    phase[i] = 0
             phase = [x for x in phase if x!= 0]
+           # binnumber = int(200-(200*(b-a)))
+            binnumber = 200
             yvals, xlims = np.histogram(phase,bins=binnumber) # finds heights and sides of each bin, no plot
             xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
-            if (a>=0):
-                for i in range(len(xvals)):
-                    if ((xvals[i]>=a) & (xvals[i]<=b)):
-                        xvals[i] = 999
-                        yvals[i] = 999
-            if (a<0):
-                for i in range(len(xvals)):
-                    if ((xvals[i] >= 0) & (xvals[i] < b)):
-                        xvals[i] = 999
-                        yvals[i] = 999
-                    if ((xvals[i] > (1+a)) & (xvals[i] <= 1)):
-                        xvals[i] = 999
-                        yvals[i] = 999
+            for i in range(len(xvals)):
+                if ((xvals[i]>=a) & (xvals[i]<=b)):
+                    xvals[i] = 999
+                    yvals[i] = 999
             xvals = [x for x in xvals if x!= 999]
             yvals = [x for x in yvals if x!= 999]
             xvals = np.array(xvals)
             yvals = np.array(yvals)
-
             # Use convolution to find the estimate for the location of the peak
             width=0.05
             x = xvals
             template = np.exp(-((x)/width)**2) # template for convolution
             convo = []
-            try:
-                for i in range(len(yvals)):
-                    convo.append(np.sum(yvals*np.roll(template,i))) # finds convolution
-            except ValueError:
-                removed.append(n)
-                continue
+            for i in range(len(yvals)):
+                convo.append(np.sum(yvals*np.roll(template,i))) # finds convolution
             m = np.max(convo) # finds peak value of convolution
             maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
 
             # Does a gaussian curve fit to the histogram
             try:
-                popt2, pcov2 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) 
-               # plt.hist(phases[n], bins=200)
-               # plt.hist(phase, bins=binnumber)
-               # yval, xlims = np.histogram(phase,bins=binnumber)
-               # xval = xlims[:-1] + np.diff(xlims)/2 
-               # plt.plot(xval, yval, '.') 
-               # plt.plot(xvals, gauss(xvals, *popt2))
-               # plt.show()
+                popt3, pcov3 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) 
             except RuntimeError:
                 removed.append(n)
                 continue
 
-            intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/timewidth
-            if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
-                intints.append(intint)
-                parameters.append(popt2)
+            intint = (popt3[0]*popt3[2]*np.sqrt(2*np.pi))/timewidth
+          #  f = open("1821intdata_%s.txt" % timewidth, "a")
+            if ((popt3[1] >= peakloc-(standdev*4)) & (popt3[1] <= peakloc+(standdev*4))):
+               # print(intint, file=f)
                 xvalues.append(xvals)
-                phases2.append(phases[n])
+                curves.append(popt3)
             else:
                 removed.append(n)
-        
-        binwidths = list(np.arange(0, 2.5, 0.025))
-        width = 0.5
-        yvals, xlims = np.histogram(intints,bins=binwidths)
-        xvals = xlims[:-1] + np.diff(xlims)/2
-        x = xvals
-        template = (np.exp(-((x/width)**2)/2))
-        convo = []
-        for i in range(len(yvals)):
-            convo.append(np.sum(yvals*np.roll(template,i))) 
-        m = np.max(convo) 
-        maxloc = xvals[convo.index(m)] 
-        popt, pcov = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc, width, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
-        outliers = []
-        outlierplots = []
-        outlierxvals = []
-        outlierphases= []
-        for i in range(len(intints)):
-            if (intints[i] < popt[1] - 3*popt[2]):
-                outliers.append(intints[i])
-                outlierplots.append(parameters[i])
-                outlierxvals.append(xvalues[i])
-                outlierphases.append(phases2[i])
-            if (intints[i] > popt[1] + 3*popt[2]):
-                outliers.append(intints[i])
-                outlierplots.append(parameters[i])
-                outlierxvals.append(xvalues[i])
-                outlierphases.append(phases2[i])
-        print("The number of outliers is", len(outliers))
-        row = int(input("How many rows of subplots?"))
-        col = int(input("How many columns of subplots?"))
+           # f.close()
+        print(timewidth, len(phases), len(removed))
+
+        phases = [x for x in phases if x != []]
+
+        notempty = len(phases)
+        print("The number of time intervals with data is", notempty)
+        row = 3
+        col = 4
+        log.info("Plot all curve fits")
         fig, ax = plt.subplots(row, col, sharex = 'col')
         i = 0
         j = 0
-        print(outliers)
-        for n in range(len(outlierplots)):
+        for n in range(12):
             if (j > (col-1)):
                 j = 0
                 i += 1
-            ax[i, j].hist(outlierphases[n], bins = 200)
-            ax[i, j].plot(outlierxvals[n], gauss(outlierxvals[n], *outlierplots[n]))
+            ax[i, j].hist(np.array(phases[n]), bins = 200)
+            ax[i, j].plot(xvalues[n], gauss(xvalues[n], *curves[n]))
             j += 1
-
-            
-        print(timewidth, len(phases), len(removed))
+        fig.text(0.5, 0.04, 'Pulse Phase', ha='center')
+        fig.text(0.04, 0.5, 'Counts', va='center', rotation='vertical')
         plt.show()
 
-times = [10]
-for time in times:
+
+t = [10000]
+#for time in range(1800, 9000, 900):
+for time in t:
+    if (time == 1800):
+        time = 2100
     integrationtimes(time)

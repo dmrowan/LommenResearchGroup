@@ -27,7 +27,7 @@ def integrationtimes(timewidth):
     fnames = pd.read_csv('crabfilenames.txt', header = None)
     fnames = list(fnames[0])
     
-    filenames =  [fnames[0], fnames[1], fnames[2], fnames[3], fnames[4], fnames[5]]
+    filenames =  [fnames[5]]
    
     for name in filenames:
         log.info('Starting new int time')
@@ -208,6 +208,6 @@ def integrationtimes(timewidth):
             f.close()
         print(timewidth, len(phases), len(removed))
 
-times = [10, 30, 60, 90, 120, 150, 180]
+times = [10]
 for time in times:
     integrationtimes(time)

@@ -5,7 +5,7 @@ from astropy import log
 import datetime
 import numpy as np
 import matplotlib.pyplot as plt
-
+import pandas as pd
 
 #Modified from code by Dom Rowan, 2020
 
@@ -14,7 +14,10 @@ Plots full data set in one plot for Crab
 """
 
 def main():
-    fname = '/students/pipeline/heasoft6.27/PSR_B0531+21/1013010121_pipe/cleanfilt.evt'
+    fnames = pd.read_csv('crabfilenames.txt', header = None)
+    fnames = list(fnames[0])
+
+    fname =  fnames[0]
 
     log.info('Read in table')
     tab = Table.read(fname, hdu=1)

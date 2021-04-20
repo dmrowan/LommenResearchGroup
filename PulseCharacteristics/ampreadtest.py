@@ -22,22 +22,25 @@ def gauss2(x, a, m, s, b, c, e, d):
 def power(x, a, b):
     return(a*(x**(-b)))
 
-def integrationtimes(timewidth):
-
-    fnames = pd.read_csv('crabfilenames.txt', header = None)
-    fnames = list(fnames[0])
+def integrationtimes(z):
+    timewidth = 10
+     
+   # fnames = pd.read_csv('crabfilenames.txt', header = None)
+   # fnames = list(fnames[0])
     
-    filenames =  [fnames[1], fnames[2], fnames[3], fnames[4], fnames[5]]
-   
+   # filenames =  [fnames[5]]
+    filenames = ['test']
     for name in filenames:
         log.info('Starting new int time')
+        """
         tab = Table.read(name, hdu=1)
         timetab = Table.read(name, hdu=2)
         
         phase = np.array(tab['PULSE_PHASE'])  # uses pulse phases in nth profile
         yvals, xlims = np.histogram(phase,bins=255) # finds heights and sides of each bin, no plot
+
         xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
-        # Use convolution to find the estimate for the location of the peak
+        Use convolution to find the estimate for the location of the peak
         width=0.05
         x = xvals
         template = np.exp(-((x)/width)**2) # template for convolution
@@ -80,115 +83,47 @@ def integrationtimes(timewidth):
     #    print(peakloc, standdev, intloc, intstanddev)        
     #    plt.plot(xvals, gauss2(xvals, *popt))
     #    plt.show()    
- 
+        """
         # Splits pulse phase data into profiles based on time intervals
+        """
         phases = []
-        starttimes = [] #start time of range
-        endtimes = [] #end time of range
-        totalt = [] #in each range
+        starttimes =[]
+        endtimes = []
+        totaltime = 0
         starttime = timetab['START'][0]
         starttimes.append(starttime)
-        totaltime = 0 #counter
         for i in range(len(timetab)):
             if (i==(len(timetab)-1)): break
-            if (starttime >= timetab['START'][i]) & (starttime <= timetab['STOP'][i]): #assumption: starttime in the same interval
-                interval = timetab['STOP'][i] - starttime
-            if (starttime < timetab['START'][i]):
-                gaptime = timetab['START'][i] - timetab['STOP'][i-1]
-                interval = timetab['STOP'][i] - starttime - gaptime
-                starttime = timetab['START'][i]
-            if (starttime > timetab['STOP'][i]):
-                continue
-            if ((timewidth - totaltime) < interval):
-                if totaltime != 0: 
-                    headstart = totaltime
-                else:
-                    headstart = 0
-                number = int(interval/timewidth) #number of ranges that will fully fit into one interval
-                if ((interval/timewidth) >= 1):
-                    for n in range(number): #fills as many ranges as possible
-                        endtime = starttime + (timewidth - headstart)
-                        endtimes.append(endtime)
-                        totaltime += (endtime - starttime) 
-                        totalt.append(totaltime)
-                        starttime = endtime
-                        starttimes.append(starttime)
-                        totaltime = 0 #resets totaltime for next range
-                        headstart = 0
-                    if (starttime + timewidth) < timetab['STOP'][i]:
-                        endtime = starttime + (timewidth)
-                        endtimes.append(endtime)
-                        totaltime += (endtime - starttime) 
-                        totalt.append(totaltime)
-                        starttime = endtime
-                        starttimes.append(starttime)
-                        totaltime = 0 #resets totaltime for next range
-                else:
-                    if interval > (timewidth - headstart):
-                        endtime = starttime + (timewidth - headstart)
-                        endtimes.append(endtime)
-                        totaltime += (endtime - starttime) 
-                        totalt.append(totaltime)
-                        starttime = endtime
-                        starttimes.append(starttime)
-                        totaltime = 0 #resets totaltime for next range
-                        headstart = 0
+            interval = timetab['STOP'][i] - starttime
+            if (timewidth < interval):
+                number = int(interval/timewidth)
+                for n in range(number):
+                    endtime = starttime + timewidth
+                    endtimes.append(endtime)
+                    starttime = endtime
+                    starttimes.append(starttime)
                 difference = timetab['STOP'][i] - starttime
-                if (difference != 0):
-                    gaptime = timetab['START'][i+1] - timetab['STOP'][i]
-                    if (timetab['START'][i+1] + (timewidth-difference))<=timetab['STOP'][i+1]:
-                        endtime = starttime + timewidth + gaptime
-                        endtimes.append(endtime)
-                        totaltime += (endtime - starttime - gaptime)
-                        totalt.append(totaltime)
-                        totaltime = 0
-                        starttime = endtime
-                        starttimes.append(starttime)
-                    else:
-                        try:
-                            counter = 1
-                            totaltime1 = difference
-                            gaps = []
-                            while totaltime1 < timewidth:
-                                g = timetab['START'][i+counter] - timetab['STOP'][i+counter-1]
-                                gaps.append(g)
-                                m = (timetab['STOP'][i+counter] - timetab['START'][i+counter])
-                                totaltime1 += m
-                                counter += 1
-                            diff = totaltime1 - totaltime
-                            endtime = starttime + timewidth
-                            for value in gaps:
-                                endtime += value
-                            endtimes.append(endtime)
-                            totaltime += (endtime - starttime)
-                            for value in gaps:
-                                totaltime = totaltime - value
-                            totalt.append(totaltime)
-                            totaltime = 0
-                            starttime = endtime
-                            starttimes.append(starttime)                       
-                        except IndexError:
-                            break 
-                else: print(' ')
-                continue 
-            if ((timewidth - totaltime) == interval):
-                endtime = starttime + timewidth
+                gaptime = timetab['START'][i+1] - timetab['STOP'][i]
+                endtime = starttime + timewidth + gaptime
                 endtimes.append(endtime)
-                totaltime += (endtime - starttime)
-                totalt.append(totaltime)
                 starttime = endtime
                 starttimes.append(starttime)
-                totaltime = 0
-                continue
-            if ((timewidth - totaltime) > interval): 
-                if (totaltime + interval) < timewidth:
-                    #need this interval, plus next one
-                    totaltime += interval
-                    starttime = timetab['START'][i+1]
-                continue
-        if starttimes[-1] == endtimes[-1]:
-            starttimes = starttimes[:-1]
-   
+            if (timewidth == interval):
+                endtime = starttime + timewidth
+                endtimes.append(endtime)
+                starttime = endtime
+                starttimes.append(starttime)
+            if (timewidth > interval):
+                totaltime += interval
+                if (totaltime >= timewidth):
+                    diff = totaltime - timewidth
+                    endtime = timetab['STOP'][i] - diff
+                    endtimes.append(endtime)
+                    starttime = endtime
+                    starttimes.append(starttime)
+                    totaltime = diff
+                starttime = timetab['START'][i+1]
+
         for i in range(len(starttimes)-1):
             rows = np.where((tab['TIME'] >= starttimes[i]) & (tab['TIME'] <= endtimes[i]))
             phase = tab['PULSE_PHASE'][rows[0]]
@@ -198,12 +133,15 @@ def integrationtimes(timewidth):
         phases = [x for x in phases if x != []]
         sections = len(phases)
         emptyremoved = totalphases - sections
+        """
 
         # Makes a list of amplitude of peak in each profile
         removed = []
-        number = len(phases)
-        for n in range(number):
+      #  phases = [1]
+      #  number = len(phases)
+        for n in range(1):
             # Makes a line plot from the histogram
+            """
             phase = np.array(phases[n])  # uses pulse phases in nth profile
             a = intloc-(intstanddev*2)
             b = intloc+(intstanddev*2)
@@ -222,6 +160,13 @@ def integrationtimes(timewidth):
             phase = [x for x in phase if x!= 0]
             yvals, xlims = np.histogram(phase,bins=binnumber) # finds heights and sides of each bin, no plot
             xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
+            """
+            back = 250
+            peakloc = 0.8
+            standdev = 0.05
+            xvals = np.arange(0, 1, 0.001)
+            yvals = np.random.normal(back, 10, 1000) + (100*np.exp(-(((xvals - peakloc)/standdev)**2)/2))
+            """
             if (a>=0):
                 for i in range(len(xvals)):
                     if ((xvals[i]>=a) & (xvals[i]<=b)):
@@ -237,10 +182,14 @@ def integrationtimes(timewidth):
                         yvals[i] = 999
             xvals = [x for x in xvals if x!= 999]
             yvals = [x for x in yvals if x!= 999]
+            """
             xvals = np.array(xvals)
             yvals = np.array(yvals)
+            #print(xvals)
+            #print(yvals)
 
             # Use convolution to find the estimate for the location of the peak
+            
             width=0.05
             x = xvals
             template = np.exp(-((x)/width)**2) # template for convolution
@@ -253,7 +202,7 @@ def integrationtimes(timewidth):
                 continue
             m = np.max(convo) # finds peak value of convolution
             maxloc = xvals[convo.index(m)]  # finds the location of the peak of convolution
-
+            #print(maxloc)
             # Does a gaussian curve fit to the histogram
             try:
                 popt2, pcov2 = curve_fit(gauss, xvals, yvals, p0= [max(yvals),maxloc,0.05, min(yvals)], bounds = ((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf))) 
@@ -262,22 +211,23 @@ def integrationtimes(timewidth):
                # yval, xlims = np.histogram(phase,bins=binnumber)
                # xval = xlims[:-1] + np.diff(xlims)/2 
                # plt.plot(xval, yval, '.') 
-               # plt.plot(xvals, gauss(xvals, *popt2))
+               # print(popt2)
+                plt.plot(xvals, yvals)
+                plt.plot(xvals, gauss(xvals, *popt2))
                # plt.show()
             except RuntimeError:
                 removed.append(n)
                 continue
 
             intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/timewidth
-            f = open("crabintdata_%s.txt" % timewidth, "a")
+            f = open("testintdata_7.txt", "a")
             if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
                 print(intint, file=f)
             else:
                 removed.append(n)
             f.close()
-        print(timewidth, len(phases), len(removed))
+       # print(timewidth, len(phases), len(removed))
 
-times = [10, 30, 60, 90, 120, 150, 180]
-for time in times:
+times = [10]
+for time in range(100):
     integrationtimes(time)
-    print(time)

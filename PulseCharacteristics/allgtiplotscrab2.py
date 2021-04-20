@@ -81,7 +81,7 @@ def main():
         col = int(input("How many columns of subplots?"))
     if (plotnumber == '84'):
         row = 12
-        col = 8
+        col = 7
 
     # Plots histograms of the profiles 
     log.info("Making Pulse Profile")
@@ -98,7 +98,7 @@ def main():
             j += 1    
   
     if (plotnumber == '84'):  
-        for n in range(168, 259):
+        for n in range(84, 168):
             if (j > (col-1)):
                 j = 0
                 i += 1

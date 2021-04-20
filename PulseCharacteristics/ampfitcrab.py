@@ -24,7 +24,7 @@ def fit(timewidth):
     intint = pd.read_csv('crabintdata_%s.txt' %timewidth, header = None)
     intint = list(intint[0])
  
-    binwidths = list(np.arange(0, 2.5, 0.025))
+    binwidths = list(np.arange(0.8, 1.6, 0.01))
     width = 0.5
     plt.hist(intint, bins=binwidths) # makes histogram of amplitudes
     sd = np.std(intint)  # calculates standard deviation directly
@@ -50,15 +50,16 @@ def fit(timewidth):
     plt.xlabel('Integrated Intensity')
     plt.ylabel('Counts')
     plt.title('Integrated Intensities of Pulse Profiles')
-    plt.savefig('crab_%s.png' % timewidth)
+    plt.savefig('crab2_%s.png' % timewidth)
     plt.clf()
     return(sd, popt[2], errorbar)
 
-plottype = 'plot'
+plottype = 'loglog'
 width = []
 width2 = []
 errorbars = []
 timewidth=[]
+times = [10]
 for twidth in range(0, 210, 30): 
     if (twidth == 0):
         twidth = 10
@@ -88,7 +89,7 @@ if (plottype == 'loglog'):
     cslope = popt[1]
     cslopeerror = np.absolute(pcov[1][1])**0.5
     plt.plot(np.log10(timewidth), np.log10(power(timewidth, *popt)), color = 'b', label = 'Standard deviation')
-  #  plt.plot(np.log10(timewidth), np.log10(width2), 'o', color = 'g')
+    plt.plot(np.log10(timewidth), np.log10(width2), 'o', color = 'g')
     popt, pcov = curve_fit(power, timewidth, width2)
     fslope = popt[1]
     fslopeerror = np.absolute(pcov[1][1])**0.5
