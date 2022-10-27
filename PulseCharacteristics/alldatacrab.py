@@ -7,28 +7,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-#Modified from code by Dom Rowan, 2020
 
 desc="""
 Plots full data set in one plot for Crab
 """
 
 def main():
-    fnames = pd.read_csv('crabfilenames.txt', header = None)
-    fnames = list(fnames[0])
+    fnames = np.loadtxt('validobsids.txt', str)
+    fnames = list(fnames)
 
     fname =  fnames[0]
-
+    path = '/homes/alevina/research2020/PSR_B0531+21/%s_pipe/cleanfilt2.evt'%fname
+    
     log.info('Read in table')
-    tab = Table.read(fname, hdu=1)
-    print(tab)
+    tab = Table.read(path, hdu=1)
 
     log.info("Making Pulse Profile")
-    fig, ax = plt.subplots(1, 1, figsize=(12,6))
-    ax.set_xlabel("Pulse Phase", fontsize=20)
-    ax.set_ylabel("Counts", fontsize=20)
-    ax.hist(tab['PULSE_PHASE'], bins=255, color='xkcd:darkblue')
-
+    plt.hist(tab['PULSE_PHASE'], bins=255)
+    plt.title("Pulse Profile of ObsID %s"%fname)
+    plt.xlabel("Pulse Phase")
+    plt.ylabel("Counts")
     plt.show()
 
 if __name__ == '__main__':

@@ -147,10 +147,10 @@ plot.scatter(time, pointing, c = np.fmod(cc,len(colornames)), cmap = cmap,norm=n
 plot.legend(loc = 2)
 plot.ylabel('Angle (deg)')
 plot.yscale('log')
-plot.axhline(1.0/60.0,c='r')
+plot.axhline(1.0/200.0,c='r')
 plot.ylim((0.0001,100.0))
 
-rows = np.where((pointing >= (1/60 - 0.0005)) & (pointing <= (1/60 + 0.0005)))
+rows = np.where((pointing >= (1/200 - 0.0005)) & (pointing <= (1/200 + 0.0005)))
 times = time[rows]
 t = []
 for n in times:
