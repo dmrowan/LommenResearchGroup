@@ -33,7 +33,7 @@ def run_psrpipe(obsID, par,
         print("obsID not found")
         return -1
 
-    cmd = ['custom_psrpipe.py', 
+    cmd = ['custom_psrpipe2.py', 
            '--emin', str(emin), 
            '--emax', str(emax), 
            '--minsun', str(min_sun)]
@@ -64,7 +64,7 @@ def allprocedures(obsID, par,
     #Various clobber and path checks
     if ((os.path.isdir("{}_pipe".format(obsID))) 
         and (not clobber)):
-        return 0
+        print('000')
     elif ((os.path.isdir("{}_pipe".format(obsID)))
             and clobber):
         log.info("Removing {}_pipe".format(obsID))
@@ -169,8 +169,6 @@ def run_niextract(sourcename, max_date=None, output=None,
     log.info('Running niextract-events')
 
     source_dir = os.getcwd().split('/')[-1]
-    print('Sasha', sourcename)
-    print('Sasha', source_dir)
     if sourcename != source_dir:
         check = pipeline_utils2.outdircheck(sourcename)
         if check == -1:
@@ -240,8 +238,6 @@ def update(sourcename, heasarc_user, heasarc_pwd, decryptkey,
     #Check the directory is correct
     source_dir = os.getcwd().split('/')[-1]
     log.info("Checking sourcename")
-    print('Sasha', sourcename)
-    print('Sasha', source_dir)
     if sourcename != source_dir:
         check = pipeline_utils2.outdircheck(sourcename)
         if not check:

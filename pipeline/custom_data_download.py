@@ -301,7 +301,6 @@ for n,[no, row] in enumerate(source.iterrows()):
                  continue
              
              if args.decryptkey:
-                 decryptOK = True
                  log.info("{:3d} / {:3d} :: De-crypting ObsID {}".format(n+1, len(source), obsid))
                  decrypt(args.decryptkey,os.path.join(workingdir,obsid),gpg_version)
                  if ('decryption failed') in open('{}/ni-gpg-call.log'.format(os.path.join(workingdir,obsid))).read():

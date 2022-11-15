@@ -39,8 +39,7 @@ class PasswordPromptAction(argparse.Action):
 			  help=help) 
 
 	def __call__(self, parser, args, values, option_string=None):
-		password = 'sextant'
-                #getpass.getpass()
+		password = getpass.getpass()
 		setattr(args, self.dest, password)
 
 
@@ -68,7 +67,6 @@ def run_nicerl2(obsID, clobber=False, br_filter=True, horizon_filter=False,
 
     log.info("Running nicerl2 for "+obsID)
 
-    print('hello17')
     if not os.path.isdir("tmp/"):
         log.error("No tmp directory for pfiles exists")
         response = input("Would you like to create a tmp directory? [y/n] ")
@@ -79,7 +77,6 @@ def run_nicerl2(obsID, clobber=False, br_filter=True, horizon_filter=False,
             log.error("Exiting")
             return 0
 
-    print('hello18')
     if not os.path.isdir("tmp/"+obsID+"_pfiles"):
         log.warning("Creating pfile dir for "+obsID)
         os.mkdir("tmp/"+obsID+"_pfiles")
@@ -91,7 +88,6 @@ def run_nicerl2(obsID, clobber=False, br_filter=True, horizon_filter=False,
 
     log.info("Set pfiles to" + os.environ['PFILES'])
 
-    print('hello19')
     cmd = ['nicerl2', obsID]
     if clobber:
         cmd.append("clobber=YES")
@@ -99,7 +95,6 @@ def run_nicerl2(obsID, clobber=False, br_filter=True, horizon_filter=False,
     if not br_filter:
         cmd.append("br_earth=0")
 
-    print('hello20')
     if horizon_filter:
         cmd.append('elv=0')
         cmd.append('br_earth=0')
@@ -118,13 +113,14 @@ def run_add_kp(obsID):
 	log.info("Running add_kp with potsdam values")
 	cmd = ['add_kp.py', "{f}/auxil/ni{f}.mkf".format(f=obsID),
 		   '--potsdam']
+
 	subprocess.call(cmd)
 
 
 def outdircheck(sourcename):
 	log.warning("source name {}\
 	inconsistent with output dir".format(sourcename))
-	check = 'y'
+	check = 'y' #input("Continue -- [y/n] ")
 	if check in ['y', 'Y']:
 		return True
 	else:
@@ -438,10 +434,14 @@ def run_photonphase(evt, orbfile, par, ephem='DE421'):
     if not os.path.isfile(par):
         raise FileNotFoundError("par file not found")
 
-    cmd = ['photonphase', '--ephem', ephem, '--orb', orbfile,
-           '--addphase', evt, par]
+    print('trying to run photonphase, Not the right way to go')
 
-    subprocess.call(cmd)
+    #cmd = ['barycorr', evt, '%s/cleanfilt2.evt'%obsid, orb]
+
+    #cmd = ['photonphase3.py', '--polycos', '--overwrite',
+    #       '--addphase', '%s/cleanfilt2.evt'%obsid, par]
+
+    #subprocess.call(cmd)
 
     return 0
 
@@ -458,6 +458,8 @@ def split_photonphase(evt, orbfile, par, split_len=100000, use_mp=False):
 
     if not os.path.isfile(par):
         raise FileNotFoundError("par file not found")
+
+    print('running split_photonphase, we shouldnt do that either')
 
     #Read in full table and get length
     full_table = Table.read(evt, hdu=1)
