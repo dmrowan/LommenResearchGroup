@@ -26,7 +26,7 @@ def gauss2(x, a, m, s, b, c, e, d):
 def power(x, a, b):
     return(a*(x**(-b)))
 
-def intint(n_rotations):
+def intensity(n_rotations):
 
     fnames = pd.read_csv('validobsids.txt', header = None)
     fnames = list(fnames[0])
@@ -188,23 +188,17 @@ def intint(n_rotations):
                 removed.append(n)
                 continue
 
-            intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/n_rotations
-            f = open("intdata/crabintdata_%s.txt" %n_rotations, "a")
-            if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))):
-                print(intint, file=f)
-                if intint <= 0.015:
-                    print(name)
-                    outliers.append(popt2)
-                    histogram.append(phases[n])
-                    xvalues.append(xvals)
-
+            #Calculate intensity
+            intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/n_rotations # amplitude*width*sqrt(2*pi)/number of pulses per profile
+            
+            #Append intensity to file
+            f = open("intdata/crabintdata_%s.txt" %n_rotations, "a") #opens file; appends, not overwrites
+            if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))): #make sure peak was found correctly
+                print(intint, file=f) 
+                
                 """
-                if intint <= 1:
-                    print(name)
-                    outliers.append(popt2)
-                    histogram.append(phases[n])
-                    xvalues.append(xvals)
-                if intint >= 2:
+                #Can use to find outliers/plot profiles which have a specific intensity value
+                if intint <= 0.015:
                     print(name)
                     outliers.append(popt2)
                     histogram.append(phases[n])
@@ -213,10 +207,13 @@ def intint(n_rotations):
             else:
                 removed.append(n)
             f.close()
+        
+        #Reset values for next ObsID (otherwise had issues)
         del(phase)
         del(time)
         
         """
+        #Can use to plot outliers (or any chosen intensity range) as subplots
         row = 2
         col = 2
         fig, ax = plt.subplots(row, col, sharex = 'col', figsize = (13, 7))
@@ -234,8 +231,8 @@ def intint(n_rotations):
         plt.show()
         """
         
-
-rotations = [5] #rotations
+#runs the script on 
+rotations = [15] #N rotations(pulses) per profile; note there are about 30 pulses/second for the Crab
 for t in rotations:
-    intint(t)
+    intensity(t)
 

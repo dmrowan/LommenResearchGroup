@@ -46,6 +46,7 @@ def model(n_pulses, model, p, plot=False, modelplot=False, split=None):
 
     y_error = np.sqrt(yvals)
 
+    #Models
     if model == 'Gaussian':
         #create model, convolve it with itself n_pulses times
         a = p[0]
@@ -106,7 +107,6 @@ def model(n_pulses, model, p, plot=False, modelplot=False, split=None):
         yvalues = power2(xvalues, a, b, c, d)
         yvalues_c = convolve(yvalues, n_pulses)
         xvalues_c = np.arange(len(yvalues_c))
-        #print(len(xvalues), len(xvalues_c))
         if modelplot == True:
             plt.plot(xvalues, yvalues)
             plt.show()

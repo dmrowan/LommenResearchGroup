@@ -1,37 +1,41 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+"""
+Various functions used for data analysis
+"""
 
-def gauss(x, a, m, s):
-    return(a*np.exp(-(((x - m)/s)**2)/2))
+def gauss(x, a, m, s):  #single peak Gaussian, no shift, do not use if need shift (fitting to pulse profiles)
+    return(a*np.exp(-(((x - m)/s)**2)/2)) #a=amplitude; m=mean; s=standard deviation/width
 
-def gauss2(x, a, m, s, b, c, e, d):
+def gauss2(x, a, m, s, b, c, e, d): #double peak Gaussian with a shift, use when fitting to both main pulse and interpulse
     return((a*np.exp(-(((x - m)/s)**2)/2))+(b*np.exp(-(((x - c)/e)**2)/2))+d)
 
-def power(x, a, b):
-    return(a*(x**(-b)))
+def power(x, a, b): #power law
+    return(a*(x**(-b))) #a=scaling factor; b=power
 
-def power2(x, a, b, c, d):
-    return(a*(x**(-b)) + c*(x**(-d)))
+def power2(x, a, b, c, d): #sum of two power laws
+    return(a*(x**(-b)) + c*(x**(-d))) 
 
-def lognormal(x, a, m, s):
+def lognormal(x, a, m, s): #log normal; a=scaling factor (NOT amplitude); m=mean and s=standard deviation but not really
+    #just go to the log normal wikipedia page, this is the PDF log normal distribution for description of parameters
     return(a*(1/x)*(1/(s*np.sqrt(2*np.pi)))*np.exp(-((np.log(x)-m)**2/(2*(s**2)))))
 
-def convolve(y, n):
+def convolve(y, n): #convolve function with itself using numpy convolve; use where you need to do a "real" convolution
     template = y
     for n in range(n):
         convo = np.convolve(template, y, mode='full')
         template = convo
     return(template)
 
-def convolve2(y1, y2, n):
+def convolve2(y1, y2, n): #convolve function 
     template = y2
     for n in range(n):
         convo = np.convolve(template, y1, mode='full')
         template = convo
     return(template)
 
-def convolve1(y1, y2):
+def convolve1(y1, y2): 
     convo = []
     template = y2
     for i in range(len(y1)):
