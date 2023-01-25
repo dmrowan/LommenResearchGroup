@@ -9,30 +9,30 @@ import os.path
 import os
 import pandas as pd
 
-desc="""
-Plots all data of each ObsID of the Crab
+"""
+Plots all data for each ObsID of the Crab as subplots
 """
 
 def main():
 
-    #Reads ObsID names from file into a list
+    #Reads ObsID names from event file into a list
     fnames = pd.read_csv('/homes/alevina/research2020/LommenResearchGroup/PulseCharacteristics/validobsids.txt', header = None)
     filenames = list(fnames[0])
 
     #Reads in data from all ObsIDs into a list of arrays
     phaselist = []
     for f in filenames:
-        path = '/homes/alevina/research2020/PSR_B0531+21/%s_pipe'% f
-        path = path + '/cleanfilt2.evt'
+        path = '/homes/alevina/research2020/PSR_B0531+21/%s_pipe'%f
+        path = path + '/cleanfilt2.evt' #an event file is a FITS file
 
         log.info('Read in table for ObsID %s'%f)
-        tab = Table.read(path, hdu=1)
+        tab = Table.read(path, hdu=1) #reads all data from event file into a table
         phases = np.array(tab['PULSE_PHASE']) #array of pulse phases
    
         phaselist.append(phases) #appends array of pulse phases into list
-        del(phases)
+        del(phases) 
     
-    #Plots pulse profiles in subplots, uses user input questions to allow for any number ObsIDs
+    #Plots pulse profiles in subplots, uses user input questions to allow for any number ObsIDs to be plotted
     #If the number of ObsIDs cannot evenly be distributed in a grid, overestimate number of rows or columns
     #Or else it will give an error
     log.info("Plotting pulse profiles")

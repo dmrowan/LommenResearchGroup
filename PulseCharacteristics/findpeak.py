@@ -10,10 +10,14 @@ import pandas as pd
 import math
 import os
 
-def gauss(x, a, m, s, d):
+"""
+Function used by ampread.py; finds the location and width of both the main pulse and the interpulse in the full profile for one ObsID using a single and double Gaussian curve fit and convolutions
+"""
+
+def gauss(x, a, m, s, d): #same as in ampread.py
     return((a*np.exp(-(((x - m)/s)**2)/2))+d)
 
-def gauss2(x, a, m, s, b, c, e, d):
+def gauss2(x, a, m, s, b, c, e, d): #same as in functions.py, see gauss2 there
     return((a*np.exp(-(((x - m)/s)**2)/2))+(b*np.exp(-(((x - c)/e)**2)/2))+d)
 
 def findpeak(phase, showplot = False, savedata = False):
