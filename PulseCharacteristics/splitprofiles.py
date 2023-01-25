@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 import numpy as np
 
-def splitprofile(n_rotations, timetab, phase, times):
+"""
+Function used by ampread.py; splits a full pulse profile from a single ObsID into profiles containing N pulses each
+"""
+
+def splitprofile(n_rotations, timetab, phase, times): #need N rotations per profile, table of GTI values, list of PULSE_PHASE, and list of TIME
 
     #split data into pulses
     pulses = [] #list of lists of phases in each pulse for each interval
     counter = 0 #counter to keep track of index of each phase/time
    
-    print(len(phase))
     for i in range(len(timetab)): #does each GTI interval separately
         pulsestemp = [] #temporary list of pulses
         templist = [] #temporary list of phases in each pulse
@@ -29,7 +32,6 @@ def splitprofile(n_rotations, timetab, phase, times):
 
     #split into profiles
     n_profiles = int(len(pulses2)/n_rotations) #number of full profiles that can be made
-    print(n_profiles, len(pulses2))
     profiles = [] 
     while len(profiles) < n_profiles: #create profiles until all full profiles that can be made are filled
         profiles.append(pulses2[:n_rotations]) #append list of first n_rotations pulses into list profiles

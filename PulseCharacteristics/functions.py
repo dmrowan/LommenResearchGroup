@@ -21,21 +21,21 @@ def lognormal(x, a, m, s): #log normal; a=scaling factor (NOT amplitude); m=mean
     #just go to the log normal wikipedia page, this is the PDF log normal distribution for description of parameters
     return(a*(1/x)*(1/(s*np.sqrt(2*np.pi)))*np.exp(-((np.log(x)-m)**2/(2*(s**2)))))
 
-def convolve(y, n): #convolve function with itself using numpy convolve; use where you need to do a "real" convolution
+def convolve(y, n): #convolve function with itself n times using numpy convolve; use where you need to do a "real" convolution
     template = y
     for n in range(n):
         convo = np.convolve(template, y, mode='full')
         template = convo
     return(template)
 
-def convolve2(y1, y2, n): #convolve function 
+def convolve2(y1, y2, n): #convolve two different functions n times; template is different from the array it is convolved with 
     template = y2
     for n in range(n):
         convo = np.convolve(template, y1, mode='full')
         template = convo
     return(template)
 
-def convolve1(y1, y2): 
+def convolve1(y1, y2): #the "convolution" used for finding the location of the peak value of y1; returns the location of the max value of convolution
     convo = []
     template = y2
     for i in range(len(y1)):
@@ -43,12 +43,12 @@ def convolve1(y1, y2):
     m = np.max(convo) # finds peak value of convolution
     return(convo.index(m))
 
-def hist_to_curve(vals, binwidths):
+def hist_to_curve(vals, binwidths): #converts a histogram to a curve
     yvals, xlims = np.histogram(vals, bins = binwidths) # finds heights and sides of each bin, no plot
     xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
     return(xvals, yvals)
 
-def fwhm(x, y):
+def fwhm(x, y): #calculates the full width half max of a curve
     xind = np.where(y >= (max(y)/2))
     l = x[xind[0][0]]
     r = x[xind[0][-1]]
