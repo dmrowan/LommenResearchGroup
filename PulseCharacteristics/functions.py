@@ -22,34 +22,34 @@ def lognormal(x, a, m, s): #log normal; a=scaling factor (NOT amplitude); m=mean
     return(a*(1/x)*(1/(s*np.sqrt(2*np.pi)))*np.exp(-((np.log(x)-m)**2/(2*(s**2)))))
 
 def convolve(y, n): #convolve function with itself n times using numpy convolve; use where you need to do a "real" convolution
-    template = y
+    template = y #template is the same function as the function it will be convolved with
     for n in range(n):
         convo = np.convolve(template, y, mode='full')
         template = convo
     return(template)
 
 def convolve2(y1, y2, n): #convolve two different functions n times; template is different from the array it is convolved with 
-    template = y2
-    for n in range(n):
-        convo = np.convolve(template, y1, mode='full')
-        template = convo
+    template = y2 #template is different from the function it is convolved with
+    for n in range(n): 
+        convo = np.convolve(template, y1, mode='full') 
+        template = convo #the new template is the convolution of the previous template and the other function
     return(template)
 
 def convolve1(y1, y2): #the "convolution" used for finding the location of the peak value of y1; returns the location of the max value of convolution
     convo = []
-    template = y2
-    for i in range(len(y1)):
+    template = y2 #template for convolution
+    for i in range(len(y1)):  #use convolution -> sum of yvals and template as template is shifted along x axis
         convo.append(np.sum(y1*np.roll(template,i))) # finds convolution
     m = np.max(convo) # finds peak value of convolution
-    return(convo.index(m))
+    return(convo.index(m)) #returns the index at which the corresponding x value is the location of the center of the pulse
 
 def hist_to_curve(vals, binwidths): #converts a histogram to a curve
     yvals, xlims = np.histogram(vals, bins = binwidths) # finds heights and sides of each bin, no plot
-    xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of line plot
-    return(xvals, yvals)
+    xvals = xlims[:-1] + np.diff(xlims)/2 # finds middle of each bin, to be x values of the curve
+    return(xvals, yvals) #returns x and y values of the curve
 
-def fwhm(x, y): #calculates the full width half max of a curve
+def fwhm(x, y): #calculates the full width half max of a curve given its x and y values
     xind = np.where(y >= (max(y)/2))
     l = x[xind[0][0]]
     r = x[xind[0][-1]]
-    return(r-l)
+    return(r-l) #returns value of full width half max
