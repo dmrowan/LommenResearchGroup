@@ -27,8 +27,8 @@ def int_hist(N): #input is the number of pulses per profile
     plt.xlabel('Integrated intensity (counts/pulse)')
     plt.ylabel('# of Profiles')
     plt.title('Integrated intensity distribution for %s pulses/profile'%N)
+    #plt.savefig('intplots/crab_%s.png'%N) #can save the plot
     plt.show()
-    #plt.savefig('crab_%s.png' % timewidth) #can save the plot
     #plt.clf()
     return()
 

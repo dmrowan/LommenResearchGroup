@@ -18,6 +18,7 @@ def main():
     #Reads ObsID names from event file into a list
     fnames = pd.read_csv('/homes/alevina/research2020/LommenResearchGroup/PulseCharacteristics/validobsids.txt', header = None)
     filenames = list(fnames[0])
+    filenames = filenames
 
     #Reads in data from all ObsIDs into a list of arrays
     phaselist = []

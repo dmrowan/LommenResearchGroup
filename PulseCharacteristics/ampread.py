@@ -17,18 +17,18 @@ from findpeak import findpeak
 Reads in all data sequentially by ObsID and calculates the integrated intensity and saves integrated intensity data in directory intdata
 Has options to plot each ObsID with the curve fit, or to plot multiple ObsIDs as subplots
 
-NOTE!! Do not append more data into existing output files unless you are certain it is not redundant, because this will affect the intensity histogram. Please change the name of the output file before running
+NOTE!! Do not append more data into existing output files unless you are certain it is not redundant, because this will affect the integrated intensity histogram. Please change the name of the output file before running
 """
 
 def gauss(x, a, m, s, d): #single peak Gaussian WITH shift (different from gauss in functions.py)
     return((a*np.exp(-(((x - m)/s)**2)/2))+d) #a=amplitude; m=mean; s=standard deviation/width; d=shift along vertical axis
 
-def intensity(n_rotations): #reads in all data, splits into profiles of n_rotations pulses each, calculates and saves intensity data
+def intensity(n_rotations): #reads in all data, splits into profiles of n_rotations pulses each, calculates and saves integrated intensity data
 
     # Reads ObsID names from event file into a list
     fnames = pd.read_csv('validobsids.txt', header = None) 
     fnames = list(fnames[0]) 
-    filenames =  fnames #can select specific ObsIDs by indexing 
+    filenames = fnames #can select specific ObsIDs by indexing 
     
     saveplot = True #saves one example pulse profile plot for each value of n_rotations 
 
@@ -62,7 +62,7 @@ def intensity(n_rotations): #reads in all data, splits into profiles of n_rotati
             peakloc, standdev, intloc, intstanddev = findpeak(phase) #try again
             plt.hist(phase, bins=255) #plots pulse profile to make sure it looks right
  
-        # Splits pulse phase data into profiles containing n_rotations photons each
+        # Splits pulse phase data into profiles containing n_rotations pulses each
         phases = splitprofile(n_rotations, timetab, phase, time) #phases is a list of lists of phase values, split into profiles
         phases = [x for x in phases if x != []] #remove any empty profiles, just in case
 
@@ -157,16 +157,18 @@ def intensity(n_rotations): #reads in all data, splits into profiles of n_rotati
             #Calculate integrated intensity
             intint = (popt2[0]*popt2[2]*np.sqrt(2*np.pi))/n_rotations # amplitude*width*sqrt(2*pi)/number of pulses per profile
             
-            #Append intensity to file 
-            #PLEASE MAKE SURE you are saving to the correct file. The code APPENDS data, not overwrites
+            #Append integrated intensity to file 
+            #PLEASE MAKE SURE you are saving to the correct file. The code APPENDS data, not overwrites the existing file
             #Please do not create redundant data in the file you will use for further analysis or it WILL affect your results
+            #Because otherwise you will append the same profile into the output file multiple times, and that will affect the histogram 
             #If testing things, make a temporary file or comment the whole section, and only append if you're sure that data is not in there already
+            #I usually add a 2 when testing ("crabintdata2_%s.txt" in the line below) or something like that
             f = open("intdata/crabintdata_%s.txt" %n_rotations, "a") #opens file; appends, not overwrites
             if ((popt2[1] >= peakloc-(standdev*4)) & (popt2[1] <= peakloc+(standdev*4))): #make sure peak was found correctly
                 print(intint, file=f) 
                 
                 """
-                #Can use to find outliers/plot profiles which have a specific intensity value; I used these for finding outliers, hence the name
+                #Can use to find outliers/plot profiles which have a specific integrated intensity value; I used these for finding outliers, hence the name
                 if intint <= 0.015:
                     print(name)
                     outliers.append(popt2)
@@ -182,7 +184,7 @@ def intensity(n_rotations): #reads in all data, splits into profiles of n_rotati
         del(time)
         
         """
-        #Can use to plot outliers (or any chosen intensity range) as subplots
+        #Can use to plot outliers (or any chosen integrated intensity range) as subplots
         #Can change number of rows/columns as needed
         row = 2
         col = 2
@@ -201,8 +203,9 @@ def intensity(n_rotations): #reads in all data, splits into profiles of n_rotati
         plt.show()
         """
         
-#Runs the function intensity on N rotations (pulses) per profile
-rotations = [15] #N rotations(pulses) per profile; note there are about 30 pulses/second for the Crab
-for t in rotations:
-    intensity(t)
+#Runs the function intensity on N pulses per profile to calculate and append integrated intensity data into output file 
+#15 pulses per profile is the lowest you can go and still have sufficient data per profile for a reliable fit (to calculate integrated intensity from)
+rotations = [15] #N pulses  per profile; note there are about 30 pulses/second for the Crab
+for N in rotations:
+    intensity(N) #run the function intensity for N pulses per profile
 
