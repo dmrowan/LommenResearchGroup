@@ -10,7 +10,8 @@ Note: uncertain if works correctly
 """
 
 def chisquare(n_pulses, model1, model2, p1, p2, s): #use F-test p-values to compare two models given parameters for each
-
+    #n_pulses is N pulses per profile, model1 and model 2 are the two model names, p1 and p2 are the list of parameters for model, s is the number of sections the intensity data is split into
+    
     #read in intensity data, remove outliers, split into s sections 
     intint = pd.read_csv('intdata/crabintdata_%s.txt' %n_pulses, header = None)
     intint = list(intint[0])
@@ -20,6 +21,7 @@ def chisquare(n_pulses, model1, model2, p1, p2, s): #use F-test p-values to comp
     ints = np.array_split(intint, s)
 
     #for each section, use function model to fit the model to the data (intensity histogram) 
+    #everything with '1' is for model 1, everything with '2' is model 2
     pvals = []
     for section in ints: 
         #get x and y values of data and fitted model for model 1 and 2; no plotting

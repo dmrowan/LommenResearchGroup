@@ -10,6 +10,7 @@ Note: uncertain if working correctly, if Bayes’ can be done using log likeliho
 """
 
 def chisquare(n_pulses, model1, p1, n1, s): #same as in chisq.py, but set up to only do one model
+    #n_pulses is N pulses per profile, model1 is model name, p1 is list of parameters for model, n1 is number of degrees of freedom for the model, s is the number of sections the intensity data is split into
     intint = pd.read_csv('intdata/crabintdata_%s.txt' %n_pulses, header = None)
     intint = list(intint[0])
     intint = [x for x in intint if x > 0]
@@ -17,6 +18,8 @@ def chisquare(n_pulses, model1, p1, n1, s): #same as in chisq.py, but set up to 
     intint = np.array(intint)
     ints = np.array_split(intint, s)
 
+    #only uses ONE model and does F test p-values as if model 2 chi squared and degrees of freedom = 1
+    #everything with '1' is for model 1, everything with '2' is for "model" 2
     pvals = []
     for section in ints:
         x1, y1, y_r1, y_err1, y_f = model(n_pulses, model1, p1, plot=False, modelplot=False, split=[section, s])
@@ -38,7 +41,8 @@ def chisquare(n_pulses, model1, p1, n1, s): #same as in chisq.py, but set up to 
     return(pvals)
 
 def likelihood(n_pulses, model1, p1, s): #reads in intensity data, uses the function model to fit model to data, calculates log likelihood
-    
+    #n_pulses is N pulses per profile, model1 is model name, p1 is list of parameters for model, n1 is number of degrees of freedom for the model, s is the number of sections the intensity data is split into
+
     #read in intensity data, remove outliers, split data into s sections
     intint = pd.read_csv('intdata/crabintdata_%s.txt' %n_pulses, header = None)
     intint = list(intint[0])
@@ -66,11 +70,11 @@ def likelihood(n_pulses, model1, p1, s): #reads in intensity data, uses the func
     return(lhs)
 
 #uses Bayes' to compare all three models using either (log) likelihood or chi squared
-#we don't think we can do it with LOG likelihood (need just likelihood but we can't convert it), or chi squared
+#we don't think we can do it with LOG likelihood (need just likelihood but we can't convert it); unsure if can do it with chi squared
 def bayes(N, method): #N is number of trials (or "sections" in functions chisquare and likelihood), method is either chisquare or likelihood
     print("Bayes' theorem for %s trials"%N)
 
-    #calculate probability of each model
+    #calculate probability of each model (models 1,2,3)
     if method == chisquare:
         pm1 = chisquare(15, 'log normal', [1,-1.3,0.8], 2, N)
         pm2 = chisquare(15, 'gaussian', [1,0.1,0.01], 1, N)
