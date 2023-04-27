@@ -9,7 +9,7 @@ Calculates the chi squared for two models given input parameters and compares th
 Note: uncertain if works correctly
 """
 
-def chisquare(n_pulses, model1, model2, p1, p2, s): #use F-test p-values to compare two models given parameters for each
+def chisquare(n_pulses, model1, model2, p1, p2, s, n1, n2): #use F-test p-values to compare two models given parameters for each
     #n_pulses is N pulses per profile, model1 and model 2 are the two model names, p1 and p2 are the list of parameters for model, s is the number of sections the intensity data is split into
     
     #read in intensity data, remove outliers, split into s sections 
@@ -54,9 +54,9 @@ def chisquare(n_pulses, model1, model2, p1, p2, s): #use F-test p-values to comp
     return(pvals)
 
 #Compare all three models
-m1m2 = chisquare(15, 'log normal', 'gaussian', [1,-1.3,0.8], [1, 0.1, 0.01], 1)
-m3m2 = chisquare(15, 'power law', 'gaussian', [1, 5.25], [1,0.1,0.01], 1)
-m3m1 = chisquare(15, 'log normal', 'power law', [1, -1.3, 0.8], [1, 5.25], 1)
+m1m2 = chisquare(15, 'Log normal', 'Gaussian', [1,-1.3,0.8], [1, 0.1, 0.01], 1, 2, 1)
+m3m2 = chisquare(15, 'Power law', 'Gaussian', [1, 5.25], [1,0.1,0.01], 1, 1, 1)
+m3m1 = chisquare(15, 'Log normal', 'Power law', [1, -1.3, 0.8], [1, 5.25], 1, 2, 1)
 
 print(m1m2, m3m2, m3m1)
 

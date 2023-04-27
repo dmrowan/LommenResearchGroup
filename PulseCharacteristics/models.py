@@ -196,7 +196,7 @@ def matchtodata(xvals, yvals, xvalues_c, yvalues_c):
 
 
 
-def chisq(yvals, yvalues_r, y_error): #calculate the chi squared given the data, model, and error in data (but that might be recalculated here)
+def chisq(yvals, yvalues_r): #calculate the chi squared given the data, model, and error in data (but that might be recalculated here)
    
     #Normalize (is this necessary?)
     #total =  np.trapz(yvals)
@@ -212,7 +212,7 @@ def chisq(yvals, yvalues_r, y_error): #calculate the chi squared given the data,
   
     #Calculate the chi squared using the stats function
     csq = stats.chisquare(yvals, yvalues_r)
-    return(csq[0], chisqr) #returns both chi squares calculated both ways; should match up
+    return(chisqr) #, csq[0]) #returns both chi squares calculated both ways; should match up
 
 def likelihood(yvals, yvalues_c, y_error, yvals_full): #calculate the log likelihood
 
@@ -249,7 +249,7 @@ def testmodel(n_pulses, model_type, parameters): #fit model to the data, given N
     #outputs are x values, data y values, fitted model y values, error on model y values, and data y values without any scaling(?)
     x, y, y_r, y_err, y_full = model(n_pulses, model_type, parameters, plot=True, modelplot=False) 
     
-    print("The chi squared value is", chisq(y, y_r, y_err)) #chi squared for the model
+    print("The chi squared value is", chisq(y, y_r)) #chi squared for the model
     print("The likelihood is", likelihood(y, y_r, y_err, y_full)) #likelihood of the model
 
 

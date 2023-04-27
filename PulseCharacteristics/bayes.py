@@ -76,14 +76,14 @@ def bayes(N, method): #N is number of trials (or "sections" in functions chisqua
 
     #calculate probability of each model (models 1,2,3)
     if method == chisquare:
-        pm1 = chisquare(15, 'log normal', [1,-1.3,0.8], 2, N)
-        pm2 = chisquare(15, 'gaussian', [1,0.1,0.01], 1, N)
-        pm3 = chisquare(15, 'power law', [1, 5.25], 1, N)
+        pm1 = chisquare(15, 'Log normal', [1,-1.3,0.8], 2, N)
+        pm2 = chisquare(15, 'Gaussian', [1,0.1,0.01], 1, N)
+        pm3 = chisquare(15, 'Power law', [1, 5.25], 1, N)
 
     if method == likelihood:
-        pm1 = likelihood(15, 'log normal', [1,-1.3, 0.8], N)
-        pm2 = likelihood(15, 'gaussian', [1, 0.1, 0.001], N)
-        pm3 = likelihood(15, 'power law', [1, 5.25], N)
+        pm1 = likelihood(15, 'Log normal', [1,-1.3, 0.8], N)
+        pm2 = likelihood(15, 'Gaussian', [1, 0.1, 0.001], N)
+        pm3 = likelihood(15, 'Power law', [1, 5.25], N)
 
     #set priors as having equal probability
     priorm1 = 0.5
